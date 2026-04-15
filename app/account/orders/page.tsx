@@ -1,0 +1,1 @@
+export default function OrdersPage() { return <div className="text-white">История заказов</div> }
