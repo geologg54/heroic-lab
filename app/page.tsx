@@ -1,3 +1,4 @@
+// app/page.tsx
 import { HeroBanner } from '@/components/common/HeroBanner'
 import { CategoryCard } from '@/components/catalog/CategoryCard'
 import { CTASection } from '@/components/common/CTASection'
@@ -17,18 +18,20 @@ export default function HomePage() {
         ctaLink="/catalog"
         backgroundImage="/hero-bg.jpg"
       />
+      
       <section className="bg-[#071f30] py-12">
   <div className="container mx-auto px-4">
-    <h2 className="text-3xl font-bold mb-8 text-white">Категории</h2>
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      {categories.map(cat => {
-        // Подсчёт реального количества товаров в категории
-        const count = products.filter(p => p.categorySlug === cat.slug).length
-        return <CategoryCard key={cat.slug} category={cat} count={count} />
-      })}
+    <h2 className="text-3xl font-bold mb-8 text-white text-center">Вселенные</h2>
+    <div className="flex flex-col md:flex-row gap-6 justify-center">
+      {categories.map(cat => (
+        <div key={cat.slug} className="flex-1 max-w-2xl">
+          <CategoryCard category={cat} />
+        </div>
+      ))}
     </div>
   </div>
 </section>
+      
       <section className="container mx-auto px-4 py-12">
         <CollectionBlock
           title="Коллекция «Траншейный кошмар»"
@@ -37,6 +40,7 @@ export default function HomePage() {
           products={products.filter(p => p.gameSystem === 'Trench Crusade').slice(0, 3)}
         />
       </section>
+      
       <CTASection
         title="Подпишитесь на рассылку"
         text="Получайте новинки и скидки на 3D-модели"

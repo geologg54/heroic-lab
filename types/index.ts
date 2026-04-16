@@ -30,7 +30,6 @@ export interface Product {
 export interface Category {
   name: string
   slug: string
-  icon: string
   image?: string                // опционально
 }
 
