@@ -35,7 +35,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="text-center text-xs text-gray-500 mt-8 pt-4 border-t border-[#1e3a5f]">
-          © Героическая лаборатория миниатюр.
+          Героическая лаборатория миниатюр©
         </div>
       </div>
     </footer>

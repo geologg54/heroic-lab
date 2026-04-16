@@ -1,7 +1,7 @@
 // components/admin/TopProducts.tsx
 const topProducts = [
   { name: 'Кровавый ангел – Капитан Терминатор', sales: 47, revenue: 23453 },
-  { name: 'Траншейный спецназ «Морок»', sales: 38, revenue: 13262 },
+  { name: 'Йомены Новой Антиохии', sales: 38, revenue: 13262 },
   { name: 'Проклятый легионер – Чумной рыцарь', sales: 29, revenue: 17371 },
   { name: 'Древний красный дракон', sales: 21, revenue: 27279 },
   { name: 'Техножрец Доминус', sales: 18, revenue: 8082 },
