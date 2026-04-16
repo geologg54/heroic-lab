@@ -1,6 +1,5 @@
-// components/catalog/FilterPanel.tsx
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Product } from '@/types'
 import { SlidersHorizontal, X, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -45,6 +44,10 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
     tags: false,
   })
 
+  const prevFiltersRef = useRef<FilterState>(filters)
+  const prevPriceMaxRef = useRef(priceMax)
+  const isFirstRender = useRef(true)
+
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
@@ -73,8 +76,19 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
   }, [products, filters, priceMax, onFilter])
 
   useEffect(() => {
-    applyFilters()
-  }, [applyFilters])
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      applyFilters()
+      return
+    }
+    const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify(filters)
+    const priceChanged = prevPriceMaxRef.current !== priceMax
+    if (filtersChanged || priceChanged) {
+      applyFilters()
+    }
+    prevFiltersRef.current = filters
+    prevPriceMaxRef.current = priceMax
+  }, [filters, priceMax, applyFilters])
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
     setFilters(prev => ({
@@ -95,7 +109,6 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
       tags: [],
     })
     setPriceMax(2000)
-    // Сбросить значение ползунка в DOM
     const rangeInput = document.querySelector('input[type="range"]') as HTMLInputElement
     if (rangeInput) rangeInput.value = '2000'
   }
