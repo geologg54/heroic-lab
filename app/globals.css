@@ -36,4 +36,15 @@
     color: #d1d5db;
     border: 1px solid #1e4a6e;
   }
+}/* Запрещаем горизонтальную прокрутку на всех устройствах */
+html,
+body {
+  max-width: 100%;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -11,12 +11,26 @@ export const ProductTabs = ({ product }: { product: Product }) => {
     { id: 'files', label: 'Файлы в комплекте' },
     { id: 'compatibility', label: 'Совместимость' },
   ]
+
   return (
     <div className="mt-8">
-      <div className="flex border-b border-borderLight gap-4">
-        {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-2 px-1 ${activeTab === tab.id ? 'text-accent border-b-2 border-accent' : 'text-gray-400'}`}>{tab.label}</button>
-        ))}
+      {/* Контейнер для прокрутки на мобильных */}
+      <div className="overflow-x-auto whitespace-nowrap scrollbar-hide">
+        <div className="flex border-b border-borderLight gap-4 min-w-max">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`pb-2 px-1 transition ${
+                activeTab === tab.id
+                  ? 'text-accent border-b-2 border-accent'
+                  : 'text-gray-400'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="mt-4 text-gray-300">
         {activeTab === 'description' && <p>{product.description}</p>}
