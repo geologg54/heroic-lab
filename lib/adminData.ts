@@ -12,7 +12,7 @@ export interface Product {
 
 export const topProducts = [
   { id: '1', name: 'Кровавый ангел – Капитан Терминатор', sales: 45, revenue: 22455 },
-  { id: '2', name: 'Траншейный спецназ «Морок»', sales: 38, revenue: 13262 },
+  { id: '2', name: 'Йомены Новой Антиохии', sales: 38, revenue: 13262 },
   { id: '3', name: 'Древний красный дракон', sales: 22, revenue: 28578 },
   { id: '4', name: 'Проклятый легионер – Чумной рыцарь', sales: 19, revenue: 11381 },
   { id: '5', name: 'Техножрец Доминус', sales: 16, revenue: 7184 },
