@@ -34,7 +34,7 @@ export default function UsersPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Пользователи</h1>
-        <button className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg text-white">+ Добавить</button>
+        <button className="border border-gray-400 hover:bg-accent hover:border-accent px-4 py-2 rounded-lg text-white">+ Добавить</button>
       </div>
       <SearchFilter onSearch={handleSearch} placeholder="Поиск по имени или email" />
       <DataTable data={filtered} columns={columns} />

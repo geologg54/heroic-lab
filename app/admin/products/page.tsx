@@ -21,7 +21,7 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6"><h1 className="text-2xl font-bold text-white">Товары</h1><Link href="/admin/products/new" className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"><Plus size={18} /> Создать</Link></div>
+      <div className="flex justify-between items-center mb-6"><h1 className="text-2xl font-bold text-white">Товары</h1><Link href="/admin/products/new" className="border border-gray-400 hover:bg-accent hover:border-accent px-4 py-2 rounded-lg flex items-center gap-2 text-white"><Plus size={18} /> Создать</Link></div>
       <SearchFilter onSearch={handleSearch} placeholder="Поиск товаров..." />
       <DataTable data={filtered} columns={columns} />
     </div>

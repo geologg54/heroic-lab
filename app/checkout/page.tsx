@@ -41,7 +41,7 @@ export default function CheckoutPage() {
             <p className="text-sm text-gray-300 mb-2">Способ оплаты: Демо-режим</p>
             <p className="text-xs text-cyan-300">После нажатия кнопки заказ будет создан (без реального списания)</p>
           </div>
-          <button type="submit" className="w-full bg-accent hover:bg-cyan-700 py-3 rounded-lg font-bold text-white">Подтвердить заказ на {totalPrice} ₽</button>
+          <button type="submit" className="w-full border border-gray-400 hover:bg-accent hover:border-accent py-3 rounded-lg font-bold text-white">Подтвердить заказ на {totalPrice} ₽</button>
         </form>
         <div className="bg-cardbg p-6 rounded-xl border border-borderLight">
           <h2 className="text-xl font-bold mb-4">Ваш заказ</h2>
