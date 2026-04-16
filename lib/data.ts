@@ -529,11 +529,14 @@ export const products: Product[] = [
 ]
 
 export const categories: Category[] = [
-  { name: 'Космодесант', slug: 'space-marines', icon: '🔰' },
-  { name: 'Trench Crusade', slug: 'trench-crusade', icon: '⛏️' },
-  { name: 'Монстры', slug: 'monsters', icon: '🐉' },
-  { name: 'Фэнтези герои', slug: 'fantasy-heroes', icon: '⚔️' },
-  { name: 'Легионы Хаоса', slug: 'chaos', icon: '🌀' },
-  { name: 'Орки', slug: 'orks', icon: '🟢' },
-  { name: 'Эльфы', slug: 'elves', icon: '🏹' },
+  { 
+    name: 'D&D', 
+    slug: 'space-marines', 
+    image: '/images/universe_images/dnd.jpg' 
+  },
+  { 
+    name: 'Trench Crusade', 
+    slug: 'trench-crusade', 
+    image: '/images/universe_images/trench-crusade.jpg' 
+  },
 ]
