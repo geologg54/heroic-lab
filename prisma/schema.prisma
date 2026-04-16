@@ -1,0 +1,92 @@
+// Это генератор клиента — он создаёт код для работы с БД
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Настройка подключения к базе данных (SQLite)
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")  // берём из .env
+}
+
+// Модель пользователя
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+// Модель товара — ОСНОВНАЯ
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  price       Int
+  oldPrice    Int?
+  // В SQLite нет массивов, поэтому храним строки с разделителями (например, "url1,url2")
+  images      String   // вместо String[] или Json
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  gameSystem  String
+  scale       String
+  type        String
+  faction     String?
+  fileFormat  String
+  tags        String   // вместо String[] или Json (например, "tag1,tag2")
+  inStock     Boolean  @default(true)
+  downloadsCount Int    @default(0)
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+  featured    Boolean  @default(false)
+  popularity  Int      @default(0)
+  orderItems  OrderItem[]
+}
+
+// Модель категории
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  image     String?
+  parentId  String?
+  parent    Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToCategory")
+  products  Product[]
+}
+
+// Модель заказа
+model Order {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  total     Int
+  status    String      @default("pending")
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+}
+
+// Товары в заказе
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  priceAtPurchase Int
+}
+
+// Токены для скачивания файлов
+model DownloadToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  orderId   String
+  productId String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+}
