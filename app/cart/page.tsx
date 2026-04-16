@@ -25,7 +25,7 @@ export default function CartPage() {
             <span>Товары ({items.reduce((acc, i) => acc + i.quantity, 0)})</span>
             <span className="font-bold">{totalPrice} ₽</span>
           </div>
-          <Link href="/checkout" className="block w-full bg-accent hover:bg-cyan-700 text-white text-center py-3 rounded-lg font-semibold transition">
+          <Link href="/checkout" className="block w-full border border-gray-400 hover:bg-accent hover:border-accent text-white text-center py-3 rounded-lg font-semibold transition">
             Оформить заказ
           </Link>
         </div>

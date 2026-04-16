@@ -33,7 +33,7 @@ export default function PagesPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Страницы</h1>
-        <button className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"><Plus size={18} /> Создать страницу</button>
+        <button className="border border-gray-400 hover:bg-accent hover:border-accent px-4 py-2 rounded-lg flex items-center gap-2 text-white"><Plus size={18} /> Создать страницу</button>
       </div>
       <SearchFilter onSearch={handleSearch} placeholder="Поиск страниц..." />
       <DataTable data={filtered} columns={columns} />

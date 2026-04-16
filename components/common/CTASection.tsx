@@ -11,7 +11,7 @@ export const CTASection = ({ title, text, buttonText, onButtonClick }: CTASectio
     <div className="container mx-auto px-4">
       <h2 className="text-3xl font-bold text-white mb-3">{title}</h2>
       <p className="text-gray-300 mb-6">{text}</p>
-      <button onClick={onButtonClick} className="bg-accent hover:bg-cyan-700 px-8 py-3 rounded-lg font-semibold text-white transition">
+      <button onClick={onButtonClick} className="border border-gray-400 hover:bg-accent hover:border-accent px-8 py-3 rounded-lg font-semibold text-white transition">
         {buttonText}
       </button>
     </div>

@@ -38,8 +38,8 @@ export default function HomePage() {
       
       <section className="container mx-auto px-4 py-12">
         <CollectionBlock
-          title="Коллекция «Траншейный кошмар»"
-          subtitle="Модели для Trench Crusade"
+          title="Миниатюры Thench crusade"
+          subtitle="Ужасы альтернативной истории. По хорошей цене."
           link="/category/trench-crusade"
           products={products.filter(p => p.gameSystem === 'Trench Crusade').slice(0, 3)}
         />
