@@ -33,7 +33,7 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
     tags: [],
   })
   const [priceMax, setPriceMax] = useState(2000)
-  // Состояние для аккордеона: какие секции развернуты
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     categories: false,
     subcategories: false,
@@ -95,6 +95,9 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
       tags: [],
     })
     setPriceMax(2000)
+    // Сбросить значение ползунка в DOM
+    const rangeInput = document.querySelector('input[type="range"]') as HTMLInputElement
+    if (rangeInput) rangeInput.value = '2000'
   }
 
   const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: string; options: string[]; selected: string[] }) => {
@@ -135,12 +138,25 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
       <FilterSection title="Масштаб" sectionKey="scales" options={allScales} selected={filters.scales} />
       <FilterSection title="Формат" sectionKey="fileFormats" options={allFileFormats} selected={filters.fileFormats} />
       <FilterSection title="Теги" sectionKey="tags" options={allTags.slice(0, 30)} selected={filters.tags} />
+
       <div className="pt-2">
         <div className="flex justify-between items-center">
           <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
         </div>
-        <input type="range" min={0} max={2000} step={50} value={priceMax} onChange={e => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+        <input
+          type="range"
+          min={0}
+          max={2000}
+          step={1}
+          defaultValue={priceMax}
+          onMouseUp={(e) => {
+            const newVal = Number(e.currentTarget.value)
+            setPriceMax(newVal)
+          }}
+          className="w-full mt-2"
+        />
       </div>
+
       <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
     </div>
   )
