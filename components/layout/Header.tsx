@@ -19,8 +19,12 @@ export default function Header() {
           <Menu size={28} />
         </button>
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Героическая лаборатория миниатюр" width={140} height={40} className="h-10 w-auto" priority />
-        </Link>
+  <img 
+  src="/logo.png" 
+  alt="Героическая лаборатория миниатюр" 
+  className="h-10 w-auto block"   // добавили 'block'
+/>
+</Link>
         <div className="hidden md:flex flex-1 max-w-md mx-4">
           <SearchBar />
         </div>
