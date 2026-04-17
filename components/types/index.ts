@@ -9,6 +9,7 @@ export interface Product {
   images: string[]
   category: string
   categorySlug: string
+  subcategory?: string
   description: string
   shortDesc: string
   fileFormat: string
@@ -20,13 +21,23 @@ export interface Product {
   inStock: boolean
   downloadsCount: number
   isDigital: boolean
+  popularity?: number
+  featured?: boolean
+  new?: boolean
+  dateAdded?: string
+  createdAt?: string
 }
 
 export interface Category {
+  id?: string
   name: string
   slug: string
-  icon: string
-  count: number
+  icon?: string
+  image?: string
+  parentId?: string | null
+  parent?: Category | null
+  children?: Category[]
+  products?: Product[]
 }
 
 export interface CartItem {

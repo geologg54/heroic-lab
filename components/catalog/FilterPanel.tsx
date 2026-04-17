@@ -1,10 +1,12 @@
+// components/catalog/FilterPanel.tsx
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Product } from '@/types'
 import { SlidersHorizontal, X, ChevronDown, ChevronRight } from 'lucide-react'
 
-interface FilterState {
-  categories: string[]
+// Тип состояния фильтров — все поля это массивы строк
+export interface FilterState {
+  categories: string[]        // теперь это slug'и категорий
   subcategories: string[]
   gameSystems: string[]
   factions: string[]
@@ -52,29 +54,77 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
-  const allCategories = [...new Set(products.map(p => p.category))]
-  const allSubcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory as string))]
-  const allGameSystems = [...new Set(products.map(p => p.gameSystem))]
-  const allFactions = [...new Set(products.filter(p => p.faction).map(p => p.faction as string))]
-  const allTypes = [...new Set(products.map(p => p.type))]
-  const allScales = [...new Set(products.map(p => p.scale))]
-  const allFileFormats = [...new Set(products.flatMap(p => p.fileFormat.split(',').map(f => f.trim())))]
-  const allTags = [...new Set(products.flatMap(p => p.tags))]
+  // Получаем уникальные значения для фильтров
+  // Для категорий используем slug категории (если category объект, то category.slug, иначе categorySlug)
+  const allCategories: string[] = [...new Set(
+    products.map(p => 
+      typeof p.category === 'object' && p.category !== null 
+        ? p.category.slug 
+        : p.categorySlug
+    )
+  )]
 
+  const allSubcategories: string[] = [...new Set(
+    products.filter(p => p.subcategory).map(p => p.subcategory as string)
+  )]
+  const allGameSystems: string[] = [...new Set(products.map(p => p.gameSystem))]
+  const allFactions: string[] = [...new Set(
+    products.filter(p => p.faction).map(p => p.faction as string)
+  )]
+  const allTypes: string[] = [...new Set(products.map(p => p.type))]
+  const allScales: string[] = [...new Set(products.map(p => p.scale))]
+  const allFileFormats: string[] = [...new Set(
+    products.flatMap(p => p.fileFormat.split(',').map(f => f.trim()))
+  )]
+  const allTags: string[] = [...new Set(products.flatMap(p => p.tags))]
+
+  // Функция применения фильтров
   const applyFilters = useCallback(() => {
     let filtered = products
-    if (filters.categories.length) filtered = filtered.filter(p => filters.categories.includes(p.category))
-    if (filters.subcategories.length) filtered = filtered.filter(p => p.subcategory && filters.subcategories.includes(p.subcategory))
-    if (filters.gameSystems.length) filtered = filtered.filter(p => filters.gameSystems.includes(p.gameSystem))
-    if (filters.factions.length) filtered = filtered.filter(p => p.faction && filters.factions.includes(p.faction))
-    if (filters.types.length) filtered = filtered.filter(p => filters.types.includes(p.type))
-    if (filters.scales.length) filtered = filtered.filter(p => filters.scales.includes(p.scale))
-    if (filters.fileFormats.length) filtered = filtered.filter(p => filters.fileFormats.some(f => p.fileFormat.includes(f)))
-    if (filters.tags.length) filtered = filtered.filter(p => p.tags.some(t => filters.tags.includes(t)))
+
+    // Фильтр по категориям (сравниваем slug)
+    if (filters.categories.length) {
+      filtered = filtered.filter(p => {
+        const catSlug = typeof p.category === 'object' && p.category !== null 
+          ? p.category.slug 
+          : p.categorySlug
+        return filters.categories.includes(catSlug)
+      })
+    }
+
+    if (filters.subcategories.length) {
+      filtered = filtered.filter(p => p.subcategory && filters.subcategories.includes(p.subcategory))
+    }
+    if (filters.gameSystems.length) {
+      filtered = filtered.filter(p => filters.gameSystems.includes(p.gameSystem))
+    }
+    if (filters.factions.length) {
+      filtered = filtered.filter(p => p.faction && filters.factions.includes(p.faction))
+    }
+    if (filters.types.length) {
+      filtered = filtered.filter(p => filters.types.includes(p.type))
+    }
+    if (filters.scales.length) {
+      filtered = filtered.filter(p => filters.scales.includes(p.scale))
+    }
+    if (filters.fileFormats.length) {
+      filtered = filtered.filter(p => 
+        filters.fileFormats.some(f => p.fileFormat.includes(f))
+      )
+    }
+    if (filters.tags.length) {
+      filtered = filtered.filter(p => 
+        p.tags.some(t => filters.tags.includes(t))
+      )
+    }
+
+    // Фильтр по цене
     filtered = filtered.filter(p => p.price <= priceMax)
+
     onFilter(filtered, filters)
   }, [products, filters, priceMax, onFilter])
 
+  // Эффект для автоматического применения фильтров при изменении
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false
@@ -93,7 +143,9 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
   const toggleFilter = (key: keyof FilterState, value: string) => {
     setFilters(prev => ({
       ...prev,
-      [key]: prev[key].includes(value) ? prev[key].filter(v => v !== value) : [...prev[key], value]
+      [key]: prev[key].includes(value) 
+        ? prev[key].filter(v => v !== value) 
+        : [...prev[key], value]
     }))
   }
 
@@ -109,11 +161,20 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
       tags: [],
     })
     setPriceMax(2000)
-    const rangeInput = document.querySelector('input[type="range"]') as HTMLInputElement
-    if (rangeInput) rangeInput.value = '2000'
   }
 
-  const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: string; options: string[]; selected: string[] }) => {
+  // Вспомогательный компонент секции фильтра
+  const FilterSection = ({ 
+    title, 
+    sectionKey, 
+    options, 
+    selected 
+  }: { 
+    title: string
+    sectionKey: string
+    options: string[]
+    selected: string[]
+  }) => {
     const isExpanded = expandedSections[sectionKey]
     return (
       <div className="border-b border-borderLight pb-3">
@@ -143,14 +204,54 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
 
   const FilterContent = () => (
     <div className="space-y-4">
-      <FilterSection title="Категория" sectionKey="categories" options={allCategories} selected={filters.categories} />
-      <FilterSection title="Подкатегория" sectionKey="subcategories" options={allSubcategories} selected={filters.subcategories} />
-      <FilterSection title="Система" sectionKey="gameSystems" options={allGameSystems} selected={filters.gameSystems} />
-      <FilterSection title="Фракция" sectionKey="factions" options={allFactions} selected={filters.factions} />
-      <FilterSection title="Тип модели" sectionKey="types" options={allTypes} selected={filters.types} />
-      <FilterSection title="Масштаб" sectionKey="scales" options={allScales} selected={filters.scales} />
-      <FilterSection title="Формат" sectionKey="fileFormats" options={allFileFormats} selected={filters.fileFormats} />
-      <FilterSection title="Теги" sectionKey="tags" options={allTags.slice(0, 30)} selected={filters.tags} />
+      <FilterSection 
+        title="Категория" 
+        sectionKey="categories" 
+        options={allCategories} 
+        selected={filters.categories} 
+      />
+      <FilterSection 
+        title="Подкатегория" 
+        sectionKey="subcategories" 
+        options={allSubcategories} 
+        selected={filters.subcategories} 
+      />
+      <FilterSection 
+        title="Система" 
+        sectionKey="gameSystems" 
+        options={allGameSystems} 
+        selected={filters.gameSystems} 
+      />
+      <FilterSection 
+        title="Фракция" 
+        sectionKey="factions" 
+        options={allFactions} 
+        selected={filters.factions} 
+      />
+      <FilterSection 
+        title="Тип модели" 
+        sectionKey="types" 
+        options={allTypes} 
+        selected={filters.types} 
+      />
+      <FilterSection 
+        title="Масштаб" 
+        sectionKey="scales" 
+        options={allScales} 
+        selected={filters.scales} 
+      />
+      <FilterSection 
+        title="Формат" 
+        sectionKey="fileFormats" 
+        options={allFileFormats} 
+        selected={filters.fileFormats} 
+      />
+      <FilterSection 
+        title="Теги" 
+        sectionKey="tags" 
+        options={allTags.slice(0, 30)} 
+        selected={filters.tags} 
+      />
 
       <div className="pt-2">
         <div className="flex justify-between items-center">
@@ -161,32 +262,46 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
           min={0}
           max={2000}
           step={1}
-          defaultValue={priceMax}
-          onMouseUp={(e) => {
-            const newVal = Number(e.currentTarget.value)
-            setPriceMax(newVal)
-          }}
+          value={priceMax}
+          onChange={(e) => setPriceMax(Number(e.target.value))}
           className="w-full mt-2"
         />
       </div>
 
-      <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
+      <button onClick={resetFilters} className="text-accent text-sm mt-2">
+        Сбросить все фильтры
+      </button>
     </div>
   )
 
   return (
     <>
-      <button onClick={() => setIsOpen(true)} className="lg:hidden flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg mb-4">
+      <button 
+        onClick={() => setIsOpen(true)} 
+        className="lg:hidden flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg mb-4"
+      >
         <SlidersHorizontal size={18} /> Фильтры
       </button>
-      <div className="hidden lg:block"><FilterContent /></div>
+      <div className="hidden lg:block">
+        <FilterContent />
+      </div>
       {isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 p-4 overflow-auto">
           <div className="bg-cardbg p-6 rounded-xl max-w-md mx-auto relative">
-            <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 text-gray-400"><X size={24} /></button>
+            <button 
+              onClick={() => setIsOpen(false)} 
+              className="absolute top-4 right-4 text-gray-400"
+            >
+              <X size={24} />
+            </button>
             <h2 className="text-xl font-bold text-white mb-4">Фильтры</h2>
             <FilterContent />
-            <button onClick={() => setIsOpen(false)} className="mt-6 w-full bg-accent py-2 rounded-lg">Применить</button>
+            <button 
+              onClick={() => setIsOpen(false)} 
+              className="mt-6 w-full bg-accent py-2 rounded-lg"
+            >
+              Применить
+            </button>
           </div>
         </div>
       )}

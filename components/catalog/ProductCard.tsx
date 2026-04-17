@@ -1,3 +1,4 @@
+// components/catalog/ProductCard.tsx
 'use client'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -11,6 +12,9 @@ export const ProductCard = ({ product }: { product: Product }) => {
   const isPopular = product.popularity ? product.popularity > 80 : false
   const isFeatured = product.featured || false
 
+  // Проверяем, есть ли у товара главное изображение
+  const hasImage = product.image && product.image.trim() !== ''
+
   return (
     <div className="premium-card group relative overflow-hidden">
       <div className="absolute top-2 left-2 z-10 flex gap-1">
@@ -20,7 +24,19 @@ export const ProductCard = ({ product }: { product: Product }) => {
       </div>
       <Link href={`/product/${product.id}`}>
         <div className="relative aspect-square bg-[#0a1220]">
-          <Image src={product.image} alt={product.name} fill className="object-contain p-3 group-hover:scale-105 transition" />
+          {hasImage ? (
+            <Image 
+              src={product.image} 
+              alt={product.name} 
+              fill 
+              className="object-contain p-3 group-hover:scale-105 transition" 
+            />
+          ) : (
+            // Заглушка — стилизованный div с текстом
+            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm p-4 text-center bg-gray-800">
+              Заглушка
+            </div>
+          )}
         </div>
       </Link>
       <div className="p-4">
