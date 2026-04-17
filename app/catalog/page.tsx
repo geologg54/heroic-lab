@@ -1,65 +1,96 @@
 // app/catalog/page.tsx
 'use client'
-import { useState, useMemo, useCallback } from 'react'
-import { products } from '@/lib/data'
+
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { FilterPanel } from '@/components/catalog/FilterPanel'
+import type { FilterState } from '@/components/catalog/FilterPanel'
 import { SortDropdown } from '@/components/catalog/SortDropdown'
 import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
-import Pagination from '@/components/catalog/Pagination'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
+import Pagination from '@/components/catalog/Pagination'
+import { fetchAllProducts } from '@/lib/api'
+import type { Product } from '@/types'
 
 export default function CatalogPage() {
-  const [filteredProducts, setFilteredProducts] = useState(products)
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [activeFiltersObj, setActiveFiltersObj] = useState<Record<string, string[]>>({})
-  const [sortBy, setSortBy] = useState('default')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [sortBy, setSortBy] = useState<string>('default')
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [loading, setLoading] = useState<boolean>(true)
   const itemsPerPage = 9
 
-  const handleFilterChange = useCallback((filtered: typeof products, activeFilters: any) => {
+  useEffect(() => {
+    fetchAllProducts()
+      .then((data: Product[]) => {
+        setAllProducts(data)
+        setFilteredProducts(data)
+        setLoading(false)
+      })
+      .catch((err: Error) => {
+        console.error('Ошибка загрузки товаров:', err)
+        setLoading(false)
+      })
+  }, [])
+
+  const handleFilterChange = useCallback((filtered: Product[], activeFilters: FilterState) => {
     setFilteredProducts(filtered)
     setCurrentPage(1)
-    // Преобразуем активные фильтры в формат для ActiveFilters
     const newActive: Record<string, string[]> = {}
     for (const key in activeFilters) {
-      if (Array.isArray(activeFilters[key]) && activeFilters[key].length > 0) {
-        newActive[key] = activeFilters[key]
+      const value = activeFilters[key as keyof FilterState]
+      if (Array.isArray(value) && value.length > 0) {
+        newActive[key] = value
       }
     }
     setActiveFiltersObj(newActive)
   }, [])
 
-  const sortedProducts = useMemo(() => {
+  const sortedProducts = useMemo<Product[]>(() => {
     const list = [...filteredProducts]
-    if (sortBy === 'price-asc') list.sort((a, b) => a.price - b.price)
-    else if (sortBy === 'price-desc') list.sort((a, b) => b.price - a.price)
-    else if (sortBy === 'name') list.sort((a, b) => a.name.localeCompare(b.name))
-    else if (sortBy === 'popularity') list.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-    else if (sortBy === 'date') list.sort((a, b) => {
-      const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0
-      const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0
-      return dateB - dateA
-    })
+    switch (sortBy) {
+      case 'price-asc':
+        list.sort((a, b) => a.price - b.price)
+        break
+      case 'price-desc':
+        list.sort((a, b) => b.price - a.price)
+        break
+      case 'name':
+        list.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case 'popularity':
+        list.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+        break
+      case 'date':
+        list.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dateB - dateA
+        })
+        break
+      default:
+        break
+    }
     return list
   }, [filteredProducts, sortBy])
 
-  const paginated = sortedProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const paginated = useMemo<Product[]>(() => {
+    return sortedProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  }, [sortedProducts, currentPage])
+
   const totalPages = Math.ceil(sortedProducts.length / itemsPerPage)
 
   const handleRemoveFilter = (key: string, value: string) => {
-    // TODO: реализовать снятие фильтра через FilterPanel
-    // Для простоты перезагрузим страницу или сбросим все фильтры
-    // Но лучше поднять состояние фильтров выше, это потребует рефакторинга
-    alert('Снятие фильтров в разработке. Используйте кнопку "Сбросить все" в панели фильтров.')
+    window.location.reload()
   }
 
   const handleClearAllFilters = () => {
-    // Перезагружаем все товары и сбрасываем активные фильтры
-    setFilteredProducts(products)
-    setActiveFiltersObj({})
-    // Нужно также сбросить состояние в FilterPanel, но это сложно из-за внутреннего состояния.
-    // Лучше перезагрузить страницу
     window.location.reload()
+  }
+
+  if (loading) {
+    return <div className="container mx-auto px-4 py-20 text-center text-white">Загрузка товаров...</div>
   }
 
   return (
@@ -67,22 +98,30 @@ export default function CatalogPage() {
       <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
       <div className="flex flex-col lg:flex-row gap-8 mt-6">
         <aside className="lg:w-1/4">
-          <FilterPanel products={products} onFilter={handleFilterChange} />
+          <FilterPanel products={allProducts} onFilter={handleFilterChange} />
         </aside>
         <main className="lg:w-3/4">
           <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
             <SortDropdown onSort={setSortBy} products={sortedProducts} />
             <span className="text-gray-400 text-sm">Найдено: {sortedProducts.length}</span>
           </div>
-          <ActiveFilters filters={activeFiltersObj} onRemove={handleRemoveFilter} onClearAll={handleClearAllFilters} />
+          <ActiveFilters
+            filters={activeFiltersObj}
+            onRemove={handleRemoveFilter}
+            onClearAll={handleClearAllFilters}
+          />
           {paginated.length === 0 ? (
             <div className="text-center py-20 text-gray-400">🧙‍♂️ Товары не найдены. Попробуйте изменить фильтры.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginated.map(product => <ProductCard key={product.id} product={product} />)}
+              {paginated.map((product) => (
+                <ProductCard key={product.article} product={product} />
+              ))}
             </div>
           )}
-          {totalPages > 1 && <Pagination totalPages={totalPages} currentPage={currentPage} onPageChange={setCurrentPage} />}
+          {totalPages > 1 && (
+            <Pagination totalPages={totalPages} currentPage={currentPage} onPageChange={setCurrentPage} />
+          )}
           <div className="mt-16">
             <h2 className="text-2xl font-bold text-white mb-4">Коллекции по теме</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

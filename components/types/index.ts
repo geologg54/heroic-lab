@@ -1,16 +1,24 @@
 // types/index.ts
-export interface Product {
+
+export interface CategoryRef {
   id: string
   name: string
   slug: string
+}
+
+export interface Product {
+  article: string               // артикул, первичный ключ
+  name: string
   price: number
   oldPrice?: number
-  image: string
-  images: string[]
-  category: string
+  image: string                 // первое изображение (для карточек)
+  images: string[]              // все изображения
+  category: string | CategoryRef
   categorySlug: string
+  categoryName?: string         // ← добавляем это поле (опциональное)
+  subcategory?: string
   description: string
-  shortDesc: string
+  shortDesc?: string
   fileFormat: string
   scale: string
   type: string
@@ -19,14 +27,24 @@ export interface Product {
   tags: string[]
   inStock: boolean
   downloadsCount: number
-  isDigital: boolean
+  isDigital?: boolean
+  popularity?: number
+  featured?: boolean
+  new?: boolean
+  dateAdded?: string
+  createdAt?: string
 }
 
 export interface Category {
+  id?: string
   name: string
   slug: string
-  icon: string
-  count: number
+  icon?: string
+  image?: string
+  parentId?: string | null
+  parent?: Category | null
+  children?: Category[]
+  products?: Product[]
 }
 
 export interface CartItem {

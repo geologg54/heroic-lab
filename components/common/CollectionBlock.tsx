@@ -20,7 +20,9 @@ export const CollectionBlock = ({ title, subtitle, link, products }: CollectionB
       <Link href={link} className="text-accent hover:underline">Смотреть всё →</Link>
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-      {products.map(p => <ProductCard key={p.id} product={p} />)}
+      {products.map(p => (
+        <ProductCard key={p.article} product={p} />  // ← добавили key
+      ))}
     </div>
   </div>
 )

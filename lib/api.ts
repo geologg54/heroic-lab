@@ -1,8 +1,8 @@
 // lib/api.ts
-// Базовый URL для API (при необходимости можно вынести в .env)
+import type { Category, Product } from '@/types'
+
 const API_BASE = '/api'
 
-// Вспомогательная функция для обработки ответов
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: 'Ошибка сервера' }))
@@ -11,37 +11,92 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json()
 }
 
-// Получить все товары (с преобразованием images и tags в массивы)
-export async function fetchAllProducts() {
-  const res = await fetch(`${API_BASE}/products`)
+function parseStringToArray(value: any): string[] {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    return value.trim() === '' ? [] : value.split(',').map(s => s.trim())
+  }
+  return []
+}
+
+export async function fetchAllProducts(): Promise<Product[]> {
+  const res = await fetch(`${API_BASE}/products`, {
+    cache: 'no-store',
+    next: { revalidate: 0 },
+  })
   const products = await handleResponse<any[]>(res)
-  // Преобразуем строки в массивы
-  return products.map(p => ({
-    ...p,
-    images: typeof p.images === 'string' ? p.images.split(',') : p.images,
-    tags: typeof p.tags === 'string' ? p.tags.split(',') : p.tags
-  }))
+
+  return products.map(p => {
+    const images = parseStringToArray(p.images)
+    const tags = parseStringToArray(p.tags)
+
+    let categorySlug = ''
+    let categoryName = ''
+    if (typeof p.category === 'object' && p.category !== null) {
+      categorySlug = p.category.slug
+      categoryName = p.category.name
+    }
+
+    const image = images.length > 0 ? images[0] : ''
+
+    return {
+      ...p,
+      images,
+      tags,
+      categorySlug,
+      categoryName,  // добавляем для удобства
+      image,
+    }
+  })
 }
 
-// Получить все категории
-export async function fetchAllCategories() {
-  const res = await fetch(`${API_BASE}/categories`)
-  return handleResponse<any[]>(res)
+export async function fetchAllCategories(): Promise<Category[]> {
+  const res = await fetch('/api/categories', {
+    cache: 'no-store',
+    next: { revalidate: 0 },
+  })
+  const data = await res.json()
+  return data as Category[]
 }
 
-// Получить один товар по slug
-export async function fetchProductBySlug(slug: string) {
-  const res = await fetch(`${API_BASE}/products/${slug}`)
-  const product = await handleResponse<any>(res)
-  return {
-    ...product,
-    images: typeof product.images === 'string' ? product.images.split(',') : product.images,
-    tags: typeof product.tags === 'string' ? product.tags.split(',') : product.tags
+// Получить товар по article
+export async function fetchProductByArticle(article: string): Promise<Product | null> {
+  try {
+    const res = await fetch(`${API_BASE}/products/${article}`, {
+      cache: 'no-store',
+      next: { revalidate: 0 },
+    })
+    if (!res.ok) return null
+    const product = await res.json()
+
+    const images = parseStringToArray(product.images)
+    const tags = parseStringToArray(product.tags)
+    let categorySlug = ''
+    let categoryName = ''
+    if (typeof product.category === 'object' && product.category !== null) {
+      categorySlug = product.category.slug
+      categoryName = product.category.name
+    }
+
+    return {
+      ...product,
+      images,
+      tags,
+      categorySlug,
+      categoryName,
+      image: images.length > 0 ? images[0] : '',
+    }
+  } catch {
+    return null
   }
 }
 
-// Получить товары по slug категории (фильтрация на клиенте или через API)
-export async function fetchProductsByCategory(categorySlug: string) {
+export async function fetchProductsByCategory(categorySlug: string): Promise<Product[]> {
   const all = await fetchAllProducts()
-  return all.filter(p => p.category?.slug === categorySlug)
+  return all.filter(p => {
+    if (typeof p.category === 'object' && p.category !== null) {
+      return p.category.slug === categorySlug
+    }
+    return p.categorySlug === categorySlug
+  })
 }

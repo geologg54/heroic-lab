@@ -1,15 +1,15 @@
-// Это генератор клиента — он создаёт код для работы с БД
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
-// Настройка подключения к базе данных (SQLite)
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")  // берём из .env
+  url      = env("DATABASE_URL")
 }
 
-// Модель пользователя
+// Пользователь
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -20,46 +20,46 @@ model User {
   orders    Order[]
 }
 
-// Модель товара — ОСНОВНАЯ
+// Товар – теперь первичный ключ article (уникальный артикул)
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String
-  price       Int
-  oldPrice    Int?
-  // В SQLite нет массивов, поэтому храним строки с разделителями (например, "url1,url2")
-  images      String   // вместо String[] или Json
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
-  gameSystem  String
-  scale       String
-  type        String
-  faction     String?
-  fileFormat  String
-  tags        String   // вместо String[] или Json (например, "tag1,tag2")
-  inStock     Boolean  @default(true)
-  downloadsCount Int    @default(0)
-  fileUrl     String?
-  createdAt   DateTime @default(now())
-  featured    Boolean  @default(false)
-  popularity  Int      @default(0)
-  orderItems  OrderItem[]
+  article        String      @id                      // артикул, например "2280001"
+  name           String
+  description    String
+  price          Int
+  oldPrice       Int?
+  // images хранится как строка с разделителем ","
+  images         String
+  categoryId     String
+  category       Category    @relation(fields: [categoryId], references: [id])
+  gameSystem     String
+  scale          String
+  type           String
+  faction        String?
+  fileFormat     String
+  // tags – строка с разделителем ","
+  tags           String
+  inStock        Boolean     @default(true)
+  downloadsCount Int         @default(0)
+  fileUrl        String?
+  createdAt      DateTime    @default(now())
+  featured       Boolean     @default(false)
+  popularity     Int         @default(0)
+  orderItems     OrderItem[]
 }
 
-// Модель категории
+// Категория
 model Category {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  image     String?
-  parentId  String?
-  parent    Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryToCategory")
-  products  Product[]
+  id       String    @id @default(cuid())
+  name     String
+  slug     String    @unique
+  image    String?
+  parentId String?
+  parent   Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToCategory")
+  products Product[]
 }
 
-// Модель заказа
+// Заказ
 model Order {
   id        String      @id @default(cuid())
   userId    String
@@ -72,21 +72,21 @@ model Order {
 
 // Товары в заказе
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id])
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  quantity  Int
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  productArticle String   // связь по артикулу
+  product        Product  @relation(fields: [productArticle], references: [article])
+  quantity       Int
   priceAtPurchase Int
 }
 
-// Токены для скачивания файлов
+// Токены для скачивания
 model DownloadToken {
   id        String   @id @default(cuid())
   token     String   @unique
   orderId   String
-  productId String
+  productArticle String   // связь по артикулу
   expiresAt DateTime
   used      Boolean  @default(false)
 }
