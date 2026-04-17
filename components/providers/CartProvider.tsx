@@ -1,6 +1,8 @@
 // components/providers/CartProvider.tsx
 'use client'
+
 import { createContext, useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { CartItem, Product } from '@/types'
 
 interface CartContextType {
@@ -16,16 +18,59 @@ interface CartContextType {
 export const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession()
   const [items, setItems] = useState<CartItem[]>([])
+  const [isInitialized, setIsInitialized] = useState(false)
 
+  // При монтировании загружаем корзину из localStorage (анонимный пользователь)
   useEffect(() => {
     const stored = localStorage.getItem('cart')
-    if (stored) setItems(JSON.parse(stored))
+    if (stored) {
+      setItems(JSON.parse(stored))
+    }
+    setIsInitialized(true)
   }, [])
 
+  // Когда сессия загружена и инициализация прошла, синхронизируем с сервером
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(items))
-  }, [items])
+    if (!isInitialized) return
+
+    if (session?.user) {
+      // Пользователь вошёл – загружаем корзину с сервера
+      fetch('/api/cart')
+        .then(res => res.json())
+        .then(data => {
+          if (data.items) {
+            setItems(data.items)
+            localStorage.removeItem('cart') // очищаем локальное хранилище
+          }
+        })
+        .catch(console.error)
+    } else {
+      // Пользователь вышел – загружаем из localStorage (если осталось)
+      const stored = localStorage.getItem('cart')
+      if (stored) {
+        setItems(JSON.parse(stored))
+      }
+    }
+  }, [session, isInitialized])
+
+  // Сохраняем корзину при изменениях
+  useEffect(() => {
+    if (!isInitialized) return
+
+    if (session?.user) {
+      // Отправляем на сервер
+      fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      }).catch(console.error)
+    } else {
+      // Сохраняем в localStorage
+      localStorage.setItem('cart', JSON.stringify(items))
+    }
+  }, [items, session, isInitialized])
 
   const addToCart = (product: Product, quantity = 1) => {
     setItems(prev => {

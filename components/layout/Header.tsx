@@ -1,21 +1,25 @@
 // components/layout/Header.tsx
 'use client'
+
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, Search, Heart, User, ShoppingBag } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
+import { Menu, Search, Heart, User, ShoppingBag, LogOut } from 'lucide-react'
 import MobileDrawer from './MobileDrawer'
 import SearchBar from '@/components/common/SearchBar'
 import { useCart } from '@/hooks/useCart'
 
 export default function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const { data: session, status } = useSession()
   const { totalItems } = useCart()
+
+  const isLoading = status === 'loading'
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-[#05192C]/90 backdrop-blur-md">
-      {/* убран класс border-b border-[#1e3a5f] */}
       <div className="container mx-auto px-4 py-3">
-        {/* Мобильная сетка (до lg) — три колонки, логотип по центру */}
+        {/* Мобильная сетка (до lg) */}
         <div className="lg:hidden grid grid-cols-3 items-center">
           <button onClick={() => setIsDrawerOpen(true)} className="text-white justify-self-start">
             <Menu size={28} />
@@ -72,9 +76,28 @@ export default function Header() {
             <Link href="/account/favorites" className="text-white">
               <Heart size={22} />
             </Link>
-            <Link href="/account" className="text-white hidden sm:inline">
-              <User size={22} />
-            </Link>
+
+            {isLoading ? (
+              <span className="w-6 h-6" />
+            ) : session ? (
+              <div className="flex items-center gap-3">
+                <Link href="/account" className="text-white hidden sm:inline">
+                  <User size={22} />
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="text-white hidden sm:inline"
+                  title="Выйти"
+                >
+                  <LogOut size={22} />
+                </button>
+              </div>
+            ) : (
+              <Link href="/login" className="text-white hidden sm:inline">
+                <User size={22} />
+              </Link>
+            )}
+
             <Link href="/cart" className="relative text-white">
               <ShoppingBag size={22} />
               {totalItems > 0 && (
