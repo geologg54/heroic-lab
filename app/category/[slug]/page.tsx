@@ -12,14 +12,18 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params
 
+  // Получаем все категории и ищем по slug (который теперь без пробелов)
   const categories = await getCategories()
   const category = categories.find(c => c.slug === slug)
+
   if (!category) {
     notFound()
   }
 
+  // Получаем товары категории
   const products = await getProductsByCategorySlug(slug)
 
+  // Подкатегории (если есть в данных)
   const subcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory))]
 
   return (

@@ -38,9 +38,9 @@ export async function getProducts(): Promise<Product[]> {
       },
       categorySlug: p.category.slug,
       categoryName: p.category.name,
-      subcategory: null, // если нет в схеме, можно null
+      subcategory: null,
       description: p.description,
-      shortDesc: null,   // можно заполнить из description при необходимости
+      shortDesc: null,
       fileFormat: p.fileFormat,
       scale: p.scale,
       type: p.type,

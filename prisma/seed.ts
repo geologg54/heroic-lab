@@ -12,7 +12,7 @@ interface ImportProduct {
   oldPrice?: number | null
   description: string
   images: string
-  category: string               // slug категории
+  category: string               // сырое название категории из JSON
   gameSystem: string
   scale: string
   type: string
@@ -22,6 +22,27 @@ interface ImportProduct {
   inStock?: boolean
   featured?: boolean
   popularity?: number
+}
+
+// Ручной маппинг для категорий, где автоматический slugify даёт нежелательный результат
+const CATEGORY_SLUG_MAP: Record<string, string> = {
+  'D&D': 'dnd',
+  'Универсальная': 'universal',
+  'Trench crusade': 'trench-crusade',   // на всякий случай явно
+}
+
+function slugify(text: string): string {
+  // Если есть ручной маппинг – используем его
+  if (CATEGORY_SLUG_MAP[text]) {
+    return CATEGORY_SLUG_MAP[text]
+  }
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
 }
 
 async function main() {
@@ -36,75 +57,65 @@ async function main() {
   const fileContent = fs.readFileSync(filePath, 'utf-8')
   const products: ImportProduct[] = JSON.parse(fileContent)
 
-  console.log(`📦 Найдено ${products.length} товаров`)
+  const validProducts = products.filter(p => p.article && p.name && p.price)
+  console.log(`📦 Найдено ${validProducts.length} валидных товаров`)
 
   // Очищаем таблицы
   await prisma.orderItem.deleteMany()
   await prisma.order.deleteMany()
   await prisma.downloadToken.deleteMany()
   await prisma.product.deleteMany()
-  // Категории НЕ удаляем, чтобы сохранить ранее созданные
+  await prisma.category.deleteMany()
 
-  // Собираем уникальные slug категорий, исключая пустые
-  const uniqueCategorySlugs = [...new Set(
-    products
-      .map(p => p.category)
-      .filter(slug => slug && typeof slug === 'string' && slug.trim() !== '')
-  )]
+  // Собираем уникальные категории и создаём их
+  const categoryMap = new Map<string, string>() // сырое название -> slug
 
-  console.log(`📁 Найдено ${uniqueCategorySlugs.length} уникальных категорий`)
-
-  // Создаём недостающие категории
-  for (const catSlug of uniqueCategorySlugs) {
-    const existing = await prisma.category.findFirst({
-      where: { slug: catSlug }
-    })
-    if (!existing) {
-      // Генерируем имя из slug (заменяем дефисы на пробелы, первая буква заглавная)
-      const name = catSlug
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-      await prisma.category.create({
-        data: {
-          name,
-          slug: catSlug,
-        }
-      })
-      console.log(`➕ Создана категория: ${name} (${catSlug})`)
+  for (const prod of validProducts) {
+    const rawCategory = prod.category?.trim()
+    if (!rawCategory) continue
+    if (!categoryMap.has(rawCategory)) {
+      const slug = slugify(rawCategory)
+      categoryMap.set(rawCategory, slug)
     }
+  }
+
+  console.log(`📁 Создаём ${categoryMap.size} категорий`)
+  for (const [rawName, slug] of categoryMap.entries()) {
+    await prisma.category.create({
+      data: {
+        name: rawName,
+        slug: slug,
+        image: null,
+      }
+    })
+    console.log(`➕ ${rawName} -> /category/${slug}`)
   }
 
   // Импорт товаров
   let imported = 0
   let skipped = 0
 
-  for (const prod of products) {
+  for (const prod of validProducts) {
     try {
-      // Пропускаем товары без категории
-      if (!prod.category || typeof prod.category !== 'string' || prod.category.trim() === '') {
-        console.warn(`⚠️ Товар ${prod.article} пропущен: отсутствует категория`)
+      const rawCategory = prod.category?.trim()
+      if (!rawCategory) {
+        console.warn(`⚠️ Товар ${prod.article} без категории, пропущен`)
         skipped++
         continue
       }
 
-      // Находим категорию по slug
-      const category = await prisma.category.findFirst({
-        where: { slug: prod.category }
-      })
+      const slug = categoryMap.get(rawCategory)
+      if (!slug) {
+        console.warn(`⚠️ Категория "${rawCategory}" не найдена в карте, товар ${prod.article} пропущен`)
+        skipped++
+        continue
+      }
 
+      const category = await prisma.category.findUnique({
+        where: { slug }
+      })
       if (!category) {
-        console.warn(`⚠️ Категория "${prod.category}" не найдена, товар ${prod.article} пропущен`)
-        skipped++
-        continue
-      }
-
-      // Проверяем, нет ли уже товара с таким article
-      const existingProduct = await prisma.product.findUnique({
-        where: { article: prod.article }
-      })
-      if (existingProduct) {
-        console.warn(`⚠️ Товар с артикулом ${prod.article} уже существует, пропущен`)
+        console.warn(`⚠️ Категория со slug "${slug}" не найдена в БД, товар ${prod.article} пропущен`)
         skipped++
         continue
       }
@@ -115,15 +126,15 @@ async function main() {
           name: prod.name,
           price: prod.price,
           oldPrice: prod.oldPrice || null,
-          description: prod.description,
-          images: prod.images,
+          description: prod.description || '',
+          images: prod.images || '',
           categoryId: category.id,
-          gameSystem: prod.gameSystem,
-          scale: prod.scale,
-          type: prod.type,
+          gameSystem: prod.gameSystem || '',
+          scale: prod.scale || '32mm',
+          type: prod.type || 'unknown',
           faction: prod.faction || null,
-          fileFormat: prod.fileFormat,
-          tags: prod.tags,
+          fileFormat: prod.fileFormat || 'STL',
+          tags: prod.tags || '',
           inStock: prod.inStock ?? true,
           featured: prod.featured ?? false,
           popularity: prod.popularity ?? 0,
