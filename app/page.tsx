@@ -10,37 +10,32 @@ import { fetchAllCategories, fetchAllProducts } from '@/lib/api'
 import type { Category, Product } from '../types'
 
 export default function HomePage() {
-  // Явно указываем типы: categories — массив Category, products — массив Product
   const [categories, setCategories] = useState<Category[]>([])
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [trenchProducts, setTrenchProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
-  // app/page.tsx (фрагмент внутри useEffect)
-useEffect(() => {
-  Promise.all([fetchAllCategories(), fetchAllProducts()])
-    .then(([cats, prods]) => {
-      setCategories(cats)
-      setFeaturedProducts(prods.slice(0, 4))
-      
-      // Фильтруем товары категории Trench Crusade
-      const trench = prods.filter(p => {
-        // Если category - объект, проверяем slug
-        if (typeof p.category === 'object' && p.category !== null) {
-          return p.category.slug === 'trench-crusade'
-        }
-        // Иначе (если строка) сравниваем с categorySlug
-        return p.categorySlug === 'trench-crusade'
-      }).slice(0, 3)
-      
-      setTrenchProducts(trench)
-      setLoading(false)
-    })
-    .catch(err => {
-      console.error('Ошибка загрузки данных:', err)
-      setLoading(false)
-    })
-}, [])
+  useEffect(() => {
+    Promise.all([fetchAllCategories(), fetchAllProducts()])
+      .then(([cats, prods]) => {
+        setCategories(cats)
+        setFeaturedProducts(prods.slice(0, 4))
+        
+        const trench = prods.filter(p => {
+          if (typeof p.category === 'object' && p.category !== null) {
+            return p.category.slug === 'trench-crusade'
+          }
+          return p.categorySlug === 'trench-crusade'
+        }).slice(0, 3)
+        
+        setTrenchProducts(trench)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('Ошибка загрузки данных:', err)
+        setLoading(false)
+      })
+  }, [])
 
   if (loading) {
     return <div className="text-white text-center py-20">Загрузка...</div>
@@ -56,16 +51,14 @@ useEffect(() => {
         backgroundImage="/hero-bg.jpg"
       />
       
-      <section className="bg-[#071f30] py-12">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8 text-white text-center">Вселенные</h2>
-          <div className="flex flex-col md:flex-row gap-6 justify-center">
-            {categories.map((cat: any) => (
-  <div key={cat.slug} className="flex-1 max-w-2xl">
-    <CategoryCard category={cat} />
-  </div>
-))}
-          </div>
+      {/* Блок с баннерами вселенных – без заголовка, на всю ширину */}
+      <section className="bg-[#071f30] py-12 px-4 md:px-6">
+        <div className="flex flex-col md:flex-row gap-6">
+          {categories.map((cat: any) => (
+            <div key={cat.slug} className="flex-1">
+              <CategoryCard category={cat} />
+            </div>
+          ))}
         </div>
       </section>
       
