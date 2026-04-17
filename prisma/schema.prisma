@@ -11,23 +11,23 @@ datasource db {
 
 // Пользователь
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String    @id @default(cuid())
+  email     String    @unique
   name      String?
   password  String
-  role      String   @default("user")
-  createdAt DateTime @default(now())
+  role      String    @default("user")
+  createdAt DateTime  @default(now())
   orders    Order[]
+  cartItems CartItem[]   // ← добавлено
 }
 
 // Товар – теперь первичный ключ article (уникальный артикул)
 model Product {
-  article        String      @id                      // артикул, например "2280001"
+  article        String      @id
   name           String
   description    String
   price          Int
   oldPrice       Int?
-  // images хранится как строка с разделителем ","
   images         String
   categoryId     String
   category       Category    @relation(fields: [categoryId], references: [id])
@@ -36,7 +36,6 @@ model Product {
   type           String
   faction        String?
   fileFormat     String
-  // tags – строка с разделителем ","
   tags           String
   inStock        Boolean     @default(true)
   downloadsCount Int         @default(0)
@@ -45,6 +44,7 @@ model Product {
   featured       Boolean     @default(false)
   popularity     Int         @default(0)
   orderItems     OrderItem[]
+  cartItems      CartItem[]   // ← добавлено
 }
 
 // Категория
@@ -75,7 +75,7 @@ model OrderItem {
   id             String   @id @default(cuid())
   orderId        String
   order          Order    @relation(fields: [orderId], references: [id])
-  productArticle String   // связь по артикулу
+  productArticle String
   product        Product  @relation(fields: [productArticle], references: [article])
   quantity       Int
   priceAtPurchase Int
@@ -83,10 +83,22 @@ model OrderItem {
 
 // Токены для скачивания
 model DownloadToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  orderId   String
-  productArticle String   // связь по артикулу
-  expiresAt DateTime
-  used      Boolean  @default(false)
+  id             String   @id @default(cuid())
+  token          String   @unique
+  orderId        String
+  productArticle String
+  expiresAt      DateTime
+  used           Boolean  @default(false)
+}
+
+// Корзина (новая модель)
+model CartItem {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productArticle String
+  product        Product  @relation(fields: [productArticle], references: [article])
+  quantity       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
