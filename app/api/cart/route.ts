@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 
-// Получить корзину пользователя
+// GET /api/cart – получить корзину текущего пользователя
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
@@ -16,7 +16,6 @@ export async function GET() {
     include: { product: { include: { category: true } } }
   })
 
-  // Преобразуем к формату, совместимому с клиентской корзиной
   const items = cartItems.map(item => ({
     product: {
       ...item.product,
@@ -30,7 +29,7 @@ export async function GET() {
   return NextResponse.json({ items })
 }
 
-// Сохранить корзину пользователя (замена)
+// POST /api/cart – сохранить корзину (замена)
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
@@ -39,10 +38,8 @@ export async function POST(request: Request) {
 
   const { items } = await request.json()
 
-  // Удаляем старую корзину
   await prisma.cartItem.deleteMany({ where: { userId: session.user.id } })
 
-  // Создаём новые записи
   for (const item of items) {
     await prisma.cartItem.create({
       data: {
