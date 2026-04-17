@@ -4,8 +4,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 interface FavoritesContextType {
   favorites: string[]
-  toggleFavorite: (id: string) => void
-  isFavorite: (id: string) => boolean
+  toggleFavorite: (article: string) => void
+  isFavorite: (article: string) => boolean
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined)
@@ -18,15 +18,15 @@ export const FavoritesProvider = ({ children }: { children: React.ReactNode }) =
     if (stored) setFavorites(JSON.parse(stored))
   }, [])
 
-  const toggleFavorite = (id: string) => {
-    const newFavs = favorites.includes(id)
-      ? favorites.filter(f => f !== id)
-      : [...favorites, id]
+  const toggleFavorite = (article: string) => {
+    const newFavs = favorites.includes(article)
+      ? favorites.filter(f => f !== article)
+      : [...favorites, article]
     setFavorites(newFavs)
     localStorage.setItem('favorites', JSON.stringify(newFavs))
   }
 
-  const isFavorite = (id: string) => favorites.includes(id)
+  const isFavorite = (article: string) => favorites.includes(article)
 
   return (
     <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>

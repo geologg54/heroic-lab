@@ -1,18 +1,56 @@
-'use client'
-import { useSearchParams } from 'next/navigation'
-import { products } from '@/lib/data'
-import { ProductCard } from '@/components/catalog/ProductCard'
-import SearchBar from '@/components/common/SearchBar'
-import { EmptyState } from '@/components/common/EmptyState'
+// app/page.tsx
+import { HeroBanner } from '@/components/common/HeroBanner'
+import { CategoryCard } from '@/components/catalog/CategoryCard'
+import { CTASection } from '@/components/common/CTASection'
+import { CollectionBlock } from '@/components/common/CollectionBlock'
+import { getCategories, getProducts } from '@/lib/db'
 
-export default function SearchPage() {
-  const query = useSearchParams().get('q') || ''
-  const results = products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
+export default async function HomePage() {
+  const categories = await getCategories()
+  const allProducts = await getProducts()
+
+  const featuredProducts = allProducts.slice(0, 4)
+  const trenchProducts = allProducts
+    .filter(p => p.categorySlug === 'trench-crusade')
+    .slice(0, 3)
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-white mb-4">Поиск: «{query}»</h1>
-      <div className="max-w-md mb-8"><SearchBar /></div>
-      {results.length === 0 ? <EmptyState title="Ничего не найдено" message="Попробуйте изменить запрос" /> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{results.map(p => <ProductCard key={p.id} product={p} />)}</div>}
+    <div>
+      <HeroBanner
+        title="Героическая лаборатория миниатюр"
+        subtitle="Цифровые 3D-модели для ваших сражений"
+        ctaText="Каталог"
+        ctaLink="/catalog"
+        backgroundImage="/hero-bg.jpg"
+      />
+      
+      <section className="bg-[#071f30] py-12">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold mb-8 text-white text-center">Вселенные</h2>
+          <div className="flex flex-col md:flex-row gap-6 justify-center">
+            {categories.map((cat) => (
+              <div key={cat.slug} className="flex-1 max-w-2xl">
+                <CategoryCard category={cat} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      
+      <section className="container mx-auto px-4 py-12">
+        <CollectionBlock
+          title="Коллекция «Траншейный кошмар»"
+          subtitle="Модели для Trench Crusade"
+          link="/category/trench-crusade"
+          products={trenchProducts}
+        />
+      </section>
+      
+      <CTASection
+        title="Подпишитесь на рассылку"
+        text="Получайте новинки и скидки на 3D-модели"
+        buttonText="Подписаться"
+      />
     </div>
   )
 }

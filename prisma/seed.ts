@@ -1,87 +1,149 @@
-// Импортируем PrismaClient — это наш главный инструмент для работы с базой данных
+// prisma/seed.ts
 import { PrismaClient } from '@prisma/client'
+import * as fs from 'fs'
+import * as path from 'path'
 
-// Импортируем моковые данные (категории и товары) из вашего файла lib/data.ts
-// Оттуда мы возьмём всё, что нужно для заполнения базы
-import { categories, products } from '../lib/data'
-
-// Создаём экземпляр PrismaClient — через него будем выполнять все запросы к БД
 const prisma = new PrismaClient()
 
-// Главная функция, которая будет заполнять базу данных
-async function main() {
-  console.log('Начинаем заполнение базы данных...')
+interface ImportProduct {
+  article: string
+  name: string
+  price: number
+  oldPrice?: number | null
+  description: string
+  images: string
+  category: string               // slug категории
+  gameSystem: string
+  scale: string
+  type: string
+  faction?: string | null
+  fileFormat: string
+  tags: string
+  inStock?: boolean
+  featured?: boolean
+  popularity?: number
+}
 
-  // Очищаем таблицы в правильном порядке (сначала те, у которых есть внешние ключи, чтобы избежать ошибок)
-  // OrderItem зависит от Order и Product, поэтому удаляем его первым
+async function main() {
+  console.log('🌱 Начинаем импорт товаров...')
+
+  const filePath = path.join(__dirname, 'import.json')
+  if (!fs.existsSync(filePath)) {
+    console.error('❌ Файл import.json не найден в папке prisma')
+    process.exit(1)
+  }
+
+  const fileContent = fs.readFileSync(filePath, 'utf-8')
+  const products: ImportProduct[] = JSON.parse(fileContent)
+
+  console.log(`📦 Найдено ${products.length} товаров`)
+
+  // Очищаем таблицы
   await prisma.orderItem.deleteMany()
   await prisma.order.deleteMany()
   await prisma.downloadToken.deleteMany()
-  await prisma.product.deleteMany()   // Product зависит от Category, поэтому сначала удаляем продукты
-  await prisma.category.deleteMany()  // Потом категории
+  await prisma.product.deleteMany()
+  // Категории НЕ удаляем, чтобы сохранить ранее созданные
 
-  // ----- Заполняем таблицу Category -----
-  for (const cat of categories) {
-    // Для каждой категории из моков создаём запись в базе
-    await prisma.category.create({
-      data: {
-        name: cat.name,           // название категории
-        slug: cat.slug,           // уникальный идентификатор для URL (например, "space-marines")
-        image: cat.image || null, // если картинка есть, используем её, иначе null
-      },
+  // Собираем уникальные slug категорий, исключая пустые
+  const uniqueCategorySlugs = [...new Set(
+    products
+      .map(p => p.category)
+      .filter(slug => slug && typeof slug === 'string' && slug.trim() !== '')
+  )]
+
+  console.log(`📁 Найдено ${uniqueCategorySlugs.length} уникальных категорий`)
+
+  // Создаём недостающие категории
+  for (const catSlug of uniqueCategorySlugs) {
+    const existing = await prisma.category.findFirst({
+      where: { slug: catSlug }
     })
-  }
-  console.log('Категории добавлены')
-
-  // ----- Заполняем таблицу Product -----
-  for (const prod of products) {
-    // Находим ID категории по её slug (чтобы связать товар с категорией)
-    const category = await prisma.category.findUnique({
-      where: { slug: prod.categorySlug },
-    })
-
-    // Если категория не найдена — пропускаем товар и выводим предупреждение
-    if (!category) {
-      console.warn(`Категория ${prod.categorySlug} не найдена, товар пропущен: ${prod.name}`)
-      continue
+    if (!existing) {
+      // Генерируем имя из slug (заменяем дефисы на пробелы, первая буква заглавная)
+      const name = catSlug
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+      await prisma.category.create({
+        data: {
+          name,
+          slug: catSlug,
+        }
+      })
+      console.log(`➕ Создана категория: ${name} (${catSlug})`)
     }
-
-    // Создаём товар в базе
-    await prisma.product.create({
-      data: {
-        name: prod.name,
-        slug: prod.slug,
-        description: prod.description,
-        price: prod.price,
-        oldPrice: prod.oldPrice,
-        images: prod.images.join(','),               // массив строк с путями к изображениям
-        categoryId: category.id,           // связываем с найденной категорией по ID
-        gameSystem: prod.gameSystem,
-        scale: prod.scale,
-        type: prod.type,
-        faction: prod.faction,
-        fileFormat: prod.fileFormat,
-        tags: prod.tags.join(','),
-        inStock: prod.inStock,
-        downloadsCount: prod.downloadsCount,
-        fileUrl: null,                     // пока не используем
-        featured: prod.featured || false,
-        popularity: prod.popularity || 0,
-      },
-    })
   }
-  console.log('Товары добавлены')
 
-  console.log('База данных успешно заполнена!')
+  // Импорт товаров
+  let imported = 0
+  let skipped = 0
+
+  for (const prod of products) {
+    try {
+      // Пропускаем товары без категории
+      if (!prod.category || typeof prod.category !== 'string' || prod.category.trim() === '') {
+        console.warn(`⚠️ Товар ${prod.article} пропущен: отсутствует категория`)
+        skipped++
+        continue
+      }
+
+      // Находим категорию по slug
+      const category = await prisma.category.findFirst({
+        where: { slug: prod.category }
+      })
+
+      if (!category) {
+        console.warn(`⚠️ Категория "${prod.category}" не найдена, товар ${prod.article} пропущен`)
+        skipped++
+        continue
+      }
+
+      // Проверяем, нет ли уже товара с таким article
+      const existingProduct = await prisma.product.findUnique({
+        where: { article: prod.article }
+      })
+      if (existingProduct) {
+        console.warn(`⚠️ Товар с артикулом ${prod.article} уже существует, пропущен`)
+        skipped++
+        continue
+      }
+
+      await prisma.product.create({
+        data: {
+          article: prod.article,
+          name: prod.name,
+          price: prod.price,
+          oldPrice: prod.oldPrice || null,
+          description: prod.description,
+          images: prod.images,
+          categoryId: category.id,
+          gameSystem: prod.gameSystem,
+          scale: prod.scale,
+          type: prod.type,
+          faction: prod.faction || null,
+          fileFormat: prod.fileFormat,
+          tags: prod.tags,
+          inStock: prod.inStock ?? true,
+          featured: prod.featured ?? false,
+          popularity: prod.popularity ?? 0,
+        }
+      })
+      imported++
+    } catch (error) {
+      console.error(`❌ Ошибка импорта товара ${prod.article}:`, error)
+      skipped++
+    }
+  }
+
+  console.log(`✅ Импорт завершён. Загружено ${imported} товаров, пропущено ${skipped}.`)
 }
 
-// Вызываем главную функцию и обрабатываем возможные ошибки
 main()
   .catch(e => {
-    console.error(e)   // если ошибка — выводим её в консоль
-    process.exit(1)    // завершаем процесс с кодом ошибки
+    console.error(e)
+    process.exit(1)
   })
   .finally(async () => {
-    // В любом случае закрываем соединение с базой данных
     await prisma.$disconnect()
   })

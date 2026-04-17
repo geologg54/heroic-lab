@@ -1,49 +1,46 @@
 // types/index.ts
 
-// Вспомогательный тип для категории (минимально необходимые поля)
 export interface CategoryRef {
   id: string
   name: string
   slug: string
-  // можно добавить другие поля при необходимости
 }
 
 export interface Product {
-  id: string
+  article: string
   name: string
-  slug: string
   price: number
-  oldPrice?: number
+  oldPrice?: number | null
   image: string
   images: string[]
-  // category теперь может быть строкой (название/ID) или объектом с информацией о категории
   category: string | CategoryRef
   categorySlug: string
-  subcategory?: string
+  categoryName?: string
+  subcategory?: string | null
   description: string
-  shortDesc: string
+  shortDesc?: string | null
   fileFormat: string
   scale: string
   type: string
-  faction?: string
+  faction?: string | null
   gameSystem: string
   tags: string[]
   inStock: boolean
   downloadsCount: number
-  isDigital: boolean
-  popularity?: number
+  isDigital?: boolean
+  popularity?: number | null
   featured?: boolean
   new?: boolean
-  dateAdded?: string
-  createdAt?: string
+  dateAdded?: Date | string | null
+  createdAt?: Date | string | null
 }
 
 export interface Category {
-  id?: string
+  id: string
   name: string
   slug: string
-  icon?: string
-  image?: string
+  icon?: string | null
+  image?: string | null
   parentId?: string | null
   parent?: Category | null
   children?: Category[]

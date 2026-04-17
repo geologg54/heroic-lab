@@ -20,10 +20,9 @@ function parseStringToArray(value: any): string[] {
 }
 
 export async function fetchAllProducts(): Promise<Product[]> {
-  // ВАЖНО: отключаем кэширование, чтобы всегда получать свежие данные из БД
   const res = await fetch(`${API_BASE}/products`, {
     cache: 'no-store',
-    next: { revalidate: 0 }, // для уверенности
+    next: { revalidate: 0 },
   })
   const products = await handleResponse<any[]>(res)
 
@@ -31,9 +30,11 @@ export async function fetchAllProducts(): Promise<Product[]> {
     const images = parseStringToArray(p.images)
     const tags = parseStringToArray(p.tags)
 
-    let categorySlug = p.categorySlug
+    let categorySlug = ''
+    let categoryName = ''
     if (typeof p.category === 'object' && p.category !== null) {
       categorySlug = p.category.slug
+      categoryName = p.category.name
     }
 
     const image = images.length > 0 ? images[0] : ''
@@ -43,6 +44,7 @@ export async function fetchAllProducts(): Promise<Product[]> {
       images,
       tags,
       categorySlug,
+      categoryName,  // добавляем для удобства
       image,
     }
   })
@@ -57,28 +59,35 @@ export async function fetchAllCategories(): Promise<Category[]> {
   return data as Category[]
 }
 
-export async function fetchProductBySlug(slug: string): Promise<Product> {
-  const res = await fetch(`${API_BASE}/products/${slug}`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  })
-  const product = await handleResponse<any>(res)
+// Получить товар по article
+export async function fetchProductByArticle(article: string): Promise<Product | null> {
+  try {
+    const res = await fetch(`${API_BASE}/products/${article}`, {
+      cache: 'no-store',
+      next: { revalidate: 0 },
+    })
+    if (!res.ok) return null
+    const product = await res.json()
 
-  const images = parseStringToArray(product.images)
-  const tags = parseStringToArray(product.tags)
-  let categorySlug = product.categorySlug
-  if (typeof product.category === 'object' && product.category !== null) {
-    categorySlug = product.category.slug
-  }
+    const images = parseStringToArray(product.images)
+    const tags = parseStringToArray(product.tags)
+    let categorySlug = ''
+    let categoryName = ''
+    if (typeof product.category === 'object' && product.category !== null) {
+      categorySlug = product.category.slug
+      categoryName = product.category.name
+    }
 
-  const image = images.length > 0 ? images[0] : ''
-
-  return {
-    ...product,
-    images,
-    tags,
-    categorySlug,
-    image,
+    return {
+      ...product,
+      images,
+      tags,
+      categorySlug,
+      categoryName,
+      image: images.length > 0 ? images[0] : '',
+    }
+  } catch {
+    return null
   }
 }
 

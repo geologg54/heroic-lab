@@ -6,17 +6,16 @@ interface CategoryCardProps {
   category: {
     name: string
     slug: string
-    image?: string
+    image?: string | null  // разрешаем null из БД
   }
 }
 
 export const CategoryCard = ({ category }: CategoryCardProps) => {
   const [hasError, setHasError] = useState(false)
 
-  // Проверяем, есть ли у нас image и не пустая ли строка
   const hasImage = category.image && category.image.trim() !== ''
 
-  // Если нет картинки в данных — сразу заглушка
+  // Заглушка при отсутствии изображения
   if (!hasImage) {
     return (
       <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
@@ -29,7 +28,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
     )
   }
 
-  // Если картинка есть, но загрузить не удалось — показываем заглушку
+  // Заглушка при ошибке загрузки
   if (hasError) {
     return (
       <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
@@ -42,12 +41,12 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
     )
   }
 
-  // Всё хорошо — показываем картинку
+  // Успешная загрузка изображения
   return (
     <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
       <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-gray-800">
         <img
-          src={category.image}
+          src={category.image!}
           alt={category.name}
           className="w-full h-full object-cover"
           onError={() => setHasError(true)}

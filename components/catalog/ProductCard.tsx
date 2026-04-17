@@ -12,7 +12,6 @@ export const ProductCard = ({ product }: { product: Product }) => {
   const isPopular = product.popularity ? product.popularity > 80 : false
   const isFeatured = product.featured || false
 
-  // Проверяем, есть ли у товара главное изображение
   const hasImage = product.image && product.image.trim() !== ''
 
   return (
@@ -22,7 +21,7 @@ export const ProductCard = ({ product }: { product: Product }) => {
         {isPopular && <span className="bg-yellow-600 text-white text-xs px-2 py-0.5 rounded-full">Популярное</span>}
         {isFeatured && <span className="bg-accent text-white text-xs px-2 py-0.5 rounded-full">Рекомендуемое</span>}
       </div>
-      <Link href={`/product/${product.id}`}>
+      <Link href={`/product/${product.article}`}>
         <div className="relative aspect-square bg-[#0a1220]">
           {hasImage ? (
             <Image 
@@ -32,7 +31,6 @@ export const ProductCard = ({ product }: { product: Product }) => {
               className="object-contain p-3 group-hover:scale-105 transition" 
             />
           ) : (
-            // Заглушка — стилизованный div с текстом
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm p-4 text-center bg-gray-800">
               Заглушка
             </div>
@@ -41,10 +39,10 @@ export const ProductCard = ({ product }: { product: Product }) => {
       </Link>
       <div className="p-4">
         <div className="flex justify-between items-start">
-          <Link href={`/product/${product.id}`}>
+          <Link href={`/product/${product.article}`}>
             <h3 className="font-bold text-lg text-white hover:text-accent transition line-clamp-2">{product.name}</h3>
           </Link>
-          <FavoritesButton productId={product.id} />
+          <FavoritesButton productId={product.article} />
         </div>
         <div className="flex gap-2 mt-2 flex-wrap">
           <span className="chip">{product.gameSystem}</span>

@@ -1,9 +1,10 @@
+// app/catalog/page.tsx
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { FilterPanel } from '@/components/catalog/FilterPanel'
-import type { FilterState } from '@/components/catalog/FilterPanel'  // импортируем тип из FilterPanel
+import type { FilterState } from '@/components/catalog/FilterPanel'
 import { SortDropdown } from '@/components/catalog/SortDropdown'
 import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
@@ -12,7 +13,6 @@ import { fetchAllProducts } from '@/lib/api'
 import type { Product } from '@/types'
 
 export default function CatalogPage() {
-  // Явно указываем типы для всех состояний
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [activeFiltersObj, setActiveFiltersObj] = useState<Record<string, string[]>>({})
@@ -21,7 +21,6 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState<boolean>(true)
   const itemsPerPage = 9
 
-  // Загружаем товары при монтировании
   useEffect(() => {
     fetchAllProducts()
       .then((data: Product[]) => {
@@ -35,11 +34,9 @@ export default function CatalogPage() {
       })
   }, [])
 
-  // Обработчик изменения фильтров
   const handleFilterChange = useCallback((filtered: Product[], activeFilters: FilterState) => {
     setFilteredProducts(filtered)
     setCurrentPage(1)
-    // Преобразуем FilterState в Record<string, string[]> для компонента ActiveFilters
     const newActive: Record<string, string[]> = {}
     for (const key in activeFilters) {
       const value = activeFilters[key as keyof FilterState]
@@ -50,7 +47,6 @@ export default function CatalogPage() {
     setActiveFiltersObj(newActive)
   }, [])
 
-  // Сортировка товаров
   const sortedProducts = useMemo<Product[]>(() => {
     const list = [...filteredProducts]
     switch (sortBy) {
@@ -79,14 +75,12 @@ export default function CatalogPage() {
     return list
   }, [filteredProducts, sortBy])
 
-  // Пагинация
   const paginated = useMemo<Product[]>(() => {
     return sortedProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
   }, [sortedProducts, currentPage])
 
   const totalPages = Math.ceil(sortedProducts.length / itemsPerPage)
 
-  // Заглушки для обработчиков фильтров (пока просто перезагрузка)
   const handleRemoveFilter = (key: string, value: string) => {
     window.location.reload()
   }
@@ -121,7 +115,7 @@ export default function CatalogPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {paginated.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.article} product={product} />
               ))}
             </div>
           )}
