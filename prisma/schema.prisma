@@ -18,10 +18,10 @@ model User {
   role      String    @default("user")
   createdAt DateTime  @default(now())
   orders    Order[]
-  cartItems CartItem[]   // ← добавлено
+  cartItems CartItem[]
 }
 
-// Товар – теперь первичный ключ article (уникальный артикул)
+// Товар – первичный ключ article (уникальный артикул)
 model Product {
   article        String      @id
   name           String
@@ -38,13 +38,11 @@ model Product {
   fileFormat     String
   tags           String
   inStock        Boolean     @default(true)
-  downloadsCount Int         @default(0)
-  fileUrl        String?
   createdAt      DateTime    @default(now())
   featured       Boolean     @default(false)
   popularity     Int         @default(0)
   orderItems     OrderItem[]
-  cartItems      CartItem[]   // ← добавлено
+  cartItems      CartItem[]
 }
 
 // Категория
@@ -65,12 +63,12 @@ model Order {
   userId         String
   user           User        @relation(fields: [userId], references: [id])
   total          Int
-  status         String      @default("pending") // pending, processing, shipped, delivered, cancelled
-  address        String      // адрес доставки
-  phone          String?     // телефон для связи
-  comment        String?     // комментарий к заказу
-  deliveryMethod String?     // способ доставки (например, "СДЭК", "Почта России")
-  paymentMethod  String?     // способ оплаты (пока демо)
+  status         String      @default("pending")
+  address        String
+  phone          String?
+  comment        String?
+  deliveryMethod String?
+  paymentMethod  String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   items          OrderItem[]
@@ -87,17 +85,7 @@ model OrderItem {
   priceAtPurchase Int
 }
 
-// Токены для скачивания
-model DownloadToken {
-  id             String   @id @default(cuid())
-  token          String   @unique
-  orderId        String
-  productArticle String
-  expiresAt      DateTime
-  used           Boolean  @default(false)
-}
-
-// Корзина (новая модель)
+// Корзина
 model CartItem {
   id             String   @id @default(cuid())
   userId         String
