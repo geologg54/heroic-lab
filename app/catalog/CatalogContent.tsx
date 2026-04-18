@@ -122,21 +122,24 @@ export default function CatalogContent({
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-8">
-      <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+    <div className="px-4 py-8 lg:px-0">
+      {/* Хлебные крошки – с отступом слева как у фильтров */}
+      <div className="max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[1.5vw]">
+        <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+      </div>
 
       {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
-      <div className="hidden lg:block mt-6 relative">
-        {/* Фильтры — прижаты к левому краю */}
-        <aside className="fixed left-0 top-[120px] w-[260px] z-10">
-          <div className="max-h-[calc(100vh-140px)] overflow-y-auto px-4">
-            <FilterPanel products={products} onFilter={handleFilterChange} />
+      <div className="hidden lg:block mt-6 w-full">
+        <div className="flex w-full">
+          {/* Левый блок (15% экрана) – внутри фильтры с отступом и меньшей шириной */}
+          <div className="w-[15vw] flex-shrink-0">
+            <aside className="ml-[1.5vw] w-[13.5vw]">
+              <FilterPanel products={products} onFilter={handleFilterChange} />
+            </aside>
           </div>
-        </aside>
 
-        {/* Сетка товаров — строго по центру экрана */}
-        <div className="flex justify-center">
-          <main className="w-[1560px] max-w-full">
+          {/* Центральный блок – сетка товаров (70% экрана) */}
+          <main className="w-[70vw] flex-shrink-0 px-4">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
               <SortDropdown onSort={handleSortChange} products={products} />
               <span className="text-gray-400 text-sm">Найдено: {total}</span>
@@ -151,7 +154,7 @@ export default function CatalogContent({
             ) : products.length === 0 ? (
               <div className="text-center py-20 text-gray-400">Товары не найдены</div>
             ) : (
-              <div className="grid grid-cols-3 gap-[30px]">
+              <div className="grid grid-cols-3 gap-[5%]">
                 {products.map(product => (
                   <ProductCard key={product.article} product={product} />
                 ))}
@@ -165,6 +168,9 @@ export default function CatalogContent({
               />
             )}
           </main>
+
+          {/* Правый блок (15% экрана) – пусто */}
+          <div className="w-[15vw] flex-shrink-0"></div>
         </div>
       </div>
 
