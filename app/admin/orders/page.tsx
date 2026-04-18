@@ -4,6 +4,16 @@
 import { useState, useEffect } from 'react'
 import { Eye } from 'lucide-react'
 
+// Вспомогательная функция для получения отображаемого имени покупателя
+function getCustomerDisplay(order: any): string {
+  if (order.user) {
+    // Авторизованный пользователь
+    return order.user.name || order.user.email || 'Без имени'
+  }
+  // Гостевой заказ
+  return order.guestName || order.guestEmail || 'Гость'
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,6 +29,7 @@ export default function AdminOrdersPage() {
       : '/api/admin/orders'
     const res = await fetch(url)
     const data = await res.json()
+    // data.orders уже содержит преобразованные данные (customerName и т.д.)
     setOrders(data.orders)
     setLoading(false)
   }
@@ -44,18 +55,18 @@ export default function AdminOrdersPage() {
           className="bg-cardbg border border-borderLight rounded-lg px-4 py-2 text-white"
         >
           <option value="">Все статусы</option>
-          <option value="pending">Ожидает</option>
           <option value="processing">В обработке</option>
           <option value="shipped">Отправлен</option>
           <option value="delivered">Доставлен</option>
           <option value="cancelled">Отменён</option>
         </select>
       </div>
+
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
             <tr className="text-gray-400">
-              <th className="p-3">ID заказа</th>
+              <th className="p-3">№ заказа</th>
               <th className="p-3">Покупатель</th>
               <th className="p-3">Сумма</th>
               <th className="p-3">Статус</th>
@@ -66,8 +77,8 @@ export default function AdminOrdersPage() {
           <tbody>
             {orders.map(order => (
               <tr key={order.id} className="border-t border-borderLight">
-                <td className="p-3">{order.id.slice(-8)}</td>
-                <td className="p-3">{order.user?.name || order.user?.email}</td>
+                <td className="p-3 font-mono">{order.orderNumber}</td>
+                <td className="p-3">{getCustomerDisplay(order)}</td>
                 <td className="p-3">{order.total} ₽</td>
                 <td className="p-3">
                   <select
@@ -75,7 +86,6 @@ export default function AdminOrdersPage() {
                     onChange={(e) => handleStatusChange(order.id, e.target.value)}
                     className="bg-[#0f2a42] border border-borderLight rounded px-2 py-1 text-sm text-white"
                   >
-                    <option value="pending">Ожидает</option>
                     <option value="processing">В обработке</option>
                     <option value="shipped">Отправлен</option>
                     <option value="delivered">Доставлен</option>
