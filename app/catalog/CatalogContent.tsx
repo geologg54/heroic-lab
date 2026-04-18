@@ -1,4 +1,4 @@
-// app/catalog/CatalogContent.tsx
+// components/catalog/CatalogContent.tsx
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -122,16 +122,56 @@ export default function CatalogContent({
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-screen-2xl mx-auto px-4 py-8">
       <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
-      <div className="flex flex-col lg:flex-row gap-8 mt-6">
-        <aside className="lg:w-1/4">
-          <FilterPanel
-            products={products} // для получения опций фильтра
-            onFilter={handleFilterChange}
-          />
+
+      {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
+      <div className="hidden lg:block mt-6 relative">
+        {/* Фильтры — прижаты к левому краю */}
+        <aside className="fixed left-0 top-[120px] w-[260px] z-10">
+          <div className="max-h-[calc(100vh-140px)] overflow-y-auto px-4">
+            <FilterPanel products={products} onFilter={handleFilterChange} />
+          </div>
         </aside>
-        <main className="lg:w-3/4">
+
+        {/* Сетка товаров — строго по центру экрана */}
+        <div className="flex justify-center">
+          <main className="w-[1560px] max-w-full">
+            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+              <SortDropdown onSort={handleSortChange} products={products} />
+              <span className="text-gray-400 text-sm">Найдено: {total}</span>
+            </div>
+            <ActiveFilters
+              filters={activeFilters}
+              onRemove={handleRemoveFilter}
+              onClearAll={handleClearAllFilters}
+            />
+            {loading ? (
+              <div className="text-center py-20 text-white">Загрузка...</div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-20 text-gray-400">Товары не найдены</div>
+            ) : (
+              <div className="grid grid-cols-3 gap-[30px]">
+                {products.map(product => (
+                  <ProductCard key={product.article} product={product} />
+                ))}
+              </div>
+            )}
+            {totalPages > 1 && (
+              <Pagination
+                totalPages={totalPages}
+                currentPage={page}
+                onPageChange={handlePageChange}
+              />
+            )}
+          </main>
+        </div>
+      </div>
+
+      {/* МОБИЛЬНАЯ ВЕРСИЯ (без изменений) */}
+      <div className="lg:hidden mt-6">
+        <FilterPanel products={products} onFilter={handleFilterChange} />
+        <div className="mt-6">
           <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
             <SortDropdown onSort={handleSortChange} products={products} />
             <span className="text-gray-400 text-sm">Найдено: {total}</span>
@@ -146,7 +186,7 @@ export default function CatalogContent({
           ) : products.length === 0 ? (
             <div className="text-center py-20 text-gray-400">Товары не найдены</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {products.map(product => (
                 <ProductCard key={product.article} product={product} />
               ))}
@@ -159,7 +199,7 @@ export default function CatalogContent({
               onPageChange={handlePageChange}
             />
           )}
-        </main>
+        </div>
       </div>
     </div>
   )
