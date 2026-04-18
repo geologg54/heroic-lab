@@ -7,12 +7,12 @@ export interface CategoryRef {
 }
 
 export interface Product {
-  article: string
+  article: string               // артикул, первичный ключ
   name: string
   price: number
   oldPrice?: number | null
-  image: string
-  images: string[]
+  image: string                 // первое изображение (для карточек)
+  images: string[]              // все изображения
   category: string | CategoryRef
   categorySlug: string
   categoryName?: string
@@ -26,8 +26,6 @@ export interface Product {
   gameSystem: string
   tags: string[]
   inStock: boolean
-  downloadsCount: number
-  isDigital?: boolean
   popularity?: number | null
   featured?: boolean
   new?: boolean
