@@ -57,7 +57,6 @@ export const ProductCard = ({ product }: { product: Product }) => {
           В корзину
           </button>
         </div>
-        <div className="mt-2 text-xs text-gray-400">📥 Цифровая загрузка</div>
       </div>
     </div>
   )
