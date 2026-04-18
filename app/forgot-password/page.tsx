@@ -27,8 +27,8 @@ export default function ForgotPasswordPage() {
               required
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
             />
-            <button type="submit" className="w-full border border-gray-400 hover:bg-accent hover:border-accent py-3 rounded-lg font-bold text-white">
-              Отправить ссылку
+            <button type="submit" className="w-full border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white py-3 rounded-lg font-bold text-white transition-colors duration-300">
+            Отправить ссылку
             </button>
           </form>
         ) : (

@@ -53,8 +53,8 @@ export const ProductCard = ({ product }: { product: Product }) => {
             <span className="text-2xl font-bold text-amber-400">{product.price} ₽</span>
             {product.oldPrice && <span className="ml-2 line-through text-gray-500 text-sm">{product.oldPrice} ₽</span>}
           </div>
-          <button onClick={() => addToCart(product)} className="border border-gray-400 hover:bg-accent hover:border-accent text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-            В корзину
+          <button onClick={() => addToCart(product)} className="border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-300">
+          В корзину
           </button>
         </div>
         <div className="mt-2 text-xs text-gray-400">📥 Цифровая загрузка</div>

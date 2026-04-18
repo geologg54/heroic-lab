@@ -146,11 +146,11 @@ export default function CheckoutPage() {
             </div>
           )}
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50"
+          type="submit"
+          disabled={loading}
+          className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50 hover:bg-white hover:text-darkbg hover:border-white border border-transparent transition-colors duration-300"
           >
-            {loading ? 'Оформление...' : `Подтвердить заказ на ${totalPrice} ₽`}
+         {loading ? 'Оформление...' : `Подтвердить заказ на ${totalPrice} ₽`}
           </button>
           <p className="text-xs text-gray-400 text-center">
             Нажимая кнопку, вы соглашаетесь с условиями доставки и оплаты.

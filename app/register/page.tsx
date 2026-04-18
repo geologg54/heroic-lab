@@ -87,11 +87,11 @@ export default function RegisterPage() {
             disabled={loading}
           />
           <button
-            type="submit"
-            className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50"
-            disabled={loading}
+          type="submit"
+          className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50 hover:bg-white hover:text-darkbg hover:border-white border border-transparent transition-colors duration-300"
+          disabled={loading}
           >
-            {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+          {loading ? 'Регистрация...' : 'Зарегистрироваться'}
           </button>
         </form>
         <div className="mt-4 text-center text-sm text-gray-400">

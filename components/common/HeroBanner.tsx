@@ -51,7 +51,7 @@ export const HeroBanner = ({
         <p className="text-xl text-gray-300 mb-8">{subtitle}</p>
         <Link 
           href={ctaLink} 
-          className="inline-block border border-gray-400 hover:bg-accent hover:border-accent text-white px-8 py-3 rounded-lg font-semibold transition duration-300"
+          className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
         >
           {ctaText}
         </Link>
