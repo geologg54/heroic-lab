@@ -79,7 +79,6 @@ export async function POST(request: Request) {
       faction: faction || null,
       fileFormat: fileFormat || 'STL',
       tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-      inStock: inStock ?? true,
       featured: featured ?? false
     },
     include: { category: true }
