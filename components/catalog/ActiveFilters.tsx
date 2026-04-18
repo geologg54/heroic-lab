@@ -1,10 +1,11 @@
 // components/catalog/ActiveFilters.tsx
 'use client'
 import { X } from 'lucide-react'
+import { FilterState } from './FilterPanel'
 
 interface ActiveFiltersProps {
-  filters: Record<string, string[]>
-  onRemove: (key: string, value: string) => void
+  filters: FilterState
+  onRemove: (key: keyof FilterState, value: string) => void
   onClearAll: () => void
 }
 
@@ -24,11 +25,11 @@ export const ActiveFilters = ({ filters, onRemove, onClearAll }: ActiveFiltersPr
 
   return (
     <div className="flex flex-wrap gap-2 mb-4">
-      {Object.entries(filters).map(([key, values]) => 
-        values.map(value => (
+      {Object.entries(filters).map(([key, values]) =>
+        values.map((value: string) => (   // ← добавили : string
           <span key={`${key}-${value}`} className="bg-accent/20 text-accent text-sm px-2 py-1 rounded-full flex items-center gap-1">
             {filterLabels[key] || key}: {value}
-            <button onClick={() => onRemove(key, value)}><X size={14} /></button>
+            <button onClick={() => onRemove(key as keyof FilterState, value)}><X size={14} /></button>
           </span>
         ))
       )}

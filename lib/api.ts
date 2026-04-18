@@ -20,13 +20,22 @@ function parseStringToArray(value: any): string[] {
 }
 
 export async function fetchAllProducts(): Promise<Product[]> {
-  const res = await fetch(`${API_BASE}/products`, {
+  // Запрашиваем с большим limit, чтобы получить все товары
+  const res = await fetch(`${API_BASE}/products?limit=1000`, {
     cache: 'no-store',
     next: { revalidate: 0 },
   })
-  const products = await handleResponse<any[]>(res)
+  const data = await handleResponse<any>(res)
 
-  return products.map(p => {
+  // API может вернуть { products, ... } или сразу массив (для совместимости)
+  const productsArray = Array.isArray(data) ? data : data.products
+
+  if (!Array.isArray(productsArray)) {
+    console.error('fetchAllProducts: expected array, got', productsArray)
+    return []
+  }
+
+  return productsArray.map((p: any) => {
     const images = parseStringToArray(p.images)
     const tags = parseStringToArray(p.tags)
 
@@ -44,12 +53,13 @@ export async function fetchAllProducts(): Promise<Product[]> {
       images,
       tags,
       categorySlug,
-      categoryName,  // добавляем для удобства
+      categoryName,
       image,
     }
   })
 }
 
+// ✅ Добавлена функция fetchAllCategories
 export async function fetchAllCategories(): Promise<Category[]> {
   const res = await fetch('/api/categories', {
     cache: 'no-store',
