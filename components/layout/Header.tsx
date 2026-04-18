@@ -17,7 +17,7 @@ export default function Header() {
   const isLoading = status === 'loading'
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-[#05192C]/90 backdrop-blur-md">
+    <header className="fixed top-0 left-0 w-full z-50 bg-darkbg/90 backdrop-blur-md">
       <div className="container mx-auto px-4 py-3">
         {/* Мобильная сетка (до lg) */}
         <div className="lg:hidden grid grid-cols-3 items-center">

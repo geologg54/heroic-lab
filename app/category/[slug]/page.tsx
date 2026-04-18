@@ -36,7 +36,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ]}
       />
 
-      <div className="relative rounded-xl overflow-hidden my-6 bg-gradient-to-r from-[#0a2a3f] to-[#05192C] p-8">
+      <div className="relative rounded-xl overflow-hidden my-6 bg-gradient-to-r from-[#0a2a3f] to-[bg-darkbg] p-8">
         <h1 className="text-3xl md:text-4xl font-bold text-white">{category.name}</h1>
         <p className="text-gray-300 mt-2 max-w-2xl">
           Исследуйте {products.length} моделей в этой категории. Цифровые файлы для 3D печати.

@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className={`${rubik.className} bg-[#05192C] min-h-screen`}>
+    <div className={`${rubik.className} bg-darkbg min-h-screen`}>
       <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="lg:ml-64">
         <AdminHeader onMenuClick={() => setSidebarOpen(true)} />

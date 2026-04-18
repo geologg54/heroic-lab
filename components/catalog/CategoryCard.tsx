@@ -43,7 +43,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
   if (!imageSrc) {
     return (
       <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
-        <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-gray-800">
+        <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-darkbg">
           <div className="w-full h-full flex items-center justify-center bg-gray-700 text-white font-semibold text-base">
             Заглушка
           </div>
@@ -55,7 +55,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
   if (hasError) {
     return (
       <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
-        <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-gray-800">
+        <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-darkbg">
           <div className="w-full h-full flex items-center justify-center bg-gray-700 text-white font-semibold text-base">
             Заглушка
           </div>
@@ -66,7 +66,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
 
   return (
     <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
-      <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-gray-800">
+      <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-darkbg">
         <img
           src={imageSrc}
           alt={category.name}

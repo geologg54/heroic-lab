@@ -12,8 +12,8 @@ const config: Config = {
         rubik: ['var(--font-rubik)', 'sans-serif'],
       },
       colors: {
-        darkbg: '#05192C',
-        cardbg: '#0a1a2f',
+        darkbg: '#051A2D',
+        cardbg: '#051A2D',
         borderLight: '#1e3a5f',
         accent: '#3b7a9e',
       },
