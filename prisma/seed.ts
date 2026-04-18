@@ -28,11 +28,10 @@ interface ImportProduct {
 const CATEGORY_SLUG_MAP: Record<string, string> = {
   'D&D': 'dnd',
   'Универсальная': 'universal',
-  'Trench crusade': 'trench-crusade',   // на всякий случай явно
+  'Trench crusade': 'trench-crusade',
 }
 
 function slugify(text: string): string {
-  // Если есть ручной маппинг – используем его
   if (CATEGORY_SLUG_MAP[text]) {
     return CATEGORY_SLUG_MAP[text]
   }
@@ -60,15 +59,14 @@ async function main() {
   const validProducts = products.filter(p => p.article && p.name && p.price)
   console.log(`📦 Найдено ${validProducts.length} валидных товаров`)
 
-  // Очищаем таблицы
+  // Очищаем таблицы (кроме DownloadToken, т.к. модель удалена)
   await prisma.orderItem.deleteMany()
   await prisma.order.deleteMany()
-  await prisma.downloadToken.deleteMany()
   await prisma.product.deleteMany()
   await prisma.category.deleteMany()
 
   // Собираем уникальные категории и создаём их
-  const categoryMap = new Map<string, string>() // сырое название -> slug
+  const categoryMap = new Map<string, string>()
 
   for (const prod of validProducts) {
     const rawCategory = prod.category?.trim()
