@@ -16,7 +16,7 @@ export default function CartPage() {
       <h1 className="text-3xl font-bold text-white mb-8">Корзина</h1>
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
-          {items.map(item => <CartItem key={item.product.id} item={item} />)}
+          {items.map(item => <CartItem key={item.product.article} item={item} />)}
           <button onClick={clearCart} className="text-red-400 text-sm hover:text-red-300">Очистить корзину</button>
         </div>
         <div className="bg-cardbg rounded-xl p-6 border border-borderLight h-fit">
