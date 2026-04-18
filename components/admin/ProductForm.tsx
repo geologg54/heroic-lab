@@ -29,7 +29,6 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
     faction: '',
     fileFormat: 'STL',
     tags: '',
-    inStock: true,
     featured: false
   })
 
@@ -58,7 +57,6 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             faction: data.faction || '',
             fileFormat: data.fileFormat,
             tags: data.tags,
-            inStock: data.inStock,
             featured: data.featured
           })
         })
@@ -249,16 +247,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
         </div>
-        <div className="flex items-center gap-6">
-          <label className="flex items-center gap-2 text-white">
-            <input
-              type="checkbox"
-              name="inStock"
-              checked={form.inStock}
-              onChange={e => setForm({ ...form, inStock: e.target.checked })}
-            />
-            В наличии
-          </label>
+                <div className="flex items-center gap-6">
           <label className="flex items-center gap-2 text-white">
             <input
               type="checkbox"

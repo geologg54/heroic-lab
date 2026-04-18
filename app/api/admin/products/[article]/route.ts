@@ -53,7 +53,6 @@ export async function PUT(
       faction: data.faction,
       fileFormat: data.fileFormat,
       tags: Array.isArray(data.tags) ? data.tags.join(',') : data.tags,
-      inStock: data.inStock,
       featured: data.featured
     },
     include: { category: true }

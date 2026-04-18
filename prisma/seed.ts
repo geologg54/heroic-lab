@@ -12,19 +12,17 @@ interface ImportProduct {
   oldPrice?: number | null
   description: string
   images: string
-  category: string               // сырое название категории из JSON
+  category: string
   gameSystem: string
   scale: string
   type: string
   faction?: string | null
   fileFormat: string
   tags: string
-  inStock?: boolean
   featured?: boolean
   popularity?: number
 }
 
-// Ручной маппинг для категорий, где автоматический slugify даёт нежелательный результат
 const CATEGORY_SLUG_MAP: Record<string, string> = {
   'D&D': 'dnd',
   'Универсальная': 'universal',
@@ -59,13 +57,11 @@ async function main() {
   const validProducts = products.filter(p => p.article && p.name && p.price)
   console.log(`📦 Найдено ${validProducts.length} валидных товаров`)
 
-  // Очищаем таблицы (кроме DownloadToken, т.к. модель удалена)
   await prisma.orderItem.deleteMany()
   await prisma.order.deleteMany()
   await prisma.product.deleteMany()
   await prisma.category.deleteMany()
 
-  // Собираем уникальные категории и создаём их
   const categoryMap = new Map<string, string>()
 
   for (const prod of validProducts) {
@@ -89,7 +85,6 @@ async function main() {
     console.log(`➕ ${rawName} -> /category/${slug}`)
   }
 
-  // Импорт товаров
   let imported = 0
   let skipped = 0
 
@@ -133,7 +128,6 @@ async function main() {
           faction: prod.faction || null,
           fileFormat: prod.fileFormat || 'STL',
           tags: prod.tags || '',
-          inStock: prod.inStock ?? true,
           featured: prod.featured ?? false,
           popularity: prod.popularity ?? 0,
         }

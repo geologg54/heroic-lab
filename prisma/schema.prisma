@@ -37,7 +37,6 @@ model Product {
   faction        String?
   fileFormat     String
   tags           String
-  inStock        Boolean     @default(true)
   createdAt      DateTime    @default(now())
   featured       Boolean     @default(false)
   popularity     Int         @default(0)
@@ -60,10 +59,11 @@ model Category {
 // Заказ
 model Order {
   id             String      @id @default(cuid())
+  orderNumber    Int         @unique // ← новый числовой номер заказа
   userId         String
   user           User        @relation(fields: [userId], references: [id])
   total          Int
-  status         String      @default("pending")
+  status         String      @default("processing") // ← меняем default на processing
   address        String
   phone          String?
   comment        String?
