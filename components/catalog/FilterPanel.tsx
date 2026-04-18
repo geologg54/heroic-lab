@@ -134,7 +134,7 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
   const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: keyof FilterState; options: string[]; selected: string[] }) => {
     const isExpanded = expandedSections[sectionKey]
     return (
-      <div className="border-b border-borderLight pb-3">
+      <div className="pb-3">
         <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-semibold hover:text-accent transition">
           <span>{title}</span>
           {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
