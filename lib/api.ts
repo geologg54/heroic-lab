@@ -1,7 +1,21 @@
 // lib/api.ts
 import type { Category, Product } from '@/types'
 
-const API_BASE = '/api'
+// Функция для получения базового URL в зависимости от окружения
+const getBaseUrl = () => {
+  // На клиенте (в браузере) можно использовать относительные пути
+  if (typeof window !== 'undefined') {
+    return ''
+  }
+  // На сервере – абсолютный URL из переменной окружения
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  // Fallback для локальной разработки
+  return 'http://localhost:3000'
+}
+
+const API_BASE = `${getBaseUrl()}/api`
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -20,14 +34,13 @@ function parseStringToArray(value: any): string[] {
 }
 
 export async function fetchAllProducts(): Promise<Product[]> {
-  // Запрашиваем с большим limit, чтобы получить все товары
-  const res = await fetch(`${API_BASE}/products?limit=1000`, {
+  const url = `${API_BASE}/products?limit=1000`
+  const res = await fetch(url, {
     cache: 'no-store',
     next: { revalidate: 0 },
   })
   const data = await handleResponse<any>(res)
 
-  // API может вернуть { products, ... } или сразу массив (для совместимости)
   const productsArray = Array.isArray(data) ? data : data.products
 
   if (!Array.isArray(productsArray)) {
@@ -59,9 +72,9 @@ export async function fetchAllProducts(): Promise<Product[]> {
   })
 }
 
-// ✅ Добавлена функция fetchAllCategories
 export async function fetchAllCategories(): Promise<Category[]> {
-  const res = await fetch('/api/categories', {
+  const url = `${API_BASE}/categories`
+  const res = await fetch(url, {
     cache: 'no-store',
     next: { revalidate: 0 },
   })
@@ -69,10 +82,10 @@ export async function fetchAllCategories(): Promise<Category[]> {
   return data as Category[]
 }
 
-// Получить товар по article
 export async function fetchProductByArticle(article: string): Promise<Product | null> {
   try {
-    const res = await fetch(`${API_BASE}/products/${article}`, {
+    const url = `${API_BASE}/products/${article}`
+    const res = await fetch(url, {
       cache: 'no-store',
       next: { revalidate: 0 },
     })
