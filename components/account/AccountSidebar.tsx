@@ -2,6 +2,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { User, ShoppingBag, Download, Heart, HelpCircle, Settings, LogOut } from 'lucide-react'
 
 export const AccountSidebar = () => {
@@ -22,7 +23,12 @@ export const AccountSidebar = () => {
             <link.icon size={18} /> {link.label}
           </Link>
         ))}
-        <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 w-full hover:bg-white/5" onClick={() => { localStorage.removeItem('user'); window.location.href = '/' }}><LogOut size={18} /> Выйти</button>
+        <button
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 w-full hover:bg-white/5"
+          onClick={() => signOut({ callbackUrl: '/' })}
+        >
+          <LogOut size={18} /> Выйти
+        </button>
       </nav>
     </aside>
   )
