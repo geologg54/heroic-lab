@@ -45,7 +45,7 @@ export default function HomePage() {
     <div>
       <HeroBanner
         title="Героическая лаборатория миниатюр"
-        subtitle="Цифровые 3D-модели для ваших сражений"
+        subtitle="продаем кайф от настольных игр"
         ctaText="Каталог"
         ctaLink="/catalog"
         backgroundImage="/hero-bg.jpg"
@@ -65,7 +65,7 @@ export default function HomePage() {
       <section className="container mx-auto px-4 py-12">
         <CollectionBlock
           title="Коллекция «Траншейный кошмар»"
-          subtitle="Модели для Trench Crusade"
+          subtitle="Миниатюры для Trench Crusade"
           link="/category/trench-crusade"
           products={trenchProducts}
         />
