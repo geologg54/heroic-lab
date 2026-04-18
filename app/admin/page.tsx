@@ -5,6 +5,14 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { QuickActions } from '@/components/admin/QuickActions'
 
+// Вспомогательная функция для отображения покупателя
+function getCustomerDisplay(order: any): string {
+  if (order.user) {
+    return order.user.name || order.user.email || 'Без имени'
+  }
+  return order.guestName || order.guestEmail || 'Гость'
+}
+
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions)
   if (!session?.user || session.user.role !== 'admin') {
@@ -18,7 +26,7 @@ export default async function AdminDashboard() {
     prisma.order.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
-      include: { user: true }
+      include: { user: true } // user может быть null
     })
   ])
 
@@ -49,7 +57,7 @@ export default async function AdminDashboard() {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-gray-400">
-                  <th className="pb-2">ID</th>
+                  <th className="pb-2">№ заказа</th>
                   <th>Покупатель</th>
                   <th>Сумма</th>
                   <th>Статус</th>
@@ -59,8 +67,8 @@ export default async function AdminDashboard() {
               <tbody>
                 {recentOrders.map(order => (
                   <tr key={order.id} className="border-t border-borderLight">
-                    <td className="py-2">{order.id.slice(-8)}</td>
-                    <td>{order.user.name || order.user.email}</td>
+                    <td className="py-2 font-mono">{order.orderNumber}</td>
+                    <td>{getCustomerDisplay(order)}</td>
                     <td>{order.total} ₽</td>
                     <td>{order.status}</td>
                     <td>{new Date(order.createdAt).toLocaleDateString()}</td>

@@ -59,11 +59,13 @@ model Category {
 // Заказ
 model Order {
   id             String      @id @default(cuid())
-  orderNumber    Int         @unique // ← новый числовой номер заказа
-  userId         String
-  user           User        @relation(fields: [userId], references: [id])
+  orderNumber    Int         @unique
+  userId         String?     // ← стало опциональным
+  user           User?       @relation(fields: [userId], references: [id])
+  guestEmail     String?     // ← новое поле
+  guestName      String?     // ← новое поле
   total          Int
-  status         String      @default("processing") // ← меняем default на processing
+  status         String      @default("processing")
   address        String
   phone          String?
   comment        String?
