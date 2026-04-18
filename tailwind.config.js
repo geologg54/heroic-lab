@@ -10,7 +10,7 @@ module.exports = {
         rubik: ['var(--font-rubik)', 'sans-serif'],
       },
       colors: {
-        darkbg: '#05192C',
+        darkbg: '#051A2D',   // изменено
         cardbg: '#0a1a2f',
         borderLight: '#1e3a5f',
         accent: '#3b7a9e',

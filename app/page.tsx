@@ -52,7 +52,7 @@ export default function HomePage() {
       />
       
       {/* Блок с баннерами вселенных – без заголовка, на всю ширину */}
-      <section className="bg-[#071f30] py-12 px-4 md:px-6">
+      <section className="bg-darkbg py-12 px-4 md:px-6">
         <div className="flex flex-col md:flex-row gap-6">
           {categories.map((cat: any) => (
             <div key={cat.slug} className="flex-1">
