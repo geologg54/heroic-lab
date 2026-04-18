@@ -2,9 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@id486809034 (@layer) base {
+@layer base {
   body {
-    background-color: #05192C;
+    background-color: #051A2D;   
     color: #e5e7eb;
     -webkit-font-smoothing: antialiased;
   }
