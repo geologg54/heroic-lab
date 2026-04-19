@@ -18,9 +18,10 @@ export interface FilterState {
 interface FilterPanelProps {
   products: Product[]
   onFilter: (filtered: Product[], activeFilters: FilterState) => void
+  hidePriceSlider?: boolean // новый проп
 }
 
-export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
+export const FilterPanel = ({ products, onFilter, hidePriceSlider = false }: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
@@ -135,7 +136,7 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
     const isExpanded = expandedSections[sectionKey]
     return (
       <div className="pb-3">
-        <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-semibold hover:text-accent transition">
+        <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
           <span>{title}</span>
           {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
         </button>
@@ -162,12 +163,15 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
       <FilterSection title="Масштаб" sectionKey="scales" options={allScales} selected={filters.scales} />
       <FilterSection title="Формат" sectionKey="fileFormats" options={allFileFormats} selected={filters.fileFormats} />
       <FilterSection title="Теги" sectionKey="tags" options={allTags.slice(0, 30)} selected={filters.tags} />
-      <div className="pt-2">
-        <div className="flex justify-between items-center">
-          <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
+      
+      {!hidePriceSlider && (
+        <div className="pt-2">
+          <div className="flex justify-between items-center">
+            <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
+          </div>
+          <input type="range" min={0} max={2000} step={1} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
         </div>
-        <input type="range" min={0} max={2000} step={1} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
-      </div>
+      )}
       <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
     </div>
   )

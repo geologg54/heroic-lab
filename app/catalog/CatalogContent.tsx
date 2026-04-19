@@ -45,16 +45,19 @@ export default function CatalogContent({
     fileFormats: [],
     tags: []
   })
-  const [priceMax, setPriceMax] = useState(2000)
-  const [sortBy, setSortBy] = useState('default')
+  // Фиксированная максимальная цена для ползунка
+  const MAX_PRICE = 3500
+  const [priceMax, setPriceMax] = useState(MAX_PRICE)
+  const [tempPrice, setTempPrice] = useState(MAX_PRICE)
+  const [sortBy, setSortBy] = useState('newest')
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     params.set('page', page.toString())
     params.set('limit', '12')
-    if (sortBy !== 'default') params.set('sort', sortBy)
-    if (priceMax < 2000) params.set('maxPrice', priceMax.toString())
+    if (sortBy !== 'newest') params.set('sort', sortBy) // изменено условие
+    if (priceMax < MAX_PRICE) params.set('maxPrice', priceMax.toString())
 
     if (activeFilters.categories.length) {
       params.set('category', activeFilters.categories[0])
@@ -109,7 +112,8 @@ export default function CatalogContent({
       fileFormats: [],
       tags: []
     })
-    setPriceMax(2000)
+    setPriceMax(MAX_PRICE)
+    setTempPrice(MAX_PRICE)
     setPage(1)
   }
 
@@ -121,9 +125,17 @@ export default function CatalogContent({
     setPage(1)
   }
 
+  const handlePriceChange = (value: number) => {
+    setTempPrice(value)
+  }
+
+  const handlePriceCommit = () => {
+    setPriceMax(tempPrice)
+  }
+
   return (
     <div className="overflow-x-hidden">
-      {/* Хлебные крошки – для десктопа с отступом, для мобилки с отступами по бокам */}
+      {/* Хлебные крошки */}
       <div className="hidden lg:block max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[2vw]">
         <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
       </div>
@@ -132,23 +144,23 @@ export default function CatalogContent({
       </div>
 
       {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
-      <div className="hidden lg:block mt-6 w-full">
+      <div className="hidden lg:block mt-2 w-full">
         <div className="flex w-full">
-          {/* Левый блок – фильтры фиксированы, с отступом от левого края 2vw */}
+          {/* ЛЕВЫЙ САЙДБАР (ФИЛЬТРЫ) */}
           <div className="w-[15vw] flex-shrink-0">
             <aside className="fixed left-[2vw] top-[120px] w-[13vw] z-20 pr-4">
               <div className="max-h-[calc(100vh-140px)] overflow-y-auto">
-                <FilterPanel products={products} onFilter={handleFilterChange} />
+                <FilterPanel 
+                  products={products} 
+                  onFilter={handleFilterChange} 
+                  hidePriceSlider={true}
+                />
               </div>
             </aside>
           </div>
 
-          {/* Центральный блок – сетка товаров (70% экрана) */}
+          {/* ЦЕНТРАЛЬНЫЙ БЛОК (СЕТКА ТОВАРОВ) */}
           <main className="mx-auto w-[70vw] px-4 pb-8">
-            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-              <SortDropdown onSort={handleSortChange} products={products} />
-              <span className="text-gray-400 text-sm">Найдено: {total}</span>
-            </div>
             <ActiveFilters
               filters={activeFilters}
               onRemove={handleRemoveFilter}
@@ -176,19 +188,48 @@ export default function CatalogContent({
             )}
           </main>
 
-          {/* Правый блок (15% экрана) – пусто */}
-          <div className="w-[15vw] flex-shrink-0"></div>
+          {/* ПРАВЫЙ САЙДБАР (СОРТИРОВКА + ПОЛЗУНОК + КОЛИЧЕСТВО) */}
+          <div className="w-[15vw] flex-shrink-0">
+            <aside className="fixed right-[2vw] top-[120px] w-[13vw] z-20 pl-4">
+              <div className="bg-cardbg p-4 flex flex-col" style={{ minHeight: '200px' }}>
+                <div>
+                  <h3 className="text-white font-normal text-sm mb-2">Упорядочить:</h3>
+                  <SortDropdown onSort={handleSortChange} />
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="text-white font-normal text-sm mb-2">Цена до: {tempPrice} ₽</h3>
+                  <input
+                    type="range"
+                    min={0}
+                    max={MAX_PRICE}
+                    step={10}
+                    value={tempPrice}
+                    onChange={(e) => handlePriceChange(Number(e.target.value))}
+                    onMouseUp={handlePriceCommit}
+                    onKeyUp={(e) => e.key === 'Enter' && handlePriceCommit()}
+                    className="w-full accent-white"
+                    style={{ colorScheme: 'light' }}
+                  />
+                </div>
+
+                <div className="mt-auto pt-4">
+                  <p className="text-white font-semibold text-lg">{total} товаров</p>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
 
-      {/* МОБИЛЬНАЯ ВЕРСИЯ – карточки от края до края, на планшетах 2 колонки */}
+      {/* МОБИЛЬНАЯ ВЕРСИЯ */}
       <div className="lg:hidden mt-6">
         <div className="px-4">
           <FilterPanel products={products} onFilter={handleFilterChange} />
         </div>
         <div className="mt-6">
           <div className="px-4 flex justify-between items-center mb-4 flex-wrap gap-4">
-            <SortDropdown onSort={handleSortChange} products={products} />
+            <SortDropdown onSort={handleSortChange} />
             <span className="text-gray-400 text-sm">Найдено: {total}</span>
           </div>
           <div className="px-4">
