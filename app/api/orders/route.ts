@@ -32,6 +32,8 @@ export async function POST(request: Request) {
       paymentMethod,
       email,        // email, переданный клиентом (для гостей обязателен)
       name,         // имя, переданное клиентом
+      couponId,     // 🆕 ID применённого купона
+      discount = 0, // 🆕 сумма скидки
     } = body
 
     // --- ВАЛИДАЦИЯ ---
@@ -75,7 +77,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Телефон опционален, но если указан – проверяем формат
     if (phone && !isValidPhone(phone)) {
       return NextResponse.json(
         { error: 'Некорректный формат номера телефона' },
@@ -83,11 +84,34 @@ export async function POST(request: Request) {
       )
     }
 
-    // Подсчёт суммы заказа
-    const total = items.reduce(
+    // 🆕 Если передан couponId, проверяем его существование и активность
+    if (couponId) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { id: couponId },
+      })
+      if (!coupon) {
+        return NextResponse.json({ error: 'Купон не найден' }, { status: 400 })
+      }
+      if (!coupon.isActive) {
+        return NextResponse.json({ error: 'Купон неактивен' }, { status: 400 })
+      }
+      if (coupon.validUntil && coupon.validUntil < new Date()) {
+        return NextResponse.json({ error: 'Срок действия купона истёк' }, { status: 400 })
+      }
+      if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+        return NextResponse.json({ error: 'Лимит использований купона исчерпан' }, { status: 400 })
+      }
+      // Дополнительно можно проверить minOrderAmount, но это уже делалось на клиенте
+    }
+
+    // Подсчёт суммы заказа (без скидки)
+    const itemsTotal = items.reduce(
       (sum: number, item: any) => sum + item.product.price * item.quantity,
       0
     )
+
+    // Итоговая сумма с учётом скидки
+    const total = Math.max(itemsTotal - discount, 0)
 
     // Генерируем следующий номер заказа
     const lastOrder = await prisma.order.findFirst({
@@ -100,16 +124,18 @@ export async function POST(request: Request) {
     const order = await prisma.order.create({
       data: {
         orderNumber: nextOrderNumber,
-        userId: userId || undefined,   // если гость – userId = undefined
+        userId: userId || undefined,
         guestEmail: guestEmail,
         guestName: guestName,
         total,
+        discount,               // 🆕 сохраняем сумму скидки
         address: address.trim(),
         phone: phone?.trim() || null,
         comment: comment?.trim() || null,
         deliveryMethod: deliveryMethod || null,
         paymentMethod: paymentMethod || null,
         status: 'processing',
+        couponId: couponId || null, // 🆕 связь с купоном
         items: {
           create: items.map((item: any) => ({
             productArticle: item.product.article,
@@ -123,6 +149,14 @@ export async function POST(request: Request) {
         user: true,
       },
     })
+
+    // 🆕 Увеличиваем счётчик использований купона
+    if (couponId) {
+      await prisma.coupon.update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      })
+    }
 
     // Очищаем корзину только для авторизованных пользователей
     if (userId) {
