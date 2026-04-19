@@ -42,3 +42,11 @@ next-env.d.ts
 
 /lib/generated/prisma
 prisma/dev.db
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+# Эти файлы обычно коммитят, так что не надо их игнорировать.
+# Но если вы используете .env для Docker, то его игнорируем:
+.env.docker

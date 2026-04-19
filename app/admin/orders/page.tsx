@@ -3,14 +3,12 @@
 
 import { useState, useEffect } from 'react'
 import { Eye } from 'lucide-react'
+import Link from 'next/link'
 
-// Вспомогательная функция для получения отображаемого имени покупателя
 function getCustomerDisplay(order: any): string {
   if (order.user) {
-    // Авторизованный пользователь
     return order.user.name || order.user.email || 'Без имени'
   }
-  // Гостевой заказ
   return order.guestName || order.guestEmail || 'Гость'
 }
 
@@ -29,7 +27,6 @@ export default function AdminOrdersPage() {
       : '/api/admin/orders'
     const res = await fetch(url)
     const data = await res.json()
-    // data.orders уже содержит преобразованные данные (customerName и т.д.)
     setOrders(data.orders)
     setLoading(false)
   }
@@ -71,7 +68,7 @@ export default function AdminOrdersPage() {
               <th className="p-3">Сумма</th>
               <th className="p-3">Статус</th>
               <th className="p-3">Дата</th>
-              <th className="p-3">Действия</th>
+              <th className="p-3 text-center">Просмотр</th>
             </tr>
           </thead>
           <tbody>
@@ -94,9 +91,15 @@ export default function AdminOrdersPage() {
                 </td>
                 <td className="p-3">{new Date(order.createdAt).toLocaleDateString()}</td>
                 <td className="p-3">
-                  <button className="text-accent">
-                    <Eye size={16} />
-                  </button>
+                  <div className="flex justify-center">
+                    <Link
+                      href={`/admin/orders/${order.id}`}
+                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      title="Просмотреть заказ"
+                    >
+                      <Eye size={20} className="text-accent" />
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}

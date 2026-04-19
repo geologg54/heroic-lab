@@ -150,7 +150,7 @@ export default function AdminCategoriesPage() {
               <th className="p-3">Название</th>
               <th className="p-3">Slug</th>
               <th className="p-3">Родитель</th>
-              <th className="p-3">Действия</th>
+              <th className="p-3 text-center">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -159,13 +159,23 @@ export default function AdminCategoriesPage() {
                 <td className="p-3">{cat.name}</td>
                 <td className="p-3">{cat.slug}</td>
                 <td className="p-3">{cat.parent?.name || '—'}</td>
-                <td className="p-3 flex gap-2">
-                  <button onClick={() => handleEdit(cat)} className="text-accent">
-                    <Edit size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(cat.id)} className="text-red-400">
-                    <Trash2 size={16} />
-                  </button>
+                <td className="p-3">
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => handleEdit(cat)}
+                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      title="Редактировать"
+                    >
+                      <Edit size={20} className="text-accent" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cat.id)}
+                      className="p-2 rounded-lg hover:bg-red-900/20 transition-colors"
+                      title="Удалить"
+                    >
+                      <Trash2 size={20} className="text-red-400" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

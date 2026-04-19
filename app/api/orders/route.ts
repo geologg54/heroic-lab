@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
+import { logger } from '@/lib/logger'
 
 // Проверка корректности email
 function isValidEmail(email: string): boolean {
@@ -187,7 +188,7 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (error) {
-    console.error('Ошибка создания заказа:', error)
+    logger.error('Ошибка создания заказа', error)
     return NextResponse.json(
       { error: 'Внутренняя ошибка сервера' },
       { status: 500 }

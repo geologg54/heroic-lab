@@ -234,7 +234,7 @@ export default function AdminCouponsPage() {
               <th className="p-3">Использовано</th>
               <th className="p-3">Срок действия</th>
               <th className="p-3">Статус</th>
-              <th className="p-3">Действия</th>
+              <th className="p-3 text-center">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -261,13 +261,23 @@ export default function AdminCouponsPage() {
                     {coupon.isActive ? <CheckCircle size={20} /> : <XCircle size={20} />}
                   </button>
                 </td>
-                <td className="p-3 flex gap-2">
-                  <button onClick={() => handleEdit(coupon)} className="text-accent">
-                    <Edit size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(coupon.id)} className="text-red-400">
-                    <Trash2 size={16} />
-                  </button>
+                <td className="p-3">
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => handleEdit(coupon)}
+                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      title="Редактировать"
+                    >
+                      <Edit size={20} className="text-accent" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(coupon.id)}
+                      className="p-2 rounded-lg hover:bg-red-900/20 transition-colors"
+                      title="Удалить"
+                    >
+                      <Trash2 size={20} className="text-red-400" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
