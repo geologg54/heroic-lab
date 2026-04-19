@@ -18,7 +18,7 @@ export const ProductCard = ({ product }: { product: Product }) => {
   }
 
   return (
-    <div className="group relative bg-darkbg transition-all duration-300 hover:shadow-xl flex flex-col w-full border border-white/10">
+    <div className="group relative bg-darkbg transition-all duration-300 hover:shadow-xl flex flex-col w-full">
       <Link href={`/product/${product.article}`} className="block flex flex-col">
         {/* Изображение — квадрат, не сжимается */}
         <div className="relative aspect-square w-full bg-darkbg overflow-hidden flex-shrink-0">

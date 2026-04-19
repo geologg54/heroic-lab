@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Product } from '@/types'
 import { SlidersHorizontal, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 
 export interface FilterState {
   categories: string[]
@@ -33,6 +34,9 @@ interface FilterContentProps {
   toggleFilter: (key: keyof FilterState, value: string) => void
   resetFilters: () => void
   hidePriceSlider?: boolean
+  showActiveFilters?: boolean // новый проп
+  onRemoveFilter?: (key: keyof FilterState, value: string) => void // для активных фильтров
+  onClearAllFilters?: () => void
 }
 
 // Экспортируем содержимое фильтров отдельно
@@ -47,6 +51,9 @@ export const FilterContent = ({
   toggleFilter,
   resetFilters,
   hidePriceSlider = false,
+  showActiveFilters = false,
+  onRemoveFilter,
+  onClearAllFilters,
 }: FilterContentProps) => {
   const allCategories = [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))]
   const allSubcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory as string))]
@@ -78,6 +85,8 @@ export const FilterContent = ({
     )
   }
 
+  const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
+
   return (
     <div className="space-y-4">
       <FilterSection title="Категория" sectionKey="categories" options={allCategories} selected={filters.categories} />
@@ -97,6 +106,18 @@ export const FilterContent = ({
           <input type="range" min={0} max={2000} step={1} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
         </div>
       )}
+
+      {/* Активные фильтры (только если включено и есть фильтры) */}
+      {showActiveFilters && hasActiveFilters && onRemoveFilter && onClearAllFilters && (
+        <div className="pt-2">
+          <ActiveFilters
+            filters={filters}
+            onRemove={onRemoveFilter}
+            onClearAll={onClearAllFilters}
+          />
+        </div>
+      )}
+
       <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
     </div>
   )

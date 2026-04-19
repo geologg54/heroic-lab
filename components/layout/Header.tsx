@@ -12,7 +12,7 @@ import { useCart } from '@/hooks/useCart'
 export default function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { data: session, status } = useSession()
-  const { totalItems } = useCart()
+  const { totalItems, totalPrice } = useCart()
 
   const isLoading = status === 'loading'
 
@@ -31,7 +31,7 @@ export default function Header() {
           {/* Центральная колонка: логотип точно по центру */}
           <Link href="/" className="justify-self-center">
             <img
-              src="/logo-mobile.png"
+              src="/logo.png"
               alt="Героическая лаборатория миниатюр"
               className="h-10 w-auto"
             />
@@ -39,8 +39,11 @@ export default function Header() {
 
           {/* Правая колонка: только корзина */}
           <div className="flex items-center gap-3 justify-self-end">
-            <Link href="/cart" className="relative text-white">
-              <ShoppingBag size={22} />
+            <Link href="/cart" className="relative text-white flex items-center gap-1">
+              {totalItems > 0 && (
+                <span className="text-white font-semibold text-sm">{totalPrice} ₽</span>
+              )}
+              <img src="/cardicontop.png" alt="Корзина" className="w-8 h-8" />
               {totalItems > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {totalItems}
@@ -69,11 +72,27 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/search" className="md:hidden text-white">
-              <Search size={22} />
+            {/* Корзина (первая слева) */}
+            <Link href="/cart" className="relative text-white flex items-center gap-1">
+              {totalItems > 0 && (
+                <span className="text-white font-semibold text-lg">{totalPrice} ₽</span>
+              )}
+              <img src="/cardicontop.png" alt="Корзина" className="w-8 h-8" />
+              {totalItems > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
             </Link>
+
+            {/* Избранное */}
             <Link href="/account/favorites" className="text-white">
               <Heart size={22} />
+            </Link>
+
+            {/* Поиск (скрыт на md, так как есть SearchBar) */}
+            <Link href="/search" className="md:hidden text-white">
+              <Search size={22} />
             </Link>
 
             {isLoading ? (
@@ -96,15 +115,6 @@ export default function Header() {
                 <User size={22} />
               </Link>
             )}
-
-            <Link href="/cart" className="relative text-white">
-              <ShoppingBag size={22} />
-              {totalItems > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {totalItems}
-                </span>
-              )}
-            </Link>
           </div>
         </div>
       </div>
