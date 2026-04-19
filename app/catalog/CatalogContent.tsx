@@ -122,24 +122,29 @@ export default function CatalogContent({
   }
 
   return (
-    <div className="px-4 py-8 lg:px-0">
-      {/* Хлебные крошки – с отступом слева как у фильтров */}
-      <div className="max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[1.5vw]">
+    <div className="overflow-x-hidden">
+      {/* Хлебные крошки – для десктопа с отступом, для мобилки с отступами по бокам */}
+      <div className="hidden lg:block max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[2vw]">
+        <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+      </div>
+      <div className="lg:hidden px-4">
         <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
       </div>
 
       {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
       <div className="hidden lg:block mt-6 w-full">
         <div className="flex w-full">
-          {/* Левый блок (15% экрана) – внутри фильтры с отступом и меньшей шириной */}
+          {/* Левый блок – фильтры фиксированы, с отступом от левого края 2vw */}
           <div className="w-[15vw] flex-shrink-0">
-            <aside className="ml-[1.5vw] w-[13.5vw]">
-              <FilterPanel products={products} onFilter={handleFilterChange} />
+            <aside className="fixed left-[2vw] top-[120px] w-[13vw] z-20 pr-4">
+              <div className="max-h-[calc(100vh-140px)] overflow-y-auto">
+                <FilterPanel products={products} onFilter={handleFilterChange} />
+              </div>
             </aside>
           </div>
 
           {/* Центральный блок – сетка товаров (70% экрана) */}
-          <main className="w-[70vw] flex-shrink-0 px-4">
+          <main className="mx-auto w-[70vw] px-4 pb-48">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
               <SortDropdown onSort={handleSortChange} products={products} />
               <span className="text-gray-400 text-sm">Найдено: {total}</span>
@@ -154,18 +159,20 @@ export default function CatalogContent({
             ) : products.length === 0 ? (
               <div className="text-center py-20 text-gray-400">Товары не найдены</div>
             ) : (
-              <div className="grid grid-cols-3 gap-[5%]">
+              <div className="grid grid-cols-3 gap-[1.25%] auto-rows-fr">
                 {products.map(product => (
                   <ProductCard key={product.article} product={product} />
                 ))}
               </div>
             )}
             {totalPages > 1 && (
-              <Pagination
-                totalPages={totalPages}
-                currentPage={page}
-                onPageChange={handlePageChange}
-              />
+              <div className="mt-16 mb-16">
+                <Pagination
+                  totalPages={totalPages}
+                  currentPage={page}
+                  onPageChange={handlePageChange}
+                />
+              </div>
             )}
           </main>
 
@@ -174,36 +181,42 @@ export default function CatalogContent({
         </div>
       </div>
 
-      {/* МОБИЛЬНАЯ ВЕРСИЯ (без изменений) */}
+      {/* МОБИЛЬНАЯ ВЕРСИЯ – карточки от края до края, на планшетах 2 колонки */}
       <div className="lg:hidden mt-6">
-        <FilterPanel products={products} onFilter={handleFilterChange} />
+        <div className="px-4">
+          <FilterPanel products={products} onFilter={handleFilterChange} />
+        </div>
         <div className="mt-6">
-          <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+          <div className="px-4 flex justify-between items-center mb-4 flex-wrap gap-4">
             <SortDropdown onSort={handleSortChange} products={products} />
             <span className="text-gray-400 text-sm">Найдено: {total}</span>
           </div>
-          <ActiveFilters
-            filters={activeFilters}
-            onRemove={handleRemoveFilter}
-            onClearAll={handleClearAllFilters}
-          />
+          <div className="px-4">
+            <ActiveFilters
+              filters={activeFilters}
+              onRemove={handleRemoveFilter}
+              onClearAll={handleClearAllFilters}
+            />
+          </div>
           {loading ? (
             <div className="text-center py-20 text-white">Загрузка...</div>
           ) : products.length === 0 ? (
             <div className="text-center py-20 text-gray-400">Товары не найдены</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {products.map(product => (
                 <ProductCard key={product.article} product={product} />
               ))}
             </div>
           )}
           {totalPages > 1 && (
-            <Pagination
-              totalPages={totalPages}
-              currentPage={page}
-              onPageChange={handlePageChange}
-            />
+            <div className="mt-8 pb-20 flex justify-center">
+              <Pagination
+                totalPages={totalPages}
+                currentPage={page}
+                onPageChange={handlePageChange}
+              />
+            </div>
           )}
         </div>
       </div>
