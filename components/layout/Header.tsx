@@ -17,7 +17,7 @@ export default function Header() {
   const isLoading = status === 'loading'
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-darkbg/90 backdrop-blur-md">
+    <header className="fixed top-0 left-0 w-full z-50 bg-darkbg">
       <div className="container mx-auto px-4 py-3">
         {/* Мобильная версия (до lg) — сетка из трёх колонок для идеального центрирования логотипа */}
         <div className="lg:hidden grid grid-cols-3 items-center">
@@ -37,14 +37,8 @@ export default function Header() {
             />
           </Link>
 
-          {/* Правая колонка: иконки действий */}
+          {/* Правая колонка: только корзина */}
           <div className="flex items-center gap-3 justify-self-end">
-            <Link href="/search" className="text-white">
-              <Search size={22} />
-            </Link>
-            <Link href="/account/favorites" className="text-white">
-              <Heart size={22} />
-            </Link>
             <Link href="/cart" className="relative text-white">
               <ShoppingBag size={22} />
               {totalItems > 0 && (
