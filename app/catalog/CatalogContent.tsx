@@ -144,7 +144,7 @@ export default function CatalogContent({
           </div>
 
           {/* Центральный блок – сетка товаров (70% экрана) */}
-          <main className="mx-auto w-[70vw] px-4 pb-48">
+          <main className="mx-auto w-[70vw] px-4 pb-8">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
               <SortDropdown onSort={handleSortChange} products={products} />
               <span className="text-gray-400 text-sm">Найдено: {total}</span>
@@ -166,7 +166,7 @@ export default function CatalogContent({
               </div>
             )}
             {totalPages > 1 && (
-              <div className="mt-16 mb-16">
+              <div className="mt-24 mb-24">
                 <Pagination
                   totalPages={totalPages}
                   currentPage={page}
