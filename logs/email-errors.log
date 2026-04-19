@@ -1,0 +1,12 @@
+[2026-04-19T13:11:13.000Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100001 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604144-39QkCsASmqM0
+
+[2026-04-19T13:11:13.021Z] Ошибка отправки письма на test@test.test (тема: Ваш заказ №100001 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604144-39Qb4WxS5Cg0
+
+[2026-04-19T13:13:39.847Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100002 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604291-UBQEoLBT7iE0
+
+[2026-04-19T13:13:39.863Z] Ошибка отправки письма на test@test.test (тема: Ваш заказ №100002 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604291-UBQmrCASsqM0
+
