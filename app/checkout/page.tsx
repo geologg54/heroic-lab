@@ -93,15 +93,16 @@ export default function CheckoutPage() {
 
     const data = await res.json()
 
-    if (!res.ok) {
-      setError(data.error || 'Ошибка оформления заказа')
-      setLoading(false)
-      return
-    }
+if (!res.ok) {
+  setError(data.error || 'Ошибка оформления заказа')
+  setLoading(false)
+  return
+}
 
-    setSubmitted(true)
-    clearCart()
-    setTimeout(() => router.push('/account/orders'), 3000)
+setSubmitted(true)
+clearCart()
+// 🆕 Для гостей — на главную, для авторизованных — в историю заказов
+setTimeout(() => router.push(session?.user ? '/account/orders' : '/'), 3000)
   }
 
   if (submitted) {
