@@ -1,30 +1,70 @@
 // app/admin/products/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Plus, Edit, Trash2 } from 'lucide-react'
+import { SearchFilter } from '@/components/ui/SearchFilter'
+import Pagination from '@/components/catalog/Pagination'
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // 🆕 Состояния для пагинации и поиска
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
+  
+  const limit = 20 // товаров на странице
+
+  // 🆕 Функция загрузки товаров с учётом пагинации и поиска
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: limit.toString(),
+      })
+      if (searchQuery) {
+        params.set('search', searchQuery)
+      }
+      
+      const res = await fetch(`/api/admin/products?${params.toString()}`)
+      const data = await res.json()
+      setProducts(data.products)
+      setTotalPages(data.totalPages)
+    } catch (error) {
+      console.error('Ошибка загрузки товаров:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, searchQuery])
 
   useEffect(() => {
-    fetch('/api/admin/products')
-      .then(res => res.json())
-      .then(data => {
-        setProducts(data.products)
-        setLoading(false)
-      })
-  }, [])
+    fetchProducts()
+  }, [fetchProducts])
 
   const handleDelete = async (article: string) => {
     if (!confirm('Удалить товар?')) return
     await fetch(`/api/admin/products/${article}`, { method: 'DELETE' })
-    setProducts(prev => prev.filter(p => p.article !== article))
+    // Обновляем список после удаления
+    fetchProducts()
   }
 
-  if (loading) return <div className="text-white">Загрузка...</div>
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    setCurrentPage(1) // сбрасываем на первую страницу при новом поиске
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  if (loading && products.length === 0) {
+    return <div className="text-white">Загрузка...</div>
+  }
 
   return (
     <div>
@@ -37,6 +77,10 @@ export default function AdminProductsPage() {
           <Plus size={18} /> Создать
         </Link>
       </div>
+
+      {/* 🆕 Поле поиска */}
+      <SearchFilter onSearch={handleSearch} placeholder="Поиск по названию или артикулу..." />
+
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
@@ -67,6 +111,26 @@ export default function AdminProductsPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* 🆕 Пагинация */}
+      {totalPages > 1 && (
+        <div className="mt-6">
+          <Pagination
+            totalPages={totalPages}
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
+
+      {/* 🆕 Информация о количестве найденных товаров */}
+      <div className="mt-2 text-sm text-gray-400">
+        {products.length > 0 ? (
+          <>Показано {products.length} товаров (страница {currentPage} из {totalPages})</>
+        ) : (
+          <>Товары не найдены</>
+        )}
       </div>
     </div>
   )

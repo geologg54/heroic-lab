@@ -14,6 +14,9 @@ export async function GET(request: Request) {
   const maxPrice = searchParams.get('maxPrice')
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
+  
+  // 🆕 Новый параметр: список артикулов через запятую (для избранного)
+  const articlesParam = searchParams.get('articles')
 
   // Множественные фильтры
   const gameSystems = searchParams.getAll('gameSystem')
@@ -21,6 +24,14 @@ export async function GET(request: Request) {
   const types = searchParams.getAll('type')
 
   const where: any = {}
+
+  // 🆕 Если передан список артикулов, фильтруем только по ним
+  if (articlesParam) {
+    const articles = articlesParam.split(',').map(a => a.trim()).filter(Boolean)
+    if (articles.length > 0) {
+      where.article = { in: articles }
+    }
+  }
 
   if (categorySlug) where.category = { slug: categorySlug }
   if (minPrice || maxPrice) {
@@ -50,13 +61,16 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Если запрошены конкретные артикулы, пагинацию не применяем (их обычно немного)
+    const shouldPaginate = !articlesParam
+    
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: { category: true },
         orderBy,
-        skip,
-        take: limit
+        // Если это запрос избранного, не используем skip/take — возвращаем всё
+        ...(shouldPaginate ? { skip, take: limit } : {})
       }),
       prisma.product.count({ where })
     ])
@@ -73,8 +87,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       products: formattedProducts,
       total,
-      page,
-      totalPages: Math.ceil(total / limit)
+      page: shouldPaginate ? page : 1,
+      totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
     })
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
