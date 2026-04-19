@@ -45,7 +45,7 @@ export const ProductCard = ({ product }: { product: Product }) => {
         </div>
 
         {/* Блок с высотой, ценой и кнопкой */}
-        <div className="flex justify-between items-center pl-5 pr-5 mt-2 mb-4">
+        <div className="flex justify-between items-center pl-5 pr-5 mt-2 mb-10">
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-2">
               <img
