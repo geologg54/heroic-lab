@@ -209,7 +209,7 @@ export default function CatalogContent({
 
             <div className="w-[15vw] flex-shrink-0">
               <aside className="fixed right-[2vw] top-[120px] w-[13vw] z-20 pl-4">
-                <div className="bg-cardbg border border-borderLight rounded-xl p-4 flex flex-col" style={{ minHeight: '200px' }}>
+                <div className="p-4 flex flex-col" style={{ minHeight: '200px' }}>
                   <div>
                     <h3 className="text-white font-normal text-sm mb-2">Упорядочить:</h3>
                     <SortDropdown onSort={handleSortChange} />
@@ -242,42 +242,39 @@ export default function CatalogContent({
       {/* Мобильная версия */}
       <div className="lg:hidden">
         {/* Фиксированная панель под шапкой */}
-        <div className="fixed top-14 left-0 w-full bg-darkbg border-b border-borderLight z-40 h-14 flex items-center px-4">
-          <div className="grid grid-cols-3 w-full items-center">
+       <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
+        <div className="grid grid-cols-3 items-center">
+          <div className="justify-self-start relative">
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="justify-self-start text-white font-medium border border-white rounded-full px-4 py-1"
+              className="text-white font-medium border border-white rounded-full px-4 py-1"
             >
               Фильтры
             </button>
-            <button
-              onClick={() => setIsSortOpen(true)}
-              className="justify-self-center text-white font-medium border border-white rounded-full px-4 py-1"
-            >
-              Порядок
-            </button>
-            <div className="justify-self-end text-white font-semibold">
-              Товаров: {total}
-            </div>
+            {/* Индикатор количества активных фильтров */}
+            {(() => {
+              const activeCount = Object.values(activeFilters).reduce((sum, arr) => sum + arr.length, 0);
+              return activeCount > 0 ? (
+                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {activeCount}
+                </span>
+              ) : null;
+            })()}
+          </div>
+          <button
+            onClick={() => setIsSortOpen(true)}
+            className="justify-self-center text-white font-medium border border-white rounded-full px-4 py-1"
+          >
+            Порядок
+          </button>
+          <div className="justify-self-end text-white font-semibold">
+            Товаров: {total}
           </div>
         </div>
-
-        {/* Хлебные крошки (смещены вниз) */}
-        <div className="pt-16 px-4">
-          <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
-        </div>
-
-        {/* Активные фильтры */}
-        <div className="px-4 mt-2">
-          <ActiveFilters
-            filters={activeFilters}
-            onRemove={handleRemoveFilter}
-            onClearAll={handleClearAllFilters}
-          />
-        </div>
+      </div>
 
         {/* Сетка товаров */}
-        <div className="mt-4">
+        <div className="pt-28">
           {loading ? (
             <div className="text-center py-20 text-white">Загрузка...</div>
           ) : products.length === 0 ? (
@@ -310,6 +307,7 @@ export default function CatalogContent({
                   <X size={24} />
                 </button>
               </div>
+             
               <FilterContent
                 products={products}
                 filters={activeFilters}
@@ -329,6 +327,9 @@ export default function CatalogContent({
                 }}
                 resetFilters={handleClearAllFilters}
                 hidePriceSlider={true}
+                showActiveFilters={true}
+                onRemoveFilter={handleRemoveFilter}
+                onClearAllFilters={handleClearAllFilters}
               />
               <button
                 onClick={() => setIsFilterOpen(false)}
