@@ -622,6 +622,16 @@ export default function AdminCategoriesPage() {
 import { useState, useEffect } from 'react'
 import { Eye } from 'lucide-react'
 
+// Вспомогательная функция для получения отображаемого имени покупателя
+function getCustomerDisplay(order: any): string {
+  if (order.user) {
+    // Авторизованный пользователь
+    return order.user.name || order.user.email || 'Без имени'
+  }
+  // Гостевой заказ
+  return order.guestName || order.guestEmail || 'Гость'
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -637,6 +647,7 @@ export default function AdminOrdersPage() {
       : '/api/admin/orders'
     const res = await fetch(url)
     const data = await res.json()
+    // data.orders уже содержит преобразованные данные (customerName и т.д.)
     setOrders(data.orders)
     setLoading(false)
   }
@@ -662,18 +673,18 @@ export default function AdminOrdersPage() {
           className="bg-cardbg border border-borderLight rounded-lg px-4 py-2 text-white"
         >
           <option value="">Все статусы</option>
-          <option value="pending">Ожидает</option>
           <option value="processing">В обработке</option>
           <option value="shipped">Отправлен</option>
           <option value="delivered">Доставлен</option>
           <option value="cancelled">Отменён</option>
         </select>
       </div>
+
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
             <tr className="text-gray-400">
-              <th className="p-3">ID заказа</th>
+              <th className="p-3">№ заказа</th>
               <th className="p-3">Покупатель</th>
               <th className="p-3">Сумма</th>
               <th className="p-3">Статус</th>
@@ -684,8 +695,8 @@ export default function AdminOrdersPage() {
           <tbody>
             {orders.map(order => (
               <tr key={order.id} className="border-t border-borderLight">
-                <td className="p-3">{order.id.slice(-8)}</td>
-                <td className="p-3">{order.user?.name || order.user?.email}</td>
+                <td className="p-3 font-mono">{order.orderNumber}</td>
+                <td className="p-3">{getCustomerDisplay(order)}</td>
                 <td className="p-3">{order.total} ₽</td>
                 <td className="p-3">
                   <select
@@ -693,7 +704,6 @@ export default function AdminOrdersPage() {
                     onChange={(e) => handleStatusChange(order.id, e.target.value)}
                     className="bg-[#0f2a42] border border-borderLight rounded px-2 py-1 text-sm text-white"
                   >
-                    <option value="pending">Ожидает</option>
                     <option value="processing">В обработке</option>
                     <option value="shipped">Отправлен</option>
                     <option value="delivered">Доставлен</option>
@@ -722,6 +732,14 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { QuickActions } from '@/components/admin/QuickActions'
 
+// Вспомогательная функция для отображения покупателя
+function getCustomerDisplay(order: any): string {
+  if (order.user) {
+    return order.user.name || order.user.email || 'Без имени'
+  }
+  return order.guestName || order.guestEmail || 'Гость'
+}
+
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions)
   if (!session?.user || session.user.role !== 'admin') {
@@ -735,7 +753,7 @@ export default async function AdminDashboard() {
     prisma.order.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
-      include: { user: true }
+      include: { user: true } // user может быть null
     })
   ])
 
@@ -766,7 +784,7 @@ export default async function AdminDashboard() {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-gray-400">
-                  <th className="pb-2">ID</th>
+                  <th className="pb-2">№ заказа</th>
                   <th>Покупатель</th>
                   <th>Сумма</th>
                   <th>Статус</th>
@@ -776,8 +794,8 @@ export default async function AdminDashboard() {
               <tbody>
                 {recentOrders.map(order => (
                   <tr key={order.id} className="border-t border-borderLight">
-                    <td className="py-2">{order.id.slice(-8)}</td>
-                    <td>{order.user.name || order.user.email}</td>
+                    <td className="py-2 font-mono">{order.orderNumber}</td>
+                    <td>{getCustomerDisplay(order)}</td>
                     <td>{order.total} ₽</td>
                     <td>{order.status}</td>
                     <td>{new Date(order.createdAt).toLocaleDateString()}</td>
@@ -1123,92 +1141,161 @@ export async function DELETE(
   return NextResponse.json({ success: true })
 }
 ===== ./app/api/admin/orders/route.ts =====
-// app/api/admin/orders/route.ts
+// app/api/orders/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, getOrderStatusUpdateEmail } from '@/lib/email'
+import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 
-// GET – получение списка заказов с пагинацией и фильтром по статусу
-export async function GET(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  const { searchParams } = new URL(request.url)
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '20')
-  const status = searchParams.get('status') || undefined
-
-  const where: any = {}
-  if (status) where.status = status
-
-  const [orders, total] = await Promise.all([
-    prisma.order.findMany({
-      where,
-      include: {
-        user: { select: { name: true, email: true } },
-        items: {
-          include: { product: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit
-    }),
-    prisma.order.count({ where })
-  ])
-
-  return NextResponse.json({
-    orders,
-    total,
-    page,
-    totalPages: Math.ceil(total / limit)
-  })
+// Проверка email
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
 }
 
-// PUT – изменение статуса заказа
-export async function PUT(request: Request) {
+// Проверка телефона (цифры, пробелы, +, -, (, ))
+function isValidPhone(phone: string): boolean {
+  const phoneRegex = /^[\d\s\+\-\(\)]+$/
+  return phoneRegex.test(phone)
+}
+
+export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const userId = session?.user?.id
+
+  const body = await request.json()
+  const {
+    items,
+    address,
+    phone,
+    comment,
+    deliveryMethod,
+    paymentMethod,
+    email,        // email, переданный клиентом
+    name,
+  } = body
+
+  // --- ВАЛИДАЦИЯ ---
+  if (!items || items.length === 0) {
+    return NextResponse.json({ error: 'Корзина пуста' }, { status: 400 })
   }
 
-  const { id, status } = await request.json()
-  if (!id) {
-    return NextResponse.json({ error: 'Order ID required' }, { status: 400 })
+  if (!address || typeof address !== 'string' || address.trim().length < 5) {
+    return NextResponse.json(
+      { error: 'Укажите полный адрес доставки (минимум 5 символов)' },
+      { status: 400 }
+    )
   }
 
-  // Проверяем, что статус допустимый
-  const allowedStatuses = ['processing', 'shipped', 'delivered', 'cancelled']
-  if (status && !allowedStatuses.includes(status)) {
-    return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+  let guestEmail: string | undefined = undefined
+  let guestName: string | undefined = undefined
+
+  // Если пользователь НЕ авторизован, email обязателен
+  if (!userId) {
+    if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+      return NextResponse.json(
+        { error: 'Укажите корректный email для связи' },
+        { status: 400 }
+      )
+    }
+    guestEmail = email.trim().toLowerCase()
+    guestName = name?.trim() || undefined
+  } else {
+    // Авторизован: email не обязателен, но если передан – валидируем
+    if (email) {
+      if (!isValidEmail(email)) {
+        return NextResponse.json(
+          { error: 'Некорректный формат email' },
+          { status: 400 }
+        )
+      }
+      guestEmail = email.trim().toLowerCase()
+    }
+    if (name) {
+      guestName = name.trim()
+    }
   }
 
-  const order = await prisma.order.update({
-    where: { id },
-    data: { status },
-    include: {
-      items: {
-        include: {
-          product: true,
+  if (phone && !isValidPhone(phone)) {
+    return NextResponse.json(
+      { error: 'Некорректный формат номера телефона' },
+      { status: 400 }
+    )
+  }
+
+  const total = items.reduce(
+    (sum: number, item: any) => sum + item.product.price * item.quantity,
+    0
+  )
+
+  try {
+    const lastOrder = await prisma.order.findFirst({
+      orderBy: { orderNumber: 'desc' },
+      select: { orderNumber: true },
+    })
+    const nextOrderNumber = lastOrder ? lastOrder.orderNumber + 1 : 100001
+
+    const order = await prisma.order.create({
+      data: {
+        orderNumber: nextOrderNumber,
+        userId: userId || undefined,   // ← исправлено: undefined вместо null
+        guestEmail: guestEmail,
+        guestName: guestName,
+        total,
+        address: address.trim(),
+        phone: phone?.trim() || null,
+        comment: comment?.trim() || null,
+        deliveryMethod: deliveryMethod || null,
+        paymentMethod: paymentMethod || null,
+        status: 'processing',
+        items: {
+          create: items.map((item: any) => ({
+            productArticle: item.product.article,
+            quantity: item.quantity,
+            priceAtPurchase: item.product.price,
+          })),
         },
       },
-      user: true,
+      include: {
+        items: { include: { product: true } },
+        user: true,
+      },
+    })
+
+    // Очищаем корзину только для авторизованных
+    if (userId) {
+      await prisma.cartItem.deleteMany({ where: { userId } })
     }
-  })
 
-  // Отправляем уведомление покупателю о смене статуса
-  if (order.user.email) {
-    sendEmail({
-      to: order.user.email,
-      ...getOrderStatusUpdateEmail(order),
-    }).catch(err => console.error('Failed to send status update email:', err))
+    // Определяем email покупателя
+    const customerEmail = guestEmail || session?.user?.email
+    if (customerEmail) {
+      Promise.all([
+        sendEmail({
+          to: customerEmail,
+          ...getOrderConfirmationEmail(order),
+        }).catch(err => console.error('Ошибка отправки письма покупателю:', err)),
+        sendEmail({
+          to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
+          ...getNewOrderAdminEmail(order),
+        }).catch(err => console.error('Ошибка отправки письма админу:', err)),
+      ])
+    } else {
+      console.warn(`Заказ ${order.id}: не удалось определить email покупателя, письмо не отправлено`)
+    }
+
+    return NextResponse.json(
+      { orderId: order.id, orderNumber: order.orderNumber },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error('Ошибка создания заказа:', error)
+    return NextResponse.json(
+      { error: 'Внутренняя ошибка сервера' },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json(order)
 }
 ===== ./app/api/admin/products/route.ts =====
 // app/api/admin/products/route.ts
@@ -2089,21 +2176,24 @@ export default function CatalogContent({
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-8">
-      <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+    <div className="px-4 py-8 lg:px-0">
+      {/* Хлебные крошки – с отступом слева как у фильтров */}
+      <div className="max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[1.5vw]">
+        <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+      </div>
 
       {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
-      <div className="hidden lg:block mt-6 relative">
-        {/* Фильтры — прижаты к левому краю */}
-        <aside className="fixed left-0 top-[120px] w-[260px] z-10">
-          <div className="max-h-[calc(100vh-140px)] overflow-y-auto px-4">
-            <FilterPanel products={products} onFilter={handleFilterChange} />
+      <div className="hidden lg:block mt-6 w-full">
+        <div className="flex w-full">
+          {/* Левый блок (15% экрана) – внутри фильтры с отступом и меньшей шириной */}
+          <div className="w-[15vw] flex-shrink-0">
+            <aside className="ml-[1.5vw] w-[13.5vw]">
+              <FilterPanel products={products} onFilter={handleFilterChange} />
+            </aside>
           </div>
-        </aside>
 
-        {/* Сетка товаров — строго по центру экрана */}
-        <div className="flex justify-center">
-          <main className="w-[1560px] max-w-full">
+          {/* Центральный блок – сетка товаров (70% экрана) */}
+          <main className="w-[70vw] flex-shrink-0 px-4">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
               <SortDropdown onSort={handleSortChange} products={products} />
               <span className="text-gray-400 text-sm">Найдено: {total}</span>
@@ -2118,7 +2208,7 @@ export default function CatalogContent({
             ) : products.length === 0 ? (
               <div className="text-center py-20 text-gray-400">Товары не найдены</div>
             ) : (
-              <div className="grid grid-cols-3 gap-[30px]">
+              <div className="grid grid-cols-3 gap-[5%]">
                 {products.map(product => (
                   <ProductCard key={product.article} product={product} />
                 ))}
@@ -2132,6 +2222,9 @@ export default function CatalogContent({
               />
             )}
           </main>
+
+          {/* Правый блок (15% экрана) – пусто */}
+          <div className="w-[15vw] flex-shrink-0"></div>
         </div>
       </div>
 
@@ -3959,7 +4052,7 @@ export const FilterPanel = ({ products, onFilter }: FilterPanelProps) => {
   const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: keyof FilterState; options: string[]; selected: string[] }) => {
     const isExpanded = expandedSections[sectionKey]
     return (
-      <div className="border-b border-borderLight pb-3">
+      <div className="pb-3">
         <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-semibold hover:text-accent transition">
           <span>{title}</span>
           {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
@@ -4048,17 +4141,17 @@ export const ProductCard = ({ product }: { product: Product }) => {
   }
 
   return (
-    <div className="group relative bg-darkbg overflow-hidden transition-all duration-300 hover:shadow-xl flex flex-col w-[500px] max-w-full">
-      <Link href={`/product/${product.article}`} className="block">
-        {/* Изображение на всю ширину */}
-        <div className="relative aspect-square w-full bg-darkbg overflow-hidden">
+    <div className="group relative bg-darkbg transition-all duration-300 hover:shadow-xl flex flex-col w-full border border-white/10">
+      <Link href={`/product/${product.article}`} className="block flex flex-col">
+        {/* Изображение — квадрат, не сжимается */}
+        <div className="relative aspect-square w-full bg-darkbg overflow-hidden flex-shrink-0">
           {hasImage ? (
             <Image
               src={product.image}
               alt={product.name}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 100vw, 500px"
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 33vw, 500px"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm p-4 text-center bg-gray-800">
@@ -4067,17 +4160,16 @@ export const ProductCard = ({ product }: { product: Product }) => {
           )}
         </div>
 
-        {/* Название товара — отступ сверху 16px */}
-        <div className="px-[10%] pt-4">
-          <h3 className="text-white font-semibold text-[26px] leading-tight tracking-tight line-clamp-2">
+        {/* Название товара */}
+        <div className="pt-6 pb-6 pl-4 pr-4">
+          <h3 className="text-white font-extrabold text-[24px] leading-tight tracking-tight line-clamp-2">
             {product.name}
           </h3>
         </div>
 
-        {/* Блок с высотой, ценой и кнопкой — равные отступы 16px сверху и снизу */}
-        <div className="flex justify-between gap-4 px-[10%] mt-4 mb-4">
-          {/* Левая часть: высота и цена (вертикально) */}
-          <div className="flex flex-col gap-2">
+        {/* Блок с высотой, ценой и кнопкой */}
+        <div className="flex justify-between items-center pl-5 pr-5 mt-2 mb-4">
+          <div className="flex flex-col gap-6">
             <div className="flex items-center gap-2">
               <img
                 src="/sizeicon.png"
@@ -4086,30 +4178,31 @@ export const ProductCard = ({ product }: { product: Product }) => {
                 height={22}
                 className="w-[22px] h-[22px]"
               />
-              <span className="text-white font-normal text-[24px] leading-none">
+              <span className="text-white font-normal text-[22px] leading-none">
                 {heightMm} мм
               </span>
             </div>
             <div>
-              <span className="text-white font-extrabold text-[35px] leading-none">
+              <span className="text-white font-normal text-[22px] leading-none">
                 {product.price} ₽
               </span>
             </div>
           </div>
-
-          {/* Правая часть: кнопка корзины, растягивается по высоте левой части */}
-          <div className="flex items-stretch">
-            <button
-              onClick={handleAddToCart}
-              className="w-[100px] rounded-[20px] border border-white/50 bg-transparent hover:bg-white/10 transition-colors duration-200 flex items-center justify-center"
-            >
-              <img
-                src="/cardicon.png"
-                alt="В корзину"
-                className="w-auto h-auto max-w-[70%] max-h-[70%]"
-              />
-            </button>
-          </div>
+          <button
+            onClick={handleAddToCart}
+            className="w-[70px] rounded-[15px] border border-white/0 bg-transparent hover:bg-white transition-colors duration-200 flex items-center justify-center py-3 group/btn"
+          >
+            <img
+              src="/cardicon.png"
+              alt="В корзину"
+              className="w-auto h-auto max-w-[70%] max-h-[70%] block group-hover/btn:hidden"
+            />
+            <img
+              src="/cardicon-dark.png"
+              alt="В корзину"
+              className="w-auto h-auto max-w-[70%] max-h-[70%] hidden group-hover/btn:block"
+            />
+          </button>
         </div>
       </Link>
     </div>
@@ -5206,6 +5299,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   )
 }
+===== ./lib/adminData.ts =====
+// lib/adminData.ts
+export interface SupportChat {
+  id: string
+  customer: string
+  lastMessage: string
+  unread: number
+}
+
+export const supportChats: SupportChat[] = [
+  {
+    id: '1',
+    customer: 'Иван Петров',
+    lastMessage: 'Здравствуйте, когда появятся новые модели Trench Crusade?',
+    unread: 2,
+  },
+  {
+    id: '2',
+    customer: 'Елена Смирнова',
+    lastMessage: 'Спасибо, заказ получила!',
+    unread: 0,
+  },
+  {
+    id: '3',
+    customer: 'Гость (guest@mail.ru)',
+    lastMessage: 'Не приходит письмо с подтверждением',
+    unread: 1,
+  },
+]
 ===== ./lib/api.ts =====
 // lib/api.ts
 import type { Category, Product } from '@/types'
@@ -16661,6 +16783,34 @@ ALTER TABLE "new_Product" RENAME TO "Product";
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
 
+===== ./prisma/migrations/20260418174036_add_guest_fields_to_order/migration.sql =====
+-- RedefineTables
+PRAGMA defer_foreign_keys=ON;
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_Order" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "orderNumber" INTEGER NOT NULL,
+    "userId" TEXT,
+    "guestEmail" TEXT,
+    "guestName" TEXT,
+    "total" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'processing',
+    "address" TEXT NOT NULL,
+    "phone" TEXT,
+    "comment" TEXT,
+    "deliveryMethod" TEXT,
+    "paymentMethod" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO "new_Order" ("address", "comment", "createdAt", "deliveryMethod", "id", "orderNumber", "paymentMethod", "phone", "status", "total", "updatedAt", "userId") SELECT "address", "comment", "createdAt", "deliveryMethod", "id", "orderNumber", "paymentMethod", "phone", "status", "total", "updatedAt", "userId" FROM "Order";
+DROP TABLE "Order";
+ALTER TABLE "new_Order" RENAME TO "Order";
+CREATE UNIQUE INDEX "Order_orderNumber_key" ON "Order"("orderNumber");
+PRAGMA foreign_keys=ON;
+PRAGMA defer_foreign_keys=OFF;
+
 ===== ./prisma/migrations/migration_lock.toml =====
 # Please do not edit this file manually
 # It should be added in your version-control system (i.e. Git)
@@ -16727,11 +16877,13 @@ model Category {
 // Заказ
 model Order {
   id             String      @id @default(cuid())
-  orderNumber    Int         @unique // ← новый числовой номер заказа
-  userId         String
-  user           User        @relation(fields: [userId], references: [id])
+  orderNumber    Int         @unique
+  userId         String?     // ← стало опциональным
+  user           User?       @relation(fields: [userId], references: [id])
+  guestEmail     String?     // ← новое поле
+  guestName      String?     // ← новое поле
   total          Int
-  status         String      @default("processing") // ← меняем default на processing
+  status         String      @default("processing")
   address        String
   phone          String?
   comment        String?

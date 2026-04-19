@@ -1,13 +1,13 @@
 // app/api/admin/users/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { searchParams } = new URL(request.url)
@@ -54,14 +54,15 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { id, role } = await request.json()
   if (!id) {
-    return NextResponse.json({ error: 'User ID required' }, { status: 400 })
+    return NextResponse.json({ error: 'Требуется ID пользователя' }, { status: 400 })
   }
 
   const user = await prisma.user.update({
