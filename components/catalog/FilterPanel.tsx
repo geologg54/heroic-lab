@@ -18,10 +18,96 @@ export interface FilterState {
 interface FilterPanelProps {
   products: Product[]
   onFilter: (filtered: Product[], activeFilters: FilterState) => void
-  hidePriceSlider?: boolean // новый проп
+  hidePriceSlider?: boolean
+  hideMobileButton?: boolean
 }
 
-export const FilterPanel = ({ products, onFilter, hidePriceSlider = false }: FilterPanelProps) => {
+interface FilterContentProps {
+  products: Product[]
+  filters: FilterState
+  setFilters: (filters: FilterState) => void
+  priceMax: number
+  setPriceMax: (price: number) => void
+  expandedSections: Record<string, boolean>
+  toggleSection: (section: string) => void
+  toggleFilter: (key: keyof FilterState, value: string) => void
+  resetFilters: () => void
+  hidePriceSlider?: boolean
+}
+
+// Экспортируем содержимое фильтров отдельно
+export const FilterContent = ({
+  products,
+  filters,
+  setFilters,
+  priceMax,
+  setPriceMax,
+  expandedSections,
+  toggleSection,
+  toggleFilter,
+  resetFilters,
+  hidePriceSlider = false,
+}: FilterContentProps) => {
+  const allCategories = [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))]
+  const allSubcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory as string))]
+  const allGameSystems = [...new Set(products.map(p => p.gameSystem))]
+  const allFactions = [...new Set(products.filter(p => p.faction).map(p => p.faction as string))]
+  const allTypes = [...new Set(products.map(p => p.type))]
+  const allScales = [...new Set(products.map(p => p.scale))]
+  const allFileFormats = [...new Set(products.flatMap(p => p.fileFormat.split(',').map(f => f.trim())))]
+  const allTags = [...new Set(products.flatMap(p => p.tags))]
+
+  const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: keyof FilterState; options: string[]; selected: string[] }) => {
+    const isExpanded = expandedSections[sectionKey]
+    return (
+      <div className="pb-3">
+        <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
+          <span>{title}</span>
+          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        </button>
+        {isExpanded && (
+          <div className="mt-2 space-y-1">
+            {options.map(opt => (
+              <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
+                <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggleFilter(sectionKey, opt)} /> {opt}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <FilterSection title="Категория" sectionKey="categories" options={allCategories} selected={filters.categories} />
+      <FilterSection title="Подкатегория" sectionKey="subcategories" options={allSubcategories} selected={filters.subcategories} />
+      <FilterSection title="Система" sectionKey="gameSystems" options={allGameSystems} selected={filters.gameSystems} />
+      <FilterSection title="Фракция" sectionKey="factions" options={allFactions} selected={filters.factions} />
+      <FilterSection title="Тип модели" sectionKey="types" options={allTypes} selected={filters.types} />
+      <FilterSection title="Масштаб" sectionKey="scales" options={allScales} selected={filters.scales} />
+      <FilterSection title="Формат" sectionKey="fileFormats" options={allFileFormats} selected={filters.fileFormats} />
+      <FilterSection title="Теги" sectionKey="tags" options={allTags.slice(0, 30)} selected={filters.tags} />
+      
+      {!hidePriceSlider && (
+        <div className="pt-2">
+          <div className="flex justify-between items-center">
+            <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
+          </div>
+          <input type="range" min={0} max={2000} step={1} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+        </div>
+      )}
+      <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
+    </div>
+  )
+}
+
+export const FilterPanel = ({ 
+  products, 
+  onFilter, 
+  hidePriceSlider = false, 
+  hideMobileButton = false 
+}: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
@@ -53,15 +139,6 @@ export const FilterPanel = ({ products, onFilter, hidePriceSlider = false }: Fil
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
-
-  const allCategories = [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))]
-  const allSubcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory as string))]
-  const allGameSystems = [...new Set(products.map(p => p.gameSystem))]
-  const allFactions = [...new Set(products.filter(p => p.faction).map(p => p.faction as string))]
-  const allTypes = [...new Set(products.map(p => p.type))]
-  const allScales = [...new Set(products.map(p => p.scale))]
-  const allFileFormats = [...new Set(products.flatMap(p => p.fileFormat.split(',').map(f => f.trim())))]
-  const allTags = [...new Set(products.flatMap(p => p.tags))]
 
   const applyFilters = useCallback(() => {
     let filtered = products
@@ -132,62 +209,44 @@ export const FilterPanel = ({ products, onFilter, hidePriceSlider = false }: Fil
     setPriceMax(2000)
   }
 
-  const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: keyof FilterState; options: string[]; selected: string[] }) => {
-    const isExpanded = expandedSections[sectionKey]
-    return (
-      <div className="pb-3">
-        <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
-          <span>{title}</span>
-          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-        </button>
-        {isExpanded && (
-          <div className="mt-2 space-y-1">
-            {options.map(opt => (
-              <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
-                <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggleFilter(sectionKey, opt)} /> {opt}
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const FilterContent = () => (
-    <div className="space-y-4">
-      <FilterSection title="Категория" sectionKey="categories" options={allCategories} selected={filters.categories} />
-      <FilterSection title="Подкатегория" sectionKey="subcategories" options={allSubcategories} selected={filters.subcategories} />
-      <FilterSection title="Система" sectionKey="gameSystems" options={allGameSystems} selected={filters.gameSystems} />
-      <FilterSection title="Фракция" sectionKey="factions" options={allFactions} selected={filters.factions} />
-      <FilterSection title="Тип модели" sectionKey="types" options={allTypes} selected={filters.types} />
-      <FilterSection title="Масштаб" sectionKey="scales" options={allScales} selected={filters.scales} />
-      <FilterSection title="Формат" sectionKey="fileFormats" options={allFileFormats} selected={filters.fileFormats} />
-      <FilterSection title="Теги" sectionKey="tags" options={allTags.slice(0, 30)} selected={filters.tags} />
-      
-      {!hidePriceSlider && (
-        <div className="pt-2">
-          <div className="flex justify-between items-center">
-            <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
-          </div>
-          <input type="range" min={0} max={2000} step={1} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
-        </div>
-      )}
-      <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
-    </div>
-  )
-
   return (
     <>
-      <button onClick={() => setIsOpen(true)} className="lg:hidden flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg mb-4">
-        <SlidersHorizontal size={18} /> Фильтры
-      </button>
-      <div className="hidden lg:block"><FilterContent /></div>
+      {!hideMobileButton && (
+        <button onClick={() => setIsOpen(true)} className="lg:hidden flex items-center gap-2 bg-accent text-white px-4 py-2 rounded-lg mb-4">
+          <SlidersHorizontal size={18} /> Фильтры
+        </button>
+      )}
+      <div className="hidden lg:block">
+        <FilterContent
+          products={products}
+          filters={filters}
+          setFilters={setFilters}
+          priceMax={priceMax}
+          setPriceMax={setPriceMax}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+          toggleFilter={toggleFilter}
+          resetFilters={resetFilters}
+          hidePriceSlider={hidePriceSlider}
+        />
+      </div>
       {isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 p-4 overflow-auto">
           <div className="bg-cardbg p-6 rounded-xl max-w-md mx-auto relative">
             <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 text-gray-400"><X size={24} /></button>
             <h2 className="text-xl font-bold text-white mb-4">Фильтры</h2>
-            <FilterContent />
+            <FilterContent
+              products={products}
+              filters={filters}
+              setFilters={setFilters}
+              priceMax={priceMax}
+              setPriceMax={setPriceMax}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              toggleFilter={toggleFilter}
+              resetFilters={resetFilters}
+              hidePriceSlider={hidePriceSlider}
+            />
             <button onClick={() => setIsOpen(false)} className="mt-6 w-full bg-accent py-2 rounded-lg">Применить</button>
           </div>
         </div>
