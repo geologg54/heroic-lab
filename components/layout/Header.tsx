@@ -19,13 +19,17 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-darkbg/90 backdrop-blur-md">
       <div className="container mx-auto px-4 py-3">
-        {/* Мобильная версия (до lg) — flex вместо grid */}
-        <div className="lg:hidden flex items-center justify-between gap-2">
-          <button onClick={() => setIsDrawerOpen(true)} className="text-white shrink-0">
-            <Menu size={28} />
-          </button>
+        {/* Мобильная версия (до lg) — сетка из трёх колонок для идеального центрирования логотипа */}
+        <div className="lg:hidden grid grid-cols-3 items-center">
+          {/* Левая колонка: кнопка меню */}
+          <div className="justify-self-start">
+            <button onClick={() => setIsDrawerOpen(true)} className="text-white">
+              <Menu size={28} />
+            </button>
+          </div>
 
-          <Link href="/" className="flex justify-center">
+          {/* Центральная колонка: логотип точно по центру */}
+          <Link href="/" className="justify-self-center">
             <img
               src="/logo-mobile.png"
               alt="Героическая лаборатория миниатюр"
@@ -33,7 +37,8 @@ export default function Header() {
             />
           </Link>
 
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Правая колонка: иконки действий */}
+          <div className="flex items-center gap-3 justify-self-end">
             <Link href="/search" className="text-white">
               <Search size={22} />
             </Link>
