@@ -17,6 +17,29 @@ EMAIL_SERVER_USER=your-email@yandex.ru        # ваш полный адрес �
 EMAIL_SERVER_PASSWORD=your-app-password       # пароль приложения (не основной пароль от почты!)
 EMAIL_FROM=your-email@yandex.ru               # адрес, который будет виден получателям в поле "От кого"
 ADMIN_EMAIL=admin@example.com                 # куда отправлять уведомления о новых заказах (может быть тот же адрес)
+===== ./.env.example =====
+# .env.example
+# Скопируйте этот файл в .env и заполните реальными значениями.
+# НИКОГДА не коммитьте .env в репозиторий!
+
+# База данных (SQLite для разработки, PostgreSQL для продакшена)
+DATABASE_URL="file:./dev.db"
+
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=сгенерируйте-случайную-строку-например-командой-openssl-rand-base64-32
+
+# API URL для серверных запросов
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Настройки SMTP для Яндекс.Почты (или другой почтовый сервис)
+EMAIL_SERVER_HOST=smtp.yandex.ru
+EMAIL_SERVER_PORT=465
+EMAIL_SERVER_SECURE=true
+EMAIL_SERVER_USER=your-email@yandex.ru
+EMAIL_SERVER_PASSWORD=your-app-password
+EMAIL_FROM=your-email@yandex.ru
+ADMIN_EMAIL=admin@example.com
 ===== ./.gitattributes =====
 # Auto detect text files and perform LF normalization
 * text=auto
@@ -110,21 +133,37 @@ import { useEffect, useState } from 'react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { EmptyState } from '@/components/common/EmptyState'
-import { fetchAllProducts } from '@/lib/api'
 import type { Product } from '@/types'
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites()
-  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchAllProducts()
-      .then(data => setAllProducts(data))
-      .finally(() => setLoading(false))
-  }, [])
+    async function loadFavorites() {
+      if (favorites.length === 0) {
+        setFavoriteProducts([])
+        setLoading(false)
+        return
+      }
 
-  const favoriteProducts = allProducts.filter(p => favorites.includes(p.article))
+      try {
+        // 🆕 Запрашиваем только товары с нужными артикулами
+        const articlesParam = favorites.join(',')
+        const res = await fetch(`/api/products?articles=${encodeURIComponent(articlesParam)}&limit=100`)
+        const data = await res.json()
+        setFavoriteProducts(data.products || [])
+      } catch (error) {
+        console.error('Ошибка загрузки избранного:', error)
+        setFavoriteProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadFavorites()
+  }, [favorites])
 
   if (loading) {
     return <div className="text-white text-center py-20">Загрузка...</div>
@@ -615,6 +654,286 @@ export default function AdminCategoriesPage() {
     </div>
   )
 }
+===== ./app/admin/coupons/page.tsx =====
+// app/admin/coupons/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Plus, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react'
+
+export default function AdminCouponsPage() {
+  const [coupons, setCoupons] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    code: '',
+    type: 'percent',
+    value: '',
+    minOrderAmount: '',
+    maxUses: '',
+    validFrom: '',
+    validUntil: '',
+    isActive: true,
+  })
+
+  useEffect(() => {
+    fetchCoupons()
+  }, [])
+
+  const fetchCoupons = async () => {
+    const res = await fetch('/api/admin/coupons')
+    const data = await res.json()
+    setCoupons(data)
+    setLoading(false)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const url = editingId
+      ? `/api/admin/coupons/${editingId}`
+      : '/api/admin/coupons'
+    const method = editingId ? 'PUT' : 'POST'
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+
+    if (res.ok) {
+      setShowForm(false)
+      setEditingId(null)
+      setForm({
+        code: '',
+        type: 'percent',
+        value: '',
+        minOrderAmount: '',
+        maxUses: '',
+        validFrom: '',
+        validUntil: '',
+        isActive: true,
+      })
+      fetchCoupons()
+    } else {
+      const error = await res.json()
+      alert(error.error || 'Ошибка сохранения')
+    }
+  }
+
+  const handleEdit = (coupon: any) => {
+    setEditingId(coupon.id)
+    setForm({
+      code: coupon.code,
+      type: coupon.type,
+      value: coupon.value.toString(),
+      minOrderAmount: coupon.minOrderAmount?.toString() || '',
+      maxUses: coupon.maxUses?.toString() || '',
+      validFrom: coupon.validFrom ? coupon.validFrom.slice(0, 10) : '',
+      validUntil: coupon.validUntil ? coupon.validUntil.slice(0, 10) : '',
+      isActive: coupon.isActive,
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Удалить купон?')) return
+    const res = await fetch(`/api/admin/coupons/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      fetchCoupons()
+    } else {
+      const error = await res.json()
+      alert(error.error)
+    }
+  }
+
+  const handleToggleActive = async (id: string, currentActive: boolean) => {
+    await fetch(`/api/admin/coupons/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: !currentActive }),
+    })
+    fetchCoupons()
+  }
+
+  if (loading) return <div className="text-white">Загрузка...</div>
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-white">Скидочные купоны</h1>
+        <button
+          onClick={() => {
+            setEditingId(null)
+            setForm({
+              code: '',
+              type: 'percent',
+              value: '',
+              minOrderAmount: '',
+              maxUses: '',
+              validFrom: '',
+              validUntil: '',
+              isActive: true,
+            })
+            setShowForm(true)
+          }}
+          className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+        >
+          <Plus size={18} /> Создать купон
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
+            <h2 className="text-xl font-bold text-white mb-4">
+              {editingId ? 'Редактировать купон' : 'Новый купон'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-white mb-1">Код купона *</label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                  required
+                  placeholder="WELCOME10"
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Тип скидки *</label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm({ ...form, type: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                >
+                  <option value="percent">Процент</option>
+                  <option value="fixed">Фиксированная сумма</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-white mb-1">
+                  Значение * ({form.type === 'percent' ? '%' : '₽'})
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={form.type === 'percent' ? '100' : undefined}
+                  value={form.value}
+                  onChange={e => setForm({ ...form, value: e.target.value })}
+                  required
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Мин. сумма заказа (₽)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.minOrderAmount}
+                  onChange={e => setForm({ ...form, minOrderAmount: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Макс. использований</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.maxUses}
+                  onChange={e => setForm({ ...form, maxUses: e.target.value })}
+                  placeholder="Без ограничений"
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Действует с</label>
+                <input
+                  type="date"
+                  value={form.validFrom}
+                  onChange={e => setForm({ ...form, validFrom: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Действует до</label>
+                <input
+                  type="date"
+                  value={form.validUntil}
+                  onChange={e => setForm({ ...form, validUntil: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button type="submit" className="bg-accent px-4 py-2 rounded-lg text-white">
+                  Сохранить
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="bg-gray-700 px-4 py-2 rounded-lg text-white"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="border-b border-borderLight">
+            <tr className="text-gray-400">
+              <th className="p-3">Код</th>
+              <th className="p-3">Скидка</th>
+              <th className="p-3">Использовано</th>
+              <th className="p-3">Срок действия</th>
+              <th className="p-3">Статус</th>
+              <th className="p-3">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {coupons.map(coupon => (
+              <tr key={coupon.id} className="border-t border-borderLight">
+                <td className="p-3 font-mono">{coupon.code}</td>
+                <td className="p-3">
+                  {coupon.type === 'percent' ? `${coupon.value}%` : `${coupon.value} ₽`}
+                </td>
+                <td className="p-3">
+                  {coupon.usedCount}
+                  {coupon.maxUses && ` / ${coupon.maxUses}`}
+                </td>
+                <td className="p-3">
+                  {coupon.validUntil
+                    ? `до ${new Date(coupon.validUntil).toLocaleDateString()}`
+                    : 'Бессрочно'}
+                </td>
+                <td className="p-3">
+                  <button
+                    onClick={() => handleToggleActive(coupon.id, coupon.isActive)}
+                    className={coupon.isActive ? 'text-green-400' : 'text-red-400'}
+                  >
+                    {coupon.isActive ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                  </button>
+                </td>
+                <td className="p-3 flex gap-2">
+                  <button onClick={() => handleEdit(coupon)} className="text-accent">
+                    <Edit size={16} />
+                  </button>
+                  <button onClick={() => handleDelete(coupon.id)} className="text-red-400">
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 ===== ./app/admin/orders/page.tsx =====
 // app/admin/orders/page.tsx
 'use client'
@@ -865,30 +1184,70 @@ export default function NewProductPage() {
 // app/admin/products/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Plus, Edit, Trash2 } from 'lucide-react'
+import { SearchFilter } from '@/components/ui/SearchFilter'
+import Pagination from '@/components/catalog/Pagination'
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // 🆕 Состояния для пагинации и поиска
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
+  
+  const limit = 20 // товаров на странице
+
+  // 🆕 Функция загрузки товаров с учётом пагинации и поиска
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: limit.toString(),
+      })
+      if (searchQuery) {
+        params.set('search', searchQuery)
+      }
+      
+      const res = await fetch(`/api/admin/products?${params.toString()}`)
+      const data = await res.json()
+      setProducts(data.products)
+      setTotalPages(data.totalPages)
+    } catch (error) {
+      console.error('Ошибка загрузки товаров:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, searchQuery])
 
   useEffect(() => {
-    fetch('/api/admin/products')
-      .then(res => res.json())
-      .then(data => {
-        setProducts(data.products)
-        setLoading(false)
-      })
-  }, [])
+    fetchProducts()
+  }, [fetchProducts])
 
   const handleDelete = async (article: string) => {
     if (!confirm('Удалить товар?')) return
     await fetch(`/api/admin/products/${article}`, { method: 'DELETE' })
-    setProducts(prev => prev.filter(p => p.article !== article))
+    // Обновляем список после удаления
+    fetchProducts()
   }
 
-  if (loading) return <div className="text-white">Загрузка...</div>
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    setCurrentPage(1) // сбрасываем на первую страницу при новом поиске
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  if (loading && products.length === 0) {
+    return <div className="text-white">Загрузка...</div>
+  }
 
   return (
     <div>
@@ -901,6 +1260,10 @@ export default function AdminProductsPage() {
           <Plus size={18} /> Создать
         </Link>
       </div>
+
+      {/* 🆕 Поле поиска */}
+      <SearchFilter onSearch={handleSearch} placeholder="Поиск по названию или артикулу..." />
+
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
@@ -931,6 +1294,26 @@ export default function AdminProductsPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* 🆕 Пагинация */}
+      {totalPages > 1 && (
+        <div className="mt-6">
+          <Pagination
+            totalPages={totalPages}
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
+
+      {/* 🆕 Информация о количестве найденных товаров */}
+      <div className="mt-2 text-sm text-gray-400">
+        {products.length > 0 ? (
+          <>Показано {products.length} товаров (страница {currentPage} из {totalPages})</>
+        ) : (
+          <>Товары не найдены</>
+        )}
       </div>
     </div>
   )
@@ -1053,14 +1436,14 @@ export default function AdminUsersPage() {
 ===== ./app/api/admin/categories/route.ts =====
 // app/api/admin/categories/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const categories = await prisma.category.findMany({
@@ -1070,21 +1453,22 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const data = await request.json()
   const { name, slug, image, parentId } = data
 
   if (!name || !slug) {
-    return NextResponse.json({ error: 'Name and slug required' }, { status: 400 })
+    return NextResponse.json({ error: 'Имя и slug обязательны' }, { status: 400 })
   }
 
   const existing = await prisma.category.findUnique({ where: { slug } })
   if (existing) {
-    return NextResponse.json({ error: 'Slug already exists' }, { status: 400 })
+    return NextResponse.json({ error: 'Slug уже существует' }, { status: 400 })
   }
 
   const category = await prisma.category.create({
@@ -1140,174 +1524,242 @@ export async function DELETE(
   await prisma.category.delete({ where: { id } })
   return NextResponse.json({ success: true })
 }
-===== ./app/api/admin/orders/route.ts =====
-// app/api/orders/route.ts
+===== ./app/api/admin/coupons/route.ts =====
+// app/api/admin/coupons/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 
-// Проверка email
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
-// Проверка телефона (цифры, пробелы, +, -, (, ))
-function isValidPhone(phone: string): boolean {
-  const phoneRegex = /^[\d\s\+\-\(\)]+$/
-  return phoneRegex.test(phone)
-}
-
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  const userId = session?.user?.id
-
-  const body = await request.json()
-  const {
-    items,
-    address,
-    phone,
-    comment,
-    deliveryMethod,
-    paymentMethod,
-    email,        // email, переданный клиентом
-    name,
-  } = body
-
-  // --- ВАЛИДАЦИЯ ---
-  if (!items || items.length === 0) {
-    return NextResponse.json({ error: 'Корзина пуста' }, { status: 400 })
-  }
-
-  if (!address || typeof address !== 'string' || address.trim().length < 5) {
-    return NextResponse.json(
-      { error: 'Укажите полный адрес доставки (минимум 5 символов)' },
-      { status: 400 }
-    )
-  }
-
-  let guestEmail: string | undefined = undefined
-  let guestName: string | undefined = undefined
-
-  // Если пользователь НЕ авторизован, email обязателен
-  if (!userId) {
-    if (!email || typeof email !== 'string' || !isValidEmail(email)) {
-      return NextResponse.json(
-        { error: 'Укажите корректный email для связи' },
-        { status: 400 }
-      )
-    }
-    guestEmail = email.trim().toLowerCase()
-    guestName = name?.trim() || undefined
-  } else {
-    // Авторизован: email не обязателен, но если передан – валидируем
-    if (email) {
-      if (!isValidEmail(email)) {
-        return NextResponse.json(
-          { error: 'Некорректный формат email' },
-          { status: 400 }
-        )
-      }
-      guestEmail = email.trim().toLowerCase()
-    }
-    if (name) {
-      guestName = name.trim()
-    }
-  }
-
-  if (phone && !isValidPhone(phone)) {
-    return NextResponse.json(
-      { error: 'Некорректный формат номера телефона' },
-      { status: 400 }
-    )
-  }
-
-  const total = items.reduce(
-    (sum: number, item: any) => sum + item.product.price * item.quantity,
-    0
-  )
-
+// GET — список всех купонов
+export async function GET() {
   try {
-    const lastOrder = await prisma.order.findFirst({
-      orderBy: { orderNumber: 'desc' },
-      select: { orderNumber: true },
-    })
-    const nextOrderNumber = lastOrder ? lastOrder.orderNumber + 1 : 100001
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
 
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: nextOrderNumber,
-        userId: userId || undefined,   // ← исправлено: undefined вместо null
-        guestEmail: guestEmail,
-        guestName: guestName,
-        total,
-        address: address.trim(),
-        phone: phone?.trim() || null,
-        comment: comment?.trim() || null,
-        deliveryMethod: deliveryMethod || null,
-        paymentMethod: paymentMethod || null,
-        status: 'processing',
-        items: {
-          create: items.map((item: any) => ({
-            productArticle: item.product.article,
-            quantity: item.quantity,
-            priceAtPurchase: item.product.price,
-          })),
+  const coupons = await prisma.coupon.findMany({
+    orderBy: { createdAt: 'desc' },
+  })
+  return NextResponse.json(coupons)
+}
+
+// POST — создание нового купона
+export async function POST(request: Request) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const data = await request.json()
+  const {
+    code,
+    type,
+    value,
+    minOrderAmount,
+    maxUses,
+    validFrom,
+    validUntil,
+    isActive,
+  } = data
+
+  if (!code || !type || value === undefined) {
+    return NextResponse.json({ error: 'Не заполнены обязательные поля' }, { status: 400 })
+  }
+
+  // Проверяем уникальность кода
+  const existing = await prisma.coupon.findUnique({ where: { code } })
+  if (existing) {
+    return NextResponse.json({ error: 'Купон с таким кодом уже существует' }, { status: 400 })
+  }
+
+  const coupon = await prisma.coupon.create({
+    data: {
+      code: code.trim().toUpperCase(),
+      type,
+      value: parseInt(value),
+      minOrderAmount: minOrderAmount ? parseInt(minOrderAmount) : null,
+      maxUses: maxUses ? parseInt(maxUses) : null,
+      validFrom: validFrom ? new Date(validFrom) : new Date(),
+      validUntil: validUntil ? new Date(validUntil) : null,
+      isActive: isActive ?? true,
+    },
+  })
+
+  return NextResponse.json(coupon, { status: 201 })
+}
+===== ./app/api/admin/coupons/[id]/route.ts =====
+// app/api/admin/coupons/[id]/route.ts
+import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+
+// PUT — обновление купона
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const { id } = await params
+  const data = await request.json()
+  const {
+    code,
+    type,
+    value,
+    minOrderAmount,
+    maxUses,
+    validFrom,
+    validUntil,
+    isActive,
+  } = data
+
+  // Проверяем, не занят ли новый код другим купоном
+  if (code) {
+    const existing = await prisma.coupon.findFirst({
+      where: { code, id: { not: id } },
+    })
+    if (existing) {
+      return NextResponse.json({ error: 'Купон с таким кодом уже существует' }, { status: 400 })
+    }
+  }
+
+  const updateData: any = {}
+  if (code !== undefined) updateData.code = code.trim().toUpperCase()
+  if (type !== undefined) updateData.type = type
+  if (value !== undefined) updateData.value = parseInt(value)
+  if (minOrderAmount !== undefined) updateData.minOrderAmount = minOrderAmount ? parseInt(minOrderAmount) : null
+  if (maxUses !== undefined) updateData.maxUses = maxUses ? parseInt(maxUses) : null
+  if (validFrom !== undefined) updateData.validFrom = new Date(validFrom)
+  if (validUntil !== undefined) updateData.validUntil = validUntil ? new Date(validUntil) : null
+  if (isActive !== undefined) updateData.isActive = isActive
+
+  const coupon = await prisma.coupon.update({
+    where: { id },
+    data: updateData,
+  })
+
+  return NextResponse.json(coupon)
+}
+
+// DELETE — удаление купона
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const { id } = await params
+
+  // Проверяем, использовался ли купон
+  const coupon = await prisma.coupon.findUnique({
+    where: { id },
+    include: { orders: true },
+  })
+
+  if (coupon && coupon.orders.length > 0) {
+    // Вместо удаления лучше деактивировать
+    return NextResponse.json(
+      { error: 'Нельзя удалить купон, который уже использовался. Деактивируйте его.' },
+      { status: 400 }
+    )
+  }
+
+  await prisma.coupon.delete({ where: { id } })
+  return NextResponse.json({ success: true })
+}
+===== ./app/api/admin/orders/route.ts =====
+// app/api/admin/orders/route.ts
+import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+
+// GET /api/admin/orders – список всех заказов (с фильтром по статусу)
+export async function GET(request: Request) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const { searchParams } = new URL(request.url)
+  const status = searchParams.get('status') || undefined
+
+  const where: any = {}
+  if (status) {
+    where.status = status
+  }
+
+  const orders = await prisma.order.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: true,
+      items: {
+        include: {
+          product: true,
         },
       },
-      include: {
-        items: { include: { product: true } },
-        user: true,
-      },
-    })
+    },
+  })
 
-    // Очищаем корзину только для авторизованных
-    if (userId) {
-      await prisma.cartItem.deleteMany({ where: { userId } })
-    }
+  // Форматируем данные для удобства отображения
+  const formattedOrders = orders.map(order => ({
+    ...order,
+    customerName: order.user?.name || order.guestName || order.guestEmail || 'Гость',
+    customerEmail: order.user?.email || order.guestEmail,
+  }))
 
-    // Определяем email покупателя
-    const customerEmail = guestEmail || session?.user?.email
-    if (customerEmail) {
-      Promise.all([
-        sendEmail({
-          to: customerEmail,
-          ...getOrderConfirmationEmail(order),
-        }).catch(err => console.error('Ошибка отправки письма покупателю:', err)),
-        sendEmail({
-          to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
-          ...getNewOrderAdminEmail(order),
-        }).catch(err => console.error('Ошибка отправки письма админу:', err)),
-      ])
-    } else {
-      console.warn(`Заказ ${order.id}: не удалось определить email покупателя, письмо не отправлено`)
-    }
+  return NextResponse.json({ orders: formattedOrders })
+}
 
-    return NextResponse.json(
-      { orderId: order.id, orderNumber: order.orderNumber },
-      { status: 201 }
-    )
+// PUT /api/admin/orders – обновление статуса заказа
+export async function PUT(request: Request) {
+  try {
+    await requireAdmin()
   } catch (error) {
-    console.error('Ошибка создания заказа:', error)
-    return NextResponse.json(
-      { error: 'Внутренняя ошибка сервера' },
-      { status: 500 }
-    )
+    return error
   }
+
+  const { id, status } = await request.json()
+
+  if (!id || !status) {
+    return NextResponse.json({ error: 'Не указан ID заказа или статус' }, { status: 400 })
+  }
+
+  const order = await prisma.order.update({
+    where: { id },
+    data: { status },
+    include: {
+      user: true,
+      items: { include: { product: true } },
+    },
+  })
+
+  // TODO: Здесь можно добавить отправку письма покупателю о смене статуса
+
+  return NextResponse.json(order)
 }
 ===== ./app/api/admin/products/route.ts =====
 // app/api/admin/products/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { searchParams } = new URL(request.url)
@@ -1347,21 +1799,22 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const data = await request.json()
   const { article, name, price, oldPrice, description, images, categoryId, gameSystem, scale, type, faction, fileFormat, tags, inStock, featured } = data
 
   if (!article || !name || !price || !categoryId) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 })
   }
 
   const existing = await prisma.product.findUnique({ where: { article } })
   if (existing) {
-    return NextResponse.json({ error: 'Product with this article already exists' }, { status: 400 })
+    return NextResponse.json({ error: 'Товар с таким артикулом уже существует' }, { status: 400 })
   }
 
   const product = await prisma.product.create({
@@ -1466,14 +1919,14 @@ export async function DELETE(
 ===== ./app/api/admin/users/route.ts =====
 // app/api/admin/users/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { searchParams } = new URL(request.url)
@@ -1520,14 +1973,15 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { id, role } = await request.json()
   if (!id) {
-    return NextResponse.json({ error: 'User ID required' }, { status: 400 })
+    return NextResponse.json({ error: 'Требуется ID пользователя' }, { status: 400 })
   }
 
   const user = await prisma.user.update({
@@ -1738,6 +2192,78 @@ export async function GET() {
   const categories = await prisma.category.findMany()
   return NextResponse.json(categories)
 }
+===== ./app/api/coupons/validate/route.ts =====
+// app/api/coupons/validate/route.ts
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+export async function POST(request: Request) {
+  try {
+    const { code, orderAmount } = await request.json()
+
+    if (!code || typeof code !== 'string') {
+      return NextResponse.json({ error: 'Код купона не указан' }, { status: 400 })
+    }
+
+    // Ищем купон по коду (без учёта регистра)
+    const coupon = await prisma.coupon.findFirst({
+      where: {
+        code: {
+          equals: code.trim(),
+          mode: 'insensitive', // не зависит от регистра
+        },
+        isActive: true,
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } },
+        ],
+        validFrom: { lte: new Date() },
+      },
+    })
+
+    if (!coupon) {
+      return NextResponse.json({ error: 'Купон не найден или срок его действия истёк' }, { status: 404 })
+    }
+
+    // Проверяем лимит использований
+    if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+      return NextResponse.json({ error: 'Лимит использований купона исчерпан' }, { status: 400 })
+    }
+
+    // Проверяем минимальную сумму заказа
+    if (coupon.minOrderAmount !== null && orderAmount < coupon.minOrderAmount) {
+      return NextResponse.json({
+        error: `Минимальная сумма заказа для этого купона: ${coupon.minOrderAmount} ₽`,
+      }, { status: 400 })
+    }
+
+    // Рассчитываем скидку
+    let discount = 0
+    if (coupon.type === 'percent') {
+      discount = Math.round((orderAmount * coupon.value) / 100)
+    } else {
+      discount = coupon.value
+    }
+
+    // Скидка не может превышать сумму заказа
+    discount = Math.min(discount, orderAmount)
+
+    return NextResponse.json({
+      valid: true,
+      discount,
+      finalAmount: orderAmount - discount,
+      coupon: {
+        id: coupon.id,
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+      },
+    })
+  } catch (error) {
+    console.error('Ошибка проверки купона:', error)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
+}
 ===== ./app/api/orders/route.ts =====
 // app/api/orders/route.ts
 import { NextResponse } from 'next/server'
@@ -1746,42 +2272,137 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 
+// Проверка корректности email
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+// Проверка телефона (цифры, пробелы, +, -, (, ))
+function isValidPhone(phone: string): boolean {
+  const phoneRegex = /^[\d\s\+\-\(\)]+$/
+  return phoneRegex.test(phone)
+}
+
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { items, address, phone, comment, deliveryMethod, paymentMethod } = await request.json()
-
-  if (!items || items.length === 0) {
-    return NextResponse.json({ error: 'Корзина пуста' }, { status: 400 })
-  }
-  if (!address || address.trim() === '') {
-    return NextResponse.json({ error: 'Адрес доставки обязателен' }, { status: 400 })
-  }
-
-  const total = items.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0)
-
   try {
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.id
+
+    const body = await request.json()
+    const {
+      items,
+      address,
+      phone,
+      comment,
+      deliveryMethod,
+      paymentMethod,
+      email,        // email, переданный клиентом (для гостей обязателен)
+      name,         // имя, переданное клиентом
+      couponId,     // 🆕 ID применённого купона
+      discount = 0, // 🆕 сумма скидки
+    } = body
+
+    // --- ВАЛИДАЦИЯ ---
+    if (!items || items.length === 0) {
+      return NextResponse.json({ error: 'Корзина пуста' }, { status: 400 })
+    }
+
+    if (!address || typeof address !== 'string' || address.trim().length < 5) {
+      return NextResponse.json(
+        { error: 'Укажите полный адрес доставки (минимум 5 символов)' },
+        { status: 400 }
+      )
+    }
+
+    let guestEmail: string | undefined = undefined
+    let guestName: string | undefined = undefined
+
+    // Если пользователь НЕ авторизован, email обязателен
+    if (!userId) {
+      if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+        return NextResponse.json(
+          { error: 'Укажите корректный email для связи' },
+          { status: 400 }
+        )
+      }
+      guestEmail = email.trim().toLowerCase()
+      guestName = name?.trim() || undefined
+    } else {
+      // Авторизован: email не обязателен, но если передан – валидируем
+      if (email) {
+        if (!isValidEmail(email)) {
+          return NextResponse.json(
+            { error: 'Некорректный формат email' },
+            { status: 400 }
+          )
+        }
+        guestEmail = email.trim().toLowerCase()
+      }
+      if (name) {
+        guestName = name.trim()
+      }
+    }
+
+    if (phone && !isValidPhone(phone)) {
+      return NextResponse.json(
+        { error: 'Некорректный формат номера телефона' },
+        { status: 400 }
+      )
+    }
+
+    // 🆕 Если передан couponId, проверяем его существование и активность
+    if (couponId) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { id: couponId },
+      })
+      if (!coupon) {
+        return NextResponse.json({ error: 'Купон не найден' }, { status: 400 })
+      }
+      if (!coupon.isActive) {
+        return NextResponse.json({ error: 'Купон неактивен' }, { status: 400 })
+      }
+      if (coupon.validUntil && coupon.validUntil < new Date()) {
+        return NextResponse.json({ error: 'Срок действия купона истёк' }, { status: 400 })
+      }
+      if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+        return NextResponse.json({ error: 'Лимит использований купона исчерпан' }, { status: 400 })
+      }
+      // Дополнительно можно проверить minOrderAmount, но это уже делалось на клиенте
+    }
+
+    // Подсчёт суммы заказа (без скидки)
+    const itemsTotal = items.reduce(
+      (sum: number, item: any) => sum + item.product.price * item.quantity,
+      0
+    )
+
+    // Итоговая сумма с учётом скидки
+    const total = Math.max(itemsTotal - discount, 0)
+
     // Генерируем следующий номер заказа
     const lastOrder = await prisma.order.findFirst({
       orderBy: { orderNumber: 'desc' },
-      select: { orderNumber: true }
+      select: { orderNumber: true },
     })
     const nextOrderNumber = lastOrder ? lastOrder.orderNumber + 1 : 100001
 
+    // Создаём заказ в базе
     const order = await prisma.order.create({
       data: {
         orderNumber: nextOrderNumber,
-        userId: session.user.id,
+        userId: userId || undefined,
+        guestEmail: guestEmail,
+        guestName: guestName,
         total,
-        address,
-        phone: phone || null,
-        comment: comment || null,
+        discount,               // 🆕 сохраняем сумму скидки
+        address: address.trim(),
+        phone: phone?.trim() || null,
+        comment: comment?.trim() || null,
         deliveryMethod: deliveryMethod || null,
         paymentMethod: paymentMethod || null,
-        status: 'processing', // новый заказ сразу в работе
+        status: 'processing',
+        couponId: couponId || null, // 🆕 связь с купоном
         items: {
           create: items.map((item: any) => ({
             productArticle: item.product.article,
@@ -1791,34 +2412,53 @@ export async function POST(request: Request) {
         },
       },
       include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
+        items: { include: { product: true } },
         user: true,
       },
     })
 
-    // Очищаем корзину
-    await prisma.cartItem.deleteMany({ where: { userId: session.user.id } })
+    // 🆕 Увеличиваем счётчик использований купона
+    if (couponId) {
+      await prisma.coupon.update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      })
+    }
+
+    // Очищаем корзину только для авторизованных пользователей
+    if (userId) {
+      await prisma.cartItem.deleteMany({ where: { userId } })
+    }
+
+    // Определяем email покупателя для отправки письма
+    const customerEmail = guestEmail || session?.user?.email
 
     // Отправляем письма (асинхронно, не блокируем ответ)
-    Promise.all([
-      sendEmail({
-        to: session.user.email,
-        ...getOrderConfirmationEmail(order),
-      }).catch(err => console.error('Failed to send confirmation email:', err)),
-      sendEmail({
-        to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
-        ...getNewOrderAdminEmail(order),
-      }).catch(err => console.error('Failed to send admin notification:', err)),
-    ])
+    if (customerEmail) {
+      Promise.all([
+        sendEmail({
+          to: customerEmail,
+          ...getOrderConfirmationEmail(order),
+        }).catch(err => console.error('Ошибка отправки письма покупателю:', err)),
+        sendEmail({
+          to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
+          ...getNewOrderAdminEmail(order),
+        }).catch(err => console.error('Ошибка отправки письма админу:', err)),
+      ])
+    } else {
+      console.warn(`Заказ ${order.id}: не удалось определить email покупателя, письмо не отправлено`)
+    }
 
-    return NextResponse.json({ orderId: order.id, orderNumber: order.orderNumber }, { status: 201 })
+    return NextResponse.json(
+      { orderId: order.id, orderNumber: order.orderNumber },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Ошибка создания заказа:', error)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Внутренняя ошибка сервера' },
+      { status: 500 }
+    )
   }
 }
 ===== ./app/api/products/route.ts =====
@@ -1838,6 +2478,9 @@ export async function GET(request: Request) {
   const maxPrice = searchParams.get('maxPrice')
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
+  
+  // 🆕 Новый параметр: список артикулов через запятую (для избранного)
+  const articlesParam = searchParams.get('articles')
 
   // Множественные фильтры
   const gameSystems = searchParams.getAll('gameSystem')
@@ -1845,6 +2488,14 @@ export async function GET(request: Request) {
   const types = searchParams.getAll('type')
 
   const where: any = {}
+
+  // 🆕 Если передан список артикулов, фильтруем только по ним
+  if (articlesParam) {
+    const articles = articlesParam.split(',').map(a => a.trim()).filter(Boolean)
+    if (articles.length > 0) {
+      where.article = { in: articles }
+    }
+  }
 
   if (categorySlug) where.category = { slug: categorySlug }
   if (minPrice || maxPrice) {
@@ -1874,13 +2525,16 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Если запрошены конкретные артикулы, пагинацию не применяем (их обычно немного)
+    const shouldPaginate = !articlesParam
+    
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: { category: true },
         orderBy,
-        skip,
-        take: limit
+        // Если это запрос избранного, не используем skip/take — возвращаем всё
+        ...(shouldPaginate ? { skip, take: limit } : {})
       }),
       prisma.product.count({ where })
     ])
@@ -1897,8 +2551,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       products: formattedProducts,
       total,
-      page,
-      totalPages: Math.ceil(total / limit)
+      page: shouldPaginate ? page : 1,
+      totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
     })
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
@@ -2176,24 +2830,29 @@ export default function CatalogContent({
   }
 
   return (
-    <div className="px-4 py-8 lg:px-0">
-      {/* Хлебные крошки – с отступом слева как у фильтров */}
-      <div className="max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[1.5vw]">
+    <div className="overflow-x-hidden">
+      {/* Хлебные крошки – для десктопа с отступом, для мобилки с отступами по бокам */}
+      <div className="hidden lg:block max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[2vw]">
+        <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+      </div>
+      <div className="lg:hidden px-4">
         <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
       </div>
 
       {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
       <div className="hidden lg:block mt-6 w-full">
         <div className="flex w-full">
-          {/* Левый блок (15% экрана) – внутри фильтры с отступом и меньшей шириной */}
+          {/* Левый блок – фильтры фиксированы, с отступом от левого края 2vw */}
           <div className="w-[15vw] flex-shrink-0">
-            <aside className="ml-[1.5vw] w-[13.5vw]">
-              <FilterPanel products={products} onFilter={handleFilterChange} />
+            <aside className="fixed left-[2vw] top-[120px] w-[13vw] z-20 pr-4">
+              <div className="max-h-[calc(100vh-140px)] overflow-y-auto">
+                <FilterPanel products={products} onFilter={handleFilterChange} />
+              </div>
             </aside>
           </div>
 
           {/* Центральный блок – сетка товаров (70% экрана) */}
-          <main className="w-[70vw] flex-shrink-0 px-4">
+          <main className="mx-auto w-[70vw] px-4 pb-48">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
               <SortDropdown onSort={handleSortChange} products={products} />
               <span className="text-gray-400 text-sm">Найдено: {total}</span>
@@ -2208,18 +2867,20 @@ export default function CatalogContent({
             ) : products.length === 0 ? (
               <div className="text-center py-20 text-gray-400">Товары не найдены</div>
             ) : (
-              <div className="grid grid-cols-3 gap-[5%]">
+              <div className="grid grid-cols-3 gap-[1.25%] auto-rows-fr">
                 {products.map(product => (
                   <ProductCard key={product.article} product={product} />
                 ))}
               </div>
             )}
             {totalPages > 1 && (
-              <Pagination
-                totalPages={totalPages}
-                currentPage={page}
-                onPageChange={handlePageChange}
-              />
+              <div className="mt-16 mb-16">
+                <Pagination
+                  totalPages={totalPages}
+                  currentPage={page}
+                  onPageChange={handlePageChange}
+                />
+              </div>
             )}
           </main>
 
@@ -2228,36 +2889,42 @@ export default function CatalogContent({
         </div>
       </div>
 
-      {/* МОБИЛЬНАЯ ВЕРСИЯ (без изменений) */}
+      {/* МОБИЛЬНАЯ ВЕРСИЯ – карточки от края до края, на планшетах 2 колонки */}
       <div className="lg:hidden mt-6">
-        <FilterPanel products={products} onFilter={handleFilterChange} />
+        <div className="px-4">
+          <FilterPanel products={products} onFilter={handleFilterChange} />
+        </div>
         <div className="mt-6">
-          <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+          <div className="px-4 flex justify-between items-center mb-4 flex-wrap gap-4">
             <SortDropdown onSort={handleSortChange} products={products} />
             <span className="text-gray-400 text-sm">Найдено: {total}</span>
           </div>
-          <ActiveFilters
-            filters={activeFilters}
-            onRemove={handleRemoveFilter}
-            onClearAll={handleClearAllFilters}
-          />
+          <div className="px-4">
+            <ActiveFilters
+              filters={activeFilters}
+              onRemove={handleRemoveFilter}
+              onClearAll={handleClearAllFilters}
+            />
+          </div>
           {loading ? (
             <div className="text-center py-20 text-white">Загрузка...</div>
           ) : products.length === 0 ? (
             <div className="text-center py-20 text-gray-400">Товары не найдены</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {products.map(product => (
                 <ProductCard key={product.article} product={product} />
               ))}
             </div>
           )}
           {totalPages > 1 && (
-            <Pagination
-              totalPages={totalPages}
-              currentPage={page}
-              onPageChange={handlePageChange}
-            />
+            <div className="mt-8 pb-20 flex justify-center">
+              <Pagination
+                totalPages={totalPages}
+                currentPage={page}
+                onPageChange={handlePageChange}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -2361,39 +3028,94 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 // app/checkout/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useCart } from '@/hooks/useCart'
 
 export default function CheckoutPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { items, totalPrice, clearCart } = useCart()
   const router = useRouter()
 
   const [form, setForm] = useState({
+    email: '',
+    name: '',
     address: '',
     phone: '',
     comment: '',
-    deliveryMethod: 'СДЭК', // по умолчанию
+    deliveryMethod: 'СДЭК',
     paymentMethod: 'card',
   })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Если пользователь не авторизован, перенаправляем на логин
-  if (!session) {
-    router.push('/login?redirect=/checkout')
-    return null
-  }
+  // 🆕 Состояния для купона
+  const [couponCode, setCouponCode] = useState('')
+  const [couponDiscount, setCouponDiscount] = useState(0)
+  const [couponError, setCouponError] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null)
+  const [checkingCoupon, setCheckingCoupon] = useState(false)
 
-  if (items.length === 0) {
+  // Перенаправляем, если корзина пуста
+  useEffect(() => {
+    if (items.length === 0) {
+      router.push('/catalog')
+    }
+  }, [items, router])
+
+  // Предзаполняем имя и email, если пользователь авторизован
+  useEffect(() => {
+    if (session?.user) {
+      setForm(prev => ({
+        ...prev,
+        email: session.user.email || '',
+        name: session.user.name || '',
+      }))
+    }
+  }, [session])
+
+  // Пока загружается сессия или корзина пуста, показываем заглушку
+  if (status === 'loading' || items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8 text-center text-white">
-        Корзина пуста
+        Загрузка...
       </div>
     )
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
+  // 🆕 Применение купона
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCheckingCoupon(true)
+    setCouponError('')
+
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode, orderAmount: totalPrice }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setCouponError(data.error)
+        setCouponDiscount(0)
+        setAppliedCoupon(null)
+      } else {
+        setCouponDiscount(data.discount)
+        setAppliedCoupon(data.coupon)
+      }
+    } catch {
+      setCouponError('Ошибка проверки купона')
+    } finally {
+      setCheckingCoupon(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2401,17 +3123,37 @@ export default function CheckoutPage() {
     setLoading(true)
     setError('')
 
+    // Клиентская валидация
+    if (!form.address.trim()) {
+      setError('Укажите адрес доставки')
+      setLoading(false)
+      return
+    }
+
+    if (!session?.user && !form.email.trim()) {
+      setError('Укажите email для связи')
+      setLoading(false)
+      return
+    }
+
+    const payload = {
+      items,
+      address: form.address,
+      phone: form.phone,
+      comment: form.comment,
+      deliveryMethod: form.deliveryMethod,
+      paymentMethod: form.paymentMethod,
+      email: form.email || undefined,
+      name: form.name || undefined,
+      // 🆕 Добавляем данные купона
+      couponId: appliedCoupon?.id,
+      discount: couponDiscount,
+    }
+
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        items,
-        address: form.address,
-        phone: form.phone,
-        comment: form.comment,
-        deliveryMethod: form.deliveryMethod,
-        paymentMethod: form.paymentMethod,
-      }),
+      body: JSON.stringify(payload),
     })
 
     const data = await res.json()
@@ -2424,7 +3166,9 @@ export default function CheckoutPage() {
 
     setSubmitted(true)
     clearCart()
-    setTimeout(() => router.push('/account/orders'), 3000)
+    setTimeout(() => {
+      router.push(session?.user ? '/account/orders' : '/')
+    }, 3000)
   }
 
   if (submitted) {
@@ -2436,44 +3180,98 @@ export default function CheckoutPage() {
           Спасибо за заказ. Мы свяжемся с вами для подтверждения.
         </p>
         <p className="text-gray-400 text-sm mt-4">
-          Перенаправление в историю заказов...
+          Перенаправление...
         </p>
       </div>
     )
   }
+
+  const finalTotal = totalPrice - couponDiscount
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-white mb-8">Оформление заказа</h1>
       <div className="grid lg:grid-cols-2 gap-8">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Поля для гостей */}
+          {!session?.user && (
+            <>
+              <div>
+                <label className="block text-white mb-1">Email *</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="your@email.ru"
+                  required
+                  className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
+                  value={form.email}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Имя</label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Иван Иванов"
+                  className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
+                  value={form.name}
+                  onChange={handleChange}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Данные авторизованного пользователя */}
+          {session?.user && (
+            <div className="p-4 bg-cardbg rounded-lg border border-borderLight">
+              <p className="text-white">
+                <span className="text-gray-400">Email:</span> {session.user.email}
+              </p>
+              {session.user.name && (
+                <p className="text-white mt-1">
+                  <span className="text-gray-400">Имя:</span> {session.user.name}
+                </p>
+              )}
+              <p className="text-sm text-gray-400 mt-2">
+                Данные взяты из вашего профиля. Изменить можно в{' '}
+                <a href="/account/settings" className="text-accent hover:underline">
+                  настройках
+                </a>.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-white mb-1">Адрес доставки *</label>
             <input
               type="text"
+              name="address"
               placeholder="Город, улица, дом, квартира"
               required
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
               value={form.address}
-              onChange={e => setForm({ ...form, address: e.target.value })}
+              onChange={handleChange}
             />
           </div>
           <div>
             <label className="block text-white mb-1">Телефон</label>
             <input
               type="tel"
+              name="phone"
               placeholder="+7 (999) 123-45-67"
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
               value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
+              onChange={handleChange}
             />
           </div>
           <div>
             <label className="block text-white mb-1">Способ доставки</label>
             <select
+              name="deliveryMethod"
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
               value={form.deliveryMethod}
-              onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}
+              onChange={handleChange}
             >
               <option value="СДЭК">СДЭК</option>
               <option value="Почта России">Почта России</option>
@@ -2483,9 +3281,10 @@ export default function CheckoutPage() {
           <div>
             <label className="block text-white mb-1">Способ оплаты</label>
             <select
+              name="paymentMethod"
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
               value={form.paymentMethod}
-              onChange={e => setForm({ ...form, paymentMethod: e.target.value })}
+              onChange={handleChange}
             >
               <option value="card">Картой онлайн (демо)</option>
               <option value="cash">Наличными при получении</option>
@@ -2494,10 +3293,11 @@ export default function CheckoutPage() {
           <div>
             <label className="block text-white mb-1">Комментарий к заказу</label>
             <textarea
+              name="comment"
               rows={3}
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
               value={form.comment}
-              onChange={e => setForm({ ...form, comment: e.target.value })}
+              onChange={handleChange}
             />
           </div>
           {error && (
@@ -2506,17 +3306,18 @@ export default function CheckoutPage() {
             </div>
           )}
           <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50 hover:bg-white hover:text-darkbg hover:border-white border border-transparent transition-colors duration-300"
+            type="submit"
+            disabled={loading}
+            className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50 hover:bg-white hover:text-darkbg hover:border-white border border-transparent transition-colors duration-300"
           >
-         {loading ? 'Оформление...' : `Подтвердить заказ на ${totalPrice} ₽`}
+            {loading ? 'Оформление...' : `Подтвердить заказ на ${finalTotal} ₽`}
           </button>
           <p className="text-xs text-gray-400 text-center">
             Нажимая кнопку, вы соглашаетесь с условиями доставки и оплаты.
           </p>
         </form>
 
+        {/* Состав заказа */}
         <div className="bg-cardbg p-6 rounded-xl border border-borderLight">
           <h2 className="text-xl font-bold mb-4">Ваш заказ</h2>
           {items.map(item => (
@@ -2525,9 +3326,59 @@ export default function CheckoutPage() {
               <span>{item.product.price * item.quantity} ₽</span>
             </div>
           ))}
-          <div className="flex justify-between font-bold text-lg mt-4">
-            <span>Итого</span>
-            <span>{totalPrice} ₽</span>
+
+          {/* 🆕 Блок купона */}
+          <div className="mt-4 pt-4 border-t border-borderLight">
+            <label className="block text-white mb-2">Промокод</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponCode}
+                onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                placeholder="Введите код"
+                className="flex-1 p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                disabled={!!appliedCoupon}
+              />
+              {!appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={applyCoupon}
+                  disabled={checkingCoupon || !couponCode.trim()}
+                  className="bg-accent px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                >
+                  {checkingCoupon ? '...' : 'Применить'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCouponCode('')
+                    setCouponDiscount(0)
+                    setAppliedCoupon(null)
+                    setCouponError('')
+                  }}
+                  className="text-red-400 hover:text-red-300 px-4 py-2"
+                >
+                  Сбросить
+                </button>
+              )}
+            </div>
+            {couponError && <p className="text-red-400 text-sm mt-1">{couponError}</p>}
+            {appliedCoupon && (
+              <p className="text-green-400 text-sm mt-1">
+                Купон {appliedCoupon.code} применён! Скидка: {couponDiscount} ₽
+              </p>
+            )}
+          </div>
+
+          {/* 🆕 Итоговая сумма с учётом скидки */}
+          <div className="flex justify-between items-center mt-4 pt-2 border-t border-borderLight">
+            <span className="text-white font-bold">Скидка:</span>
+            <span className="text-green-400 font-bold">-{couponDiscount} ₽</span>
+          </div>
+          <div className="flex justify-between items-center mt-2">
+            <span className="text-white font-bold text-lg">Итого к оплате:</span>
+            <span className="text-white font-bold text-lg">{finalTotal} ₽</span>
           </div>
         </div>
       </div>
@@ -3640,13 +4491,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Package, FolderTree, Layout, Image, 
-  Library, ShoppingCart, Users, FileText, MessageCircle, X 
+  Library, ShoppingCart, Users, FileText, MessageCircle, X,
+  Ticket // 🆕 импорт иконки для купонов
 } from 'lucide-react'
 
 const menu = [
   { name: 'Дашборд', href: '/admin', icon: LayoutDashboard },
   { name: 'Товары', href: '/admin/products', icon: Package },
   { name: 'Категории', href: '/admin/categories', icon: FolderTree },
+  { name: 'Купоны', href: '/admin/coupons', icon: Ticket }, // 🆕 пункт меню
   { name: 'Главная страница', href: '/admin/homepage', icon: Layout },
   { name: 'Баннеры', href: '/admin/banners', icon: Image },
   { name: 'Медиатека', href: '/admin/media', icon: Library },
@@ -5454,6 +6307,31 @@ export async function fetchProductsByCategory(categorySlug: string): Promise<Pro
     return p.categorySlug === categorySlug
   })
 }
+===== ./lib/auth.ts =====
+// lib/auth.ts
+import { getServerSession } from 'next-auth'
+import { NextResponse } from 'next/server'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+
+/**
+ * Проверяет, что текущий пользователь является администратором.
+ * Если нет — возвращает ответ 403 Forbidden.
+ * 
+ * @returns Сессию пользователя, если он админ, иначе выбрасывает ответ 403.
+ * Использование:
+ *   const session = await requireAdmin()
+ *   // если выполнение дошло сюда, значит пользователь админ
+ */
+export async function requireAdmin() {
+  const session = await getServerSession(authOptions)
+  
+  if (!session?.user || session.user.role !== 'admin') {
+    // Возвращаем ошибку 403 (доступ запрещён)
+    throw NextResponse.json({ error: 'Доступ запрещён' }, { status: 403 })
+  }
+  
+  return session
+}
 ===== ./lib/db.ts =====
 // lib/db.ts
 import { prisma } from './prisma'
@@ -5607,6 +6485,8 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
 ===== ./lib/email.ts =====
 // lib/email.ts
 import nodemailer from 'nodemailer'
+import fs from 'fs'
+import path from 'path'
 
 // Настройки SMTP берутся из переменных окружения
 const transporter = nodemailer.createTransport({
@@ -5618,6 +6498,22 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 })
+
+/**
+ * Записывает ошибку отправки письма в лог-файл
+ */
+function logEmailError(error: unknown, context: { to: string; subject: string }) {
+  const logDir = path.join(process.cwd(), 'logs')
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true })
+  }
+  
+  const logFile = path.join(logDir, 'email-errors.log')
+  const timestamp = new Date().toISOString()
+  const logEntry = `[${timestamp}] Ошибка отправки письма на ${context.to} (тема: ${context.subject})\n${error}\n\n`
+  
+  fs.appendFileSync(logFile, logEntry, 'utf-8')
+}
 
 /**
  * Отправляет письмо
@@ -5655,6 +6551,7 @@ export async function sendEmail({
     return info
   } catch (error) {
     console.error('Error sending email:', error)
+    logEmailError(error, { to, subject })
     throw error
   }
 }
@@ -5688,8 +6585,8 @@ export function getNewOrderAdminEmail(order: any) {
 Номер заказа: ${order.orderNumber}
 Дата: ${new Date(order.createdAt).toLocaleString('ru-RU')}
 Сумма: ${order.total} ₽
-Покупатель: ${order.user.name || order.user.email}
-Email: ${order.user.email}
+Покупатель: ${order.user?.name || order.guestName || order.guestEmail || 'Гость'}
+Email: ${order.user?.email || order.guestEmail || 'не указан'}
 Телефон: ${order.phone || 'не указан'}
 Адрес доставки: ${order.address}
 Способ доставки: ${order.deliveryMethod || 'не указан'}
@@ -5715,7 +6612,7 @@ export function getOrderConfirmationEmail(order: any) {
   return {
     subject: `Ваш заказ №${order.orderNumber} принят`,
     text: `
-Здравствуйте, ${order.user.name || order.user.email}!
+Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
 
 Ваш заказ №${order.orderNumber} успешно оформлен и принят в работу.
 
@@ -5744,7 +6641,7 @@ export function getOrderStatusUpdateEmail(order: any) {
   return {
     subject: `Статус заказа №${order.orderNumber} изменён`,
     text: `
-Здравствуйте, ${order.user.name || order.user.email}!
+Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
 
 Статус вашего заказа №${order.orderNumber} изменился на: ${getStatusLabel(order.status)}.
 
@@ -5754,7 +6651,7 @@ export function getOrderStatusUpdateEmail(order: any) {
 Героическая лаборатория миниатюр
     `,
   }
-}
+}       
 ===== ./lib/prisma.ts =====
 import { PrismaClient } from '@prisma/client'
 
@@ -5787,6 +6684,26 @@ export function getCategorySlug(product: Product): string {
   }
   return product.categorySlug // fallback
 }
+===== ./logs/email-errors.log =====
+[2026-04-19T13:11:13.000Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100001 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604144-39QkCsASmqM0
+
+[2026-04-19T13:11:13.021Z] Ошибка отправки письма на test@test.test (тема: Ваш заказ №100001 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604144-39Qb4WxS5Cg0
+
+[2026-04-19T13:13:39.847Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100002 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604291-UBQEoLBT7iE0
+
+[2026-04-19T13:13:39.863Z] Ошибка отправки письма на test@test.test (тема: Ваш заказ №100002 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776604291-UBQmrCASsqM0
+
+[2026-04-19T13:32:19.648Z] Ошибка отправки письма на valera.biven@borrow.zhmih (тема: Ваш заказ №100003 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776605410-AUQeijCRjmI0
+
+[2026-04-19T13:32:19.664Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100003 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776605410-AUQDmbCTuSw0
+
+
 ===== ./next-env.d.ts =====
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
@@ -14200,7 +15117,8 @@ export default nextConfig;
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "mkdir -p logs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
@@ -16811,6 +17729,56 @@ CREATE UNIQUE INDEX "Order_orderNumber_key" ON "Order"("orderNumber");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
 
+===== ./prisma/migrations/20260419154413_add_coupons/migration.sql =====
+-- CreateTable
+CREATE TABLE "Coupon" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "code" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "value" INTEGER NOT NULL,
+    "minOrderAmount" INTEGER,
+    "maxUses" INTEGER,
+    "usedCount" INTEGER NOT NULL DEFAULT 0,
+    "validFrom" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "validUntil" DATETIME,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+
+-- RedefineTables
+PRAGMA defer_foreign_keys=ON;
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_Order" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "orderNumber" INTEGER NOT NULL,
+    "userId" TEXT,
+    "guestEmail" TEXT,
+    "guestName" TEXT,
+    "total" INTEGER NOT NULL,
+    "discount" INTEGER NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'processing',
+    "address" TEXT NOT NULL,
+    "phone" TEXT,
+    "comment" TEXT,
+    "deliveryMethod" TEXT,
+    "paymentMethod" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    "couponId" TEXT,
+    CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "Order_couponId_fkey" FOREIGN KEY ("couponId") REFERENCES "Coupon" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO "new_Order" ("address", "comment", "createdAt", "deliveryMethod", "guestEmail", "guestName", "id", "orderNumber", "paymentMethod", "phone", "status", "total", "updatedAt", "userId") SELECT "address", "comment", "createdAt", "deliveryMethod", "guestEmail", "guestName", "id", "orderNumber", "paymentMethod", "phone", "status", "total", "updatedAt", "userId" FROM "Order";
+DROP TABLE "Order";
+ALTER TABLE "new_Order" RENAME TO "Order";
+CREATE UNIQUE INDEX "Order_orderNumber_key" ON "Order"("orderNumber");
+PRAGMA foreign_keys=ON;
+PRAGMA defer_foreign_keys=OFF;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Coupon_code_key" ON "Coupon"("code");
+
 ===== ./prisma/migrations/migration_lock.toml =====
 # Please do not edit this file manually
 # It should be added in your version-control system (i.e. Git)
@@ -16878,11 +17846,12 @@ model Category {
 model Order {
   id             String      @id @default(cuid())
   orderNumber    Int         @unique
-  userId         String?     // ← стало опциональным
+  userId         String?
   user           User?       @relation(fields: [userId], references: [id])
-  guestEmail     String?     // ← новое поле
-  guestName      String?     // ← новое поле
+  guestEmail     String?
+  guestName      String?
   total          Int
+  discount       Int         @default(0)   // 🆕 сумма скидки в рублях
   status         String      @default("processing")
   address        String
   phone          String?
@@ -16892,6 +17861,8 @@ model Order {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   items          OrderItem[]
+  couponId       String?                   // 🆕 связь с купоном
+  coupon         Coupon?     @relation(fields: [couponId], references: [id])
 }
 
 // Товары в заказе
@@ -16915,6 +17886,23 @@ model CartItem {
   quantity       Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// 🆕 Модель купона
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique  // уникальный код, например "WELCOME10"
+  type          String   // "percent" или "fixed"
+  value         Int      // значение скидки (процент или сумма в рублях)
+  minOrderAmount Int?    // минимальная сумма заказа (опционально)
+  maxUses       Int?     // максимальное количество использований (null = безлимит)
+  usedCount     Int      @default(0)
+  validFrom     DateTime @default(now())
+  validUntil    DateTime? // срок действия (null = бессрочно)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]  // заказы, в которых использован этот купон
 }
 ===== ./prisma/seed.ts =====
 // prisma/seed.ts

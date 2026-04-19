@@ -60,11 +60,12 @@ model Category {
 model Order {
   id             String      @id @default(cuid())
   orderNumber    Int         @unique
-  userId         String?     // ← стало опциональным
+  userId         String?
   user           User?       @relation(fields: [userId], references: [id])
-  guestEmail     String?     // ← новое поле
-  guestName      String?     // ← новое поле
+  guestEmail     String?
+  guestName      String?
   total          Int
+  discount       Int         @default(0)   // 🆕 сумма скидки в рублях
   status         String      @default("processing")
   address        String
   phone          String?
@@ -74,6 +75,8 @@ model Order {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   items          OrderItem[]
+  couponId       String?                   // 🆕 связь с купоном
+  coupon         Coupon?     @relation(fields: [couponId], references: [id])
 }
 
 // Товары в заказе
@@ -97,4 +100,21 @@ model CartItem {
   quantity       Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// 🆕 Модель купона
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique  // уникальный код, например "WELCOME10"
+  type          String   // "percent" или "fixed"
+  value         Int      // значение скидки (процент или сумма в рублях)
+  minOrderAmount Int?    // минимальная сумма заказа (опционально)
+  maxUses       Int?     // максимальное количество использований (null = безлимит)
+  usedCount     Int      @default(0)
+  validFrom     DateTime @default(now())
+  validUntil    DateTime? // срок действия (null = бессрочно)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]  // заказы, в которых использован этот купон
 }
