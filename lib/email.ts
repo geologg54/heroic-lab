@@ -1,5 +1,7 @@
 // lib/email.ts
 import nodemailer from 'nodemailer'
+import fs from 'fs'
+import path from 'path'
 
 // Настройки SMTP берутся из переменных окружения
 const transporter = nodemailer.createTransport({
@@ -11,6 +13,22 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 })
+
+/**
+ * Записывает ошибку отправки письма в лог-файл
+ */
+function logEmailError(error: unknown, context: { to: string; subject: string }) {
+  const logDir = path.join(process.cwd(), 'logs')
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true })
+  }
+  
+  const logFile = path.join(logDir, 'email-errors.log')
+  const timestamp = new Date().toISOString()
+  const logEntry = `[${timestamp}] Ошибка отправки письма на ${context.to} (тема: ${context.subject})\n${error}\n\n`
+  
+  fs.appendFileSync(logFile, logEntry, 'utf-8')
+}
 
 /**
  * Отправляет письмо
@@ -48,6 +66,7 @@ export async function sendEmail({
     return info
   } catch (error) {
     console.error('Error sending email:', error)
+    logEmailError(error, { to, subject })
     throw error
   }
 }
@@ -81,8 +100,8 @@ export function getNewOrderAdminEmail(order: any) {
 Номер заказа: ${order.orderNumber}
 Дата: ${new Date(order.createdAt).toLocaleString('ru-RU')}
 Сумма: ${order.total} ₽
-Покупатель: ${order.user.name || order.user.email}
-Email: ${order.user.email}
+Покупатель: ${order.user?.name || order.guestName || order.guestEmail || 'Гость'}
+Email: ${order.user?.email || order.guestEmail || 'не указан'}
 Телефон: ${order.phone || 'не указан'}
 Адрес доставки: ${order.address}
 Способ доставки: ${order.deliveryMethod || 'не указан'}
@@ -108,7 +127,7 @@ export function getOrderConfirmationEmail(order: any) {
   return {
     subject: `Ваш заказ №${order.orderNumber} принят`,
     text: `
-Здравствуйте, ${order.user.name || order.user.email}!
+Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
 
 Ваш заказ №${order.orderNumber} успешно оформлен и принят в работу.
 
@@ -137,7 +156,7 @@ export function getOrderStatusUpdateEmail(order: any) {
   return {
     subject: `Статус заказа №${order.orderNumber} изменён`,
     text: `
-Здравствуйте, ${order.user.name || order.user.email}!
+Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
 
 Статус вашего заказа №${order.orderNumber} изменился на: ${getStatusLabel(order.status)}.
 
@@ -147,4 +166,4 @@ export function getOrderStatusUpdateEmail(order: any) {
 Героическая лаборатория миниатюр
     `,
   }
-}
+}       

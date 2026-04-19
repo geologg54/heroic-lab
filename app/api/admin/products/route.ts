@@ -1,13 +1,13 @@
 // app/api/admin/products/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { searchParams } = new URL(request.url)
@@ -47,21 +47,22 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const data = await request.json()
   const { article, name, price, oldPrice, description, images, categoryId, gameSystem, scale, type, faction, fileFormat, tags, inStock, featured } = data
 
   if (!article || !name || !price || !categoryId) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 })
   }
 
   const existing = await prisma.product.findUnique({ where: { article } })
   if (existing) {
-    return NextResponse.json({ error: 'Product with this article already exists' }, { status: 400 })
+    return NextResponse.json({ error: 'Товар с таким артикулом уже существует' }, { status: 400 })
   }
 
   const product = await prisma.product.create({
