@@ -4,21 +4,37 @@ import { useEffect, useState } from 'react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { EmptyState } from '@/components/common/EmptyState'
-import { fetchAllProducts } from '@/lib/api'
 import type { Product } from '@/types'
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites()
-  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchAllProducts()
-      .then(data => setAllProducts(data))
-      .finally(() => setLoading(false))
-  }, [])
+    async function loadFavorites() {
+      if (favorites.length === 0) {
+        setFavoriteProducts([])
+        setLoading(false)
+        return
+      }
 
-  const favoriteProducts = allProducts.filter(p => favorites.includes(p.article))
+      try {
+        // 🆕 Запрашиваем только товары с нужными артикулами
+        const articlesParam = favorites.join(',')
+        const res = await fetch(`/api/products?articles=${encodeURIComponent(articlesParam)}&limit=100`)
+        const data = await res.json()
+        setFavoriteProducts(data.products || [])
+      } catch (error) {
+        console.error('Ошибка загрузки избранного:', error)
+        setFavoriteProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadFavorites()
+  }, [favorites])
 
   if (loading) {
     return <div className="text-white text-center py-20">Загрузка...</div>
