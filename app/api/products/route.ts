@@ -15,17 +15,14 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
   
-  // 🆕 Новый параметр: список артикулов через запятую (для избранного)
   const articlesParam = searchParams.get('articles')
 
-  // Множественные фильтры
   const gameSystems = searchParams.getAll('gameSystem')
   const scales = searchParams.getAll('scale')
   const types = searchParams.getAll('type')
 
   const where: any = {}
 
-  // 🆕 Если передан список артикулов, фильтруем только по ним
   if (articlesParam) {
     const articles = articlesParam.split(',').map(a => a.trim()).filter(Boolean)
     if (articles.length > 0) {
@@ -39,13 +36,12 @@ export async function GET(request: Request) {
     if (minPrice) where.price.gte = parseInt(minPrice)
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
+  
+  // 🆕 Поиск по полю searchName (регистронезависимый)
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { description: { contains: search } },
-      { article: { contains: search } }
-    ]
+    where.searchName = { contains: search.toLowerCase() }
   }
+  
   if (gameSystems.length) where.gameSystem = { in: gameSystems }
   if (scales.length) where.scale = { in: scales }
   if (types.length) where.type = { in: types }
@@ -61,7 +57,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Если запрошены конкретные артикулы, пагинацию не применяем (их обычно немного)
     const shouldPaginate = !articlesParam
     
     const [products, total] = await Promise.all([
@@ -69,7 +64,6 @@ export async function GET(request: Request) {
         where,
         include: { category: true },
         orderBy,
-        // Если это запрос избранного, не используем skip/take — возвращаем всё
         ...(shouldPaginate ? { skip, take: limit } : {})
       }),
       prisma.product.count({ where })
