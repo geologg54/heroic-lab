@@ -16,6 +16,10 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || ''
   const category = searchParams.get('category') || undefined
 
+  // Параметры сортировки
+  const sortBy = searchParams.get('sortBy') || 'createdAt'
+  const order = searchParams.get('order') || 'desc'
+
   const where: any = {}
   if (search) {
     where.OR = [
@@ -27,11 +31,30 @@ export async function GET(request: Request) {
     where.category = { slug: category }
   }
 
+  // Формируем объект сортировки
+  let orderBy: any = {}
+  switch (sortBy) {
+    case 'price':
+      orderBy = { price: order }
+      break
+    case 'article':
+      orderBy = { article: order }
+      break
+    case 'category':
+      orderBy = { category: { name: order } }
+      break
+    case 'name':
+      orderBy = { name: order }
+      break
+    default:
+      orderBy = { createdAt: 'desc' }
+  }
+
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit
     }),
@@ -66,25 +89,25 @@ export async function POST(request: Request) {
   }
 
   const product = await prisma.product.create({
-  data: {
-    article,
-    name,
-    searchName: name.toLowerCase(),   // <-- добавить
-    price: parseInt(price),
-    oldPrice: oldPrice ? parseInt(oldPrice) : null,
-    description: description || '',
-    images: Array.isArray(images) ? images.join(',') : images || '',
-    categoryId,
-    gameSystem: gameSystem || '',
-    scale: scale || '32mm',
-    type: type || 'unknown',
-    faction: faction || null,
-    fileFormat: fileFormat || 'STL',
-    tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-    featured: featured ?? false
-  },
-  include: { category: true }
-})
+    data: {
+      article,
+      name,
+      searchName: name.toLowerCase(),
+      price: parseInt(price),
+      oldPrice: oldPrice ? parseInt(oldPrice) : null,
+      description: description || '',
+      images: Array.isArray(images) ? images.join(',') : images || '',
+      categoryId,
+      gameSystem: gameSystem || '',
+      scale: scale || '32mm',
+      type: type || 'unknown',
+      faction: faction || null,
+      fileFormat: fileFormat || 'STL',
+      tags: Array.isArray(tags) ? tags.join(',') : tags || '',
+      featured: featured ?? false
+    },
+    include: { category: true }
+  })
 
   return NextResponse.json(product, { status: 201 })
 }
