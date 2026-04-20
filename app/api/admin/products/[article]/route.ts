@@ -42,6 +42,7 @@ export async function PUT(
     where: { article },
     data: {
       name: data.name,
+      ssearchName: data.name.toLowerCase(), 
       price: parseInt(data.price),
       oldPrice: data.oldPrice ? parseInt(data.oldPrice) : null,
       description: data.description || '',

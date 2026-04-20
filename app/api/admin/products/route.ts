@@ -66,24 +66,25 @@ export async function POST(request: Request) {
   }
 
   const product = await prisma.product.create({
-    data: {
-      article,
-      name,
-      price: parseInt(price),
-      oldPrice: oldPrice ? parseInt(oldPrice) : null,
-      description: description || '',
-      images: Array.isArray(images) ? images.join(',') : images || '',
-      categoryId,
-      gameSystem: gameSystem || '',
-      scale: scale || '32mm',
-      type: type || 'unknown',
-      faction: faction || null,
-      fileFormat: fileFormat || 'STL',
-      tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-      featured: featured ?? false
-    },
-    include: { category: true }
-  })
+  data: {
+    article,
+    name,
+    searchName: name.toLowerCase(),   // <-- добавить
+    price: parseInt(price),
+    oldPrice: oldPrice ? parseInt(oldPrice) : null,
+    description: description || '',
+    images: Array.isArray(images) ? images.join(',') : images || '',
+    categoryId,
+    gameSystem: gameSystem || '',
+    scale: scale || '32mm',
+    type: type || 'unknown',
+    faction: faction || null,
+    fileFormat: fileFormat || 'STL',
+    tags: Array.isArray(tags) ? tags.join(',') : tags || '',
+    featured: featured ?? false
+  },
+  include: { category: true }
+})
 
   return NextResponse.json(product, { status: 201 })
 }

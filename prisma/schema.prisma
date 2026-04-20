@@ -25,6 +25,7 @@ model User {
 model Product {
   article        String      @id
   name           String
+  searchName     String      @default("")   // временно с default
   description    String
   price          Int
   oldPrice       Int?
@@ -42,6 +43,10 @@ model Product {
   popularity     Int         @default(0)
   orderItems     OrderItem[]
   cartItems      CartItem[]
+
+  @@index([name])
+  @@index([article])
+  @@index([searchName])   // 🆕 индекс для ускорения поиска
 }
 
 // Категория
