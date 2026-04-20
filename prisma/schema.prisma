@@ -16,6 +16,8 @@ model User {
   name      String?
   password  String
   role      String    @default("user")
+  twoFactorEnabled  Boolean   @default(false)  
+  twoFactorSecret   String?                    
   createdAt DateTime  @default(now())
   orders    Order[]
   cartItems CartItem[]

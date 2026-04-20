@@ -1060,35 +1060,153 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 // app/admin/orders/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Eye } from 'lucide-react'
 import Link from 'next/link'
 
-function getCustomerDisplay(order: any): string {
-  if (order.user) {
-    return order.user.name || order.user.email || 'Без имени'
+// Ключ для хранения отметок в localStorage
+const STORAGE_KEY = 'admin_checked_order_items'
+
+// Функция для форматирования состава заказа в виде вертикального списка с отметками
+function renderOrderItems(
+  order: any,
+  checkedItems: Set<string>,
+  onToggle: (orderId: string, article: string) => void
+) {
+  return (
+    <div className="space-y-1 text-sm">
+      {order.items.map((item: any) => {
+        const name = item.product.name
+        const qty = item.quantity
+        const article = item.product.article
+        const key = `${order.id}:${article}`
+        const isChecked = checkedItems.has(key)
+
+        return (
+          <div key={item.id} className="flex items-center gap-1 leading-tight">
+            <button
+              onClick={() => onToggle(order.id, article)}
+              className={`text-left hover:text-accent transition ${isChecked ? 'opacity-35' : ''}`}
+              title={isChecked ? 'Собрано' : 'Отметить как собранное'}
+            >
+              {qty > 1 ? `${name} ×${qty}` : name}
+            </button>
+            {isChecked && (
+              <span className="text-green-500 text-lg leading-none ml-1" title="Отмечено">✓</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Функция для отображения читаемого названия способа доставки
+function getDeliveryLabel(method: string | null): string {
+  if (!method) return '—'
+  const labels: Record<string, string> = {
+    'СДЭК': 'СДЭК',
+    'Почта России': 'Почта России',
+    'Самовывоз': 'Самовывоз'
   }
-  return order.guestName || order.guestEmail || 'Гость'
+  return labels[method] || method
+}
+
+// Цвета статусов
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'processing':
+      return 'text-yellow-400'
+    case 'cancelled':
+      return 'text-red-400'
+    case 'in_delivery':
+    case 'shipped':
+    case 'delivered':
+      return 'text-green-400'
+    default:
+      return 'text-white'
+  }
 }
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // --- Состояния фильтров ---
+  const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [minTotal, setMinTotal] = useState('')
+  const [maxTotal, setMaxTotal] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+
+  // --- Состояния сортировки ---
+  const [sortBy, setSortBy] = useState('createdAt')
+  const [sortOrder, setSortOrder] = useState('desc')
+
+  // --- Массовые операции ---
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set())
+  const [batchStatus, setBatchStatus] = useState('')
+  const [sendNotifications, setSendNotifications] = useState(false)
+  const [applyingBatch, setApplyingBatch] = useState(false)
+
+  // --- Отметки товаров внутри заказов ---
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set())
+  const [isCheckedItemsLoaded, setIsCheckedItemsLoaded] = useState(false)
+
+  // Загружаем отметки из localStorage при монтировании
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        setCheckedItems(new Set(parsed))
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки отметок из localStorage:', e)
+    } finally {
+      setIsCheckedItemsLoaded(true)
+    }
+  }, [])
+
+  // Сохраняем отметки в localStorage при каждом изменении
+  useEffect(() => {
+    if (!isCheckedItemsLoaded) return
+    try {
+      const array = Array.from(checkedItems)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(array))
+    } catch (e) {
+      console.error('Ошибка сохранения отметок в localStorage:', e)
+    }
+  }, [checkedItems, isCheckedItemsLoaded])
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      if (dateFrom) params.set('dateFrom', dateFrom)
+      if (dateTo) params.set('dateTo', dateTo)
+      if (minTotal) params.set('minTotal', minTotal)
+      if (maxTotal) params.set('maxTotal', maxTotal)
+      if (statusFilter) params.set('status', statusFilter)
+      if (sortBy) params.set('sortBy', sortBy)
+      if (sortOrder) params.set('order', sortOrder)
+
+      const res = await fetch(`/api/admin/orders?${params.toString()}`)
+      const data = await res.json()
+      setOrders(data.orders || [])
+      setSelectedOrderIds(new Set())
+    } catch (error) {
+      console.error('Ошибка загрузки заказов:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [search, dateFrom, dateTo, minTotal, maxTotal, statusFilter, sortBy, sortOrder])
 
   useEffect(() => {
     fetchOrders()
-  }, [statusFilter])
-
-  const fetchOrders = async () => {
-    const url = statusFilter
-      ? `/api/admin/orders?status=${statusFilter}`
-      : '/api/admin/orders'
-    const res = await fetch(url)
-    const data = await res.json()
-    setOrders(data.orders)
-    setLoading(false)
-  }
+  }, [fetchOrders])
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     await fetch('/api/admin/orders', {
@@ -1099,71 +1217,567 @@ export default function AdminOrdersPage() {
     fetchOrders()
   }
 
+  // Получить список заказов, доступных для массового выбора (только "в обработке")
+  const selectableOrders = orders.filter(o => o.status === 'processing')
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === selectableOrders.length) {
+      // Снимаем выделение со всех
+      setSelectedOrderIds(new Set())
+    } else {
+      // Выделяем все заказы в обработке
+      setSelectedOrderIds(new Set(selectableOrders.map(o => o.id)))
+    }
+  }
+
+  const toggleSelectOne = (id: string) => {
+    const newSet = new Set(selectedOrderIds)
+    if (newSet.has(id)) {
+      newSet.delete(id)
+    } else {
+      newSet.add(id)
+    }
+    setSelectedOrderIds(newSet)
+  }
+
+  const applyBatchAction = async () => {
+    if (selectedOrderIds.size === 0) {
+      alert('Выберите хотя бы один заказ')
+      return
+    }
+    if (!batchStatus) {
+      alert('Выберите новый статус')
+      return
+    }
+
+    setApplyingBatch(true)
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderIds: Array.from(selectedOrderIds),
+          newStatus: batchStatus,
+          sendNotifications
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        alert(`Обновлено ${data.updatedCount} заказов`)
+        setSelectedOrderIds(new Set())
+        setBatchStatus('')
+        setSendNotifications(false)
+        fetchOrders()
+      } else {
+        alert(data.error || 'Ошибка')
+      }
+    } catch (error) {
+      alert('Ошибка сети')
+    } finally {
+      setApplyingBatch(false)
+    }
+  }
+
+  const resetFilters = () => {
+    setSearch('')
+    setDateFrom('')
+    setDateTo('')
+    setMinTotal('')
+    setMaxTotal('')
+    setStatusFilter('')
+  }
+
+  const renderSortIndicator = (column: string) => {
+    if (sortBy !== column) return null
+    return sortOrder === 'asc' ? ' ▲' : ' ▼'
+  }
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(column)
+      setSortOrder('asc')
+    }
+  }
+
+  const toggleItemCheck = (orderId: string, productArticle: string) => {
+    const key = `${orderId}:${productArticle}`
+    setCheckedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(key)) {
+        newSet.delete(key)
+      } else {
+        newSet.add(key)
+      }
+      return newSet
+    })
+  }
+
   if (loading) return <div className="text-white">Загрузка...</div>
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Заказы</h1>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-cardbg border border-borderLight rounded-lg px-4 py-2 text-white"
+        <button
+          onClick={resetFilters}
+          className="text-sm text-gray-400 hover:text-white"
         >
-          <option value="">Все статусы</option>
-          <option value="processing">В обработке</option>
-          <option value="shipped">Отправлен</option>
-          <option value="delivered">Доставлен</option>
-          <option value="cancelled">Отменён</option>
-        </select>
+          Сбросить фильтры
+        </button>
       </div>
 
-      <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
-        <table className="w-full text-left">
+      {/* Панель фильтров */}
+      <div className="bg-cardbg border border-borderLight rounded-lg p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-gray-400 text-sm mb-1">Поиск (№ или email)</label>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Введите номер или email..."
+              className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-sm mb-1">Дата с</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-sm mb-1">Дата по</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-sm mb-1">Сумма от</label>
+            <input
+              type="number"
+              value={minTotal}
+              onChange={(e) => setMinTotal(e.target.value)}
+              placeholder="0"
+              className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-sm mb-1">Сумма до</label>
+            <input
+              type="number"
+              value={maxTotal}
+              onChange={(e) => setMaxTotal(e.target.value)}
+              placeholder="∞"
+              className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-400 text-sm mb-1">Статус</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+            >
+              <option value="">Все статусы</option>
+              <option value="processing">В обработке</option>
+              <option value="in_delivery">Передано в доставку</option>
+              <option value="shipped">Отправлен</option>
+              <option value="delivered">Доставлен</option>
+              <option value="cancelled">Отменён</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-3">
+          <button
+            onClick={fetchOrders}
+            className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg text-white"
+          >
+            Применить фильтры
+          </button>
+        </div>
+      </div>
+
+      {/* Панель массовых операций */}
+      {selectedOrderIds.size > 0 && (
+        <div className="bg-cardbg border border-borderLight rounded-lg p-4 mb-4 flex flex-wrap items-center gap-4">
+          <span className="text-white">
+            Выбрано заказов: <strong>{selectedOrderIds.size}</strong>
+          </span>
+          <select
+            value={batchStatus}
+            onChange={(e) => setBatchStatus(e.target.value)}
+            className="bg-[#0f2a42] border border-borderLight rounded px-3 py-2 text-white"
+          >
+            <option value="">Выберите новый статус...</option>
+            <option value="processing">В обработке</option>
+            <option value="in_delivery">Передано в доставку</option>
+            <option value="shipped">Отправлен</option>
+            <option value="delivered">Доставлен</option>
+            <option value="cancelled">Отменён</option>
+          </select>
+          <label className="flex items-center gap-2 text-white">
+            <input
+              type="checkbox"
+              checked={sendNotifications}
+              onChange={(e) => setSendNotifications(e.target.checked)}
+            />
+            Отправить уведомления покупателям
+          </label>
+          <button
+            onClick={applyBatchAction}
+            disabled={applyingBatch}
+            className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg text-white disabled:opacity-50"
+          >
+            {applyingBatch ? 'Применение...' : 'Применить'}
+          </button>
+          <button
+            onClick={() => setSelectedOrderIds(new Set())}
+            className="text-gray-400 hover:text-white"
+          >
+            Отмена
+          </button>
+        </div>
+      )}
+
+      {/* Таблица заказов */}
+      <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden overflow-x-auto">
+        <table className="w-full text-left min-w-[1200px]">
           <thead className="border-b border-borderLight">
             <tr className="text-gray-400">
-              <th className="p-3">№ заказа</th>
-              <th className="p-3">Покупатель</th>
-              <th className="p-3">Сумма</th>
-              <th className="p-3">Статус</th>
-              <th className="p-3">Дата</th>
+              <th className="p-3 w-10">
+                {/* Чекбокс "выбрать все" показываем всегда, но работает только для processing */}
+                <input
+                  type="checkbox"
+                  checked={selectableOrders.length > 0 && selectedOrderIds.size === selectableOrders.length}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 accent-accent"
+                />
+              </th>
+              <th 
+                className="p-3 cursor-pointer hover:text-white transition"
+                onClick={() => handleSort('orderNumber')}
+              >
+                № заказа{renderSortIndicator('orderNumber')}
+              </th>
+              <th className="p-3">Заказ</th>
+              <th className="p-3 text-center">Комментарий</th>
+              <th 
+                className="p-3 cursor-pointer hover:text-white transition"
+                onClick={() => handleSort('total')}
+              >
+                Сумма{renderSortIndicator('total')}
+              </th>
+              <th 
+                className="p-3 cursor-pointer hover:text-white transition"
+                onClick={() => handleSort('status')}
+              >
+                Статус{renderSortIndicator('status')}
+              </th>
+              <th className="p-3">Доставка</th>
+              <th 
+                className="p-3 cursor-pointer hover:text-white transition"
+                onClick={() => handleSort('createdAt')}
+              >
+                Дата{renderSortIndicator('createdAt')}
+              </th>
               <th className="p-3 text-center">Просмотр</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map(order => (
-              <tr key={order.id} className="border-t border-borderLight">
-                <td className="p-3 font-mono">{order.orderNumber}</td>
-                <td className="p-3">{getCustomerDisplay(order)}</td>
-                <td className="p-3">{order.total} ₽</td>
-                <td className="p-3">
-                  <select
-                    value={order.status}
-                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                    className="bg-[#0f2a42] border border-borderLight rounded px-2 py-1 text-sm text-white"
-                  >
-                    <option value="processing">В обработке</option>
-                    <option value="shipped">Отправлен</option>
-                    <option value="delivered">Доставлен</option>
-                    <option value="cancelled">Отменён</option>
-                  </select>
-                </td>
-                <td className="p-3">{new Date(order.createdAt).toLocaleDateString()}</td>
-                <td className="p-3">
-                  <div className="flex justify-center">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                      title="Просмотреть заказ"
+            {orders.map(order => {
+              const isProcessing = order.status === 'processing'
+              return (
+                <tr key={order.id} className="border-t border-borderLight">
+                  <td className="p-3">
+                    {isProcessing ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedOrderIds.has(order.id)}
+                        onChange={() => toggleSelectOne(order.id)}
+                        className="w-4 h-4 accent-accent"
+                      />
+                    ) : (
+                      // Пустая ячейка для не-processing заказов
+                      <span className="w-4 h-4 inline-block" />
+                    )}
+                  </td>
+                  <td className="p-3 font-mono">{order.orderNumber}</td>
+                  <td className="p-3 align-top">
+                    {renderOrderItems(order, checkedItems, toggleItemCheck)}
+                  </td>
+                  <td className="p-3 text-center align-middle">
+                    {order.comment ? (
+                      <span title={order.comment} className="cursor-help text-lg">
+                        💬
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">—</span>
+                    )}
+                  </td>
+                  <td className="p-3 align-middle">{order.total} ₽</td>
+                  <td className="p-3 align-middle">
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      className={`bg-[#0f2a42] border border-borderLight rounded px-2 py-1 text-sm ${getStatusColor(order.status)}`}
                     >
-                      <Eye size={20} className="text-accent" />
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      <option value="processing" className="text-yellow-400">В обработке</option>
+                      <option value="in_delivery" className="text-green-400">Передано в доставку</option>
+                      <option value="shipped" className="text-green-400">Отправлен</option>
+                      <option value="delivered" className="text-green-400">Доставлен</option>
+                      <option value="cancelled" className="text-red-400">Отменён</option>
+                    </select>
+                  </td>
+                  <td className="p-3 text-sm align-middle">
+                    {getDeliveryLabel(order.deliveryMethod)}
+                  </td>
+                  <td className="p-3 align-middle">{new Date(order.createdAt).toLocaleDateString()}</td>
+                  <td className="p-3 align-middle">
+                    <div className="flex justify-center">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                        title="Просмотреть заказ"
+                      >
+                        <Eye size={20} className="text-accent" />
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+===== ./app/admin/orders/[id]/page.tsx =====
+// app/admin/orders/[id]/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, Save } from 'lucide-react'
+
+export default function AdminOrderDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const id = params?.id as string
+
+  const [order, setOrder] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!id) return
+    fetchOrder()
+  }, [id])
+
+  const fetchOrder = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/orders/${id}`)
+      if (!res.ok) throw new Error('Заказ не найден')
+      const data = await res.json()
+      setOrder(data)
+      setStatus(data.status)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleStatusSave = async () => {
+    if (!order || status === order.status) {
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: order.id, status })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Ошибка сохранения')
+      }
+      // Обновляем локальный заказ
+      setOrder({ ...order, status })
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const getStatusLabel = (s: string) => {
+    const labels: Record<string, string> = {
+      processing: 'В обработке',
+      in_delivery: 'Передано в доставку',
+      shipped: 'Отправлен',
+      delivered: 'Доставлен',
+      cancelled: 'Отменён'
+    }
+    return labels[s] || s
+  }
+
+  if (loading) {
+    return <div className="text-white p-6">Загрузка...</div>
+  }
+
+  if (error || !order) {
+    return (
+      <div className="text-white p-6">
+        <p className="text-red-400">{error || 'Заказ не найден'}</p>
+        <Link href="/admin/orders" className="text-accent hover:underline mt-4 inline-block">
+          ← Вернуться к списку
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      {/* Заголовок и кнопка назад */}
+      <div className="flex items-center gap-4 mb-6">
+        <Link
+          href="/admin/orders"
+          className="text-gray-400 hover:text-white transition"
+        >
+          <ArrowLeft size={24} />
+        </Link>
+        <h1 className="text-2xl font-bold text-white">
+          Заказ № {order.orderNumber}
+        </h1>
+        <div className="ml-auto text-sm text-gray-400">
+          от {new Date(order.createdAt).toLocaleString('ru-RU')}
+        </div>
+      </div>
+
+      {/* Основная информация */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Левая колонка */}
+        <div className="space-y-6">
+          {/* Статус */}
+          <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+            <h2 className="text-lg font-semibold text-white mb-3">Статус заказа</h2>
+            <div className="flex items-center gap-3">
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="bg-[#0f2a42] border border-borderLight rounded px-3 py-2 text-white flex-1"
+              >
+                <option value="processing">В обработке</option>
+                <option value="in_delivery">Передано в доставку</option>
+                <option value="shipped">Отправлен</option>
+                <option value="delivered">Доставлен</option>
+                <option value="cancelled">Отменён</option>
+              </select>
+              <button
+                onClick={handleStatusSave}
+                disabled={saving || status === order.status}
+                className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg text-white disabled:opacity-50 flex items-center gap-2"
+              >
+                <Save size={18} />
+                {saving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+
+          {/* Информация о покупателе */}
+          <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+            <h2 className="text-lg font-semibold text-white mb-3">Покупатель</h2>
+            <div className="space-y-2 text-gray-300">
+              <p><span className="text-gray-400">Имя:</span> {order.customerName}</p>
+              <p><span className="text-gray-400">Email:</span> {order.customerEmail}</p>
+              <p><span className="text-gray-400">Телефон:</span> {order.customerPhone}</p>
+              {order.user && (
+                <p className="text-sm text-gray-400">
+                  Зарегистрированный пользователь (ID: {order.user.id.slice(-8)})
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Адрес доставки */}
+          <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+            <h2 className="text-lg font-semibold text-white mb-3">Доставка</h2>
+            <div className="space-y-2 text-gray-300">
+              <p><span className="text-gray-400">Адрес:</span> {order.address}</p>
+              <p><span className="text-gray-400">Способ доставки:</span> {order.deliveryMethod || '—'}</p>
+              <p><span className="text-gray-400">Способ оплаты:</span> {order.paymentMethod || '—'}</p>
+              {order.comment && (
+                <p><span className="text-gray-400">Комментарий:</span> {order.comment}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Правая колонка */}
+        <div className="space-y-6">
+          {/* Состав заказа */}
+          <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+            <h2 className="text-lg font-semibold text-white mb-3">Состав заказа</h2>
+            <div className="space-y-3">
+              {order.items.map((item: any) => (
+                <div key={item.id} className="flex justify-between items-start border-b border-borderLight pb-3 last:border-0">
+                  <div className="flex-1">
+                    <Link 
+                      href={`/product/${item.product.article}`}
+                      target="_blank"
+                      className="text-white hover:text-accent"
+                    >
+                      {item.product.name}
+                    </Link>
+                    <div className="text-sm text-gray-400">
+                      Артикул: {item.product.article}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-white">
+                      {item.quantity} × {item.priceAtPurchase} ₽
+                    </div>
+                    <div className="text-gray-400">
+                      = {item.quantity * item.priceAtPurchase} ₽
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Итоги */}
+            <div className="mt-4 pt-4 border-t border-borderLight space-y-2">
+              <div className="flex justify-between text-gray-300">
+                <span>Сумма товаров:</span>
+                <span>{order.total + (order.discount || 0)} ₽</span>
+              </div>
+              {order.discount > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Скидка (купон {order.coupon?.code}):</span>
+                  <span>-{order.discount} ₽</span>
+                </div>
+              )}
+              <div className="flex justify-between text-white font-bold text-lg">
+                <span>Итого:</span>
+                <span>{order.total} ₽</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1175,14 +1789,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { QuickActions } from '@/components/admin/QuickActions'
-
-// Вспомогательная функция для отображения покупателя
-function getCustomerDisplay(order: any): string {
-  if (order.user) {
-    return order.user.name || order.user.email || 'Без имени'
-  }
-  return order.guestName || order.guestEmail || 'Гость'
-}
+import { NewNotificationsWidget } from '@/components/admin/NewNotificationsWidget'
+import { NewOrdersWidget } from '@/components/admin/NewOrdersWidget'
 
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions)
@@ -1190,20 +1798,18 @@ export default async function AdminDashboard() {
     redirect('/')
   }
 
-  const [totalProducts, totalOrders, totalUsers, recentOrders] = await Promise.all([
+  // Получаем общую статистику
+  const [totalProducts, totalOrders, totalUsers] = await Promise.all([
     prisma.product.count(),
     prisma.order.count(),
     prisma.user.count(),
-    prisma.order.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: { user: true } // user может быть null
-    })
   ])
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">Дашборд</h1>
+      
+      {/* Карточки статистики */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-cardbg border border-borderLight rounded-xl p-4">
           <div className="text-gray-400">Товаров</div>
@@ -1217,39 +1823,16 @@ export default async function AdminDashboard() {
           <div className="text-gray-400">Пользователей</div>
           <div className="text-2xl font-bold text-white">{totalUsers}</div>
         </div>
+        {/* Можно добавить четвёртую карточку, например, выручку */}
       </div>
 
-      <div className="mt-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Последние заказы</h2>
-        <div className="bg-cardbg border border-borderLight rounded-xl p-4 overflow-x-auto">
-          {recentOrders.length === 0 ? (
-            <p className="text-gray-400">Заказов пока нет</p>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-gray-400">
-                  <th className="pb-2">№ заказа</th>
-                  <th>Покупатель</th>
-                  <th>Сумма</th>
-                  <th>Статус</th>
-                  <th>Дата</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map(order => (
-                  <tr key={order.id} className="border-t border-borderLight">
-                    <td className="py-2 font-mono">{order.orderNumber}</td>
-                    <td>{getCustomerDisplay(order)}</td>
-                    <td>{order.total} ₽</td>
-                    <td>{order.status}</td>
-                    <td>{new Date(order.createdAt).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      {/* Виджеты: уведомления и новые заказы */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <NewNotificationsWidget />
+        <NewOrdersWidget />
       </div>
+
+      {/* Быстрые действия */}
       <QuickActions />
     </div>
   )
@@ -1340,6 +1923,8 @@ export default function AdminProductsPage() {
   const [importResult, setImportResult] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  const [sortBy, setSortBy] = useState<string>('createdAt')
+  const [sortOrder, setSortOrder] = useState<string>('desc')
   const limit = 20
 
   useEffect(() => {
@@ -1349,27 +1934,32 @@ export default function AdminProductsPage() {
   }, [])
 
   const fetchProducts = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: limit.toString(),
-      })
-      if (searchQuery) {
-        params.set('search', searchQuery)
-      }
-      
-      const res = await fetch(`/api/admin/products?${params.toString()}`)
-      const data = await res.json()
-      setProducts(data.products)
-      setTotalPages(data.totalPages)
-      setSelectedArticles(new Set())
-    } catch (error) {
-      console.error('Ошибка загрузки товаров:', error)
-    } finally {
-      setLoading(false)
+  setLoading(true)
+  try {
+    const params = new URLSearchParams({
+      page: currentPage.toString(),
+      limit: limit.toString(),
+    })
+    if (searchQuery) {
+      params.set('search', searchQuery)
     }
-  }, [currentPage, searchQuery])
+    // ===== НОВОЕ: добавляем параметры сортировки =====
+    if (sortBy) {
+      params.set('sortBy', sortBy)
+      params.set('order', sortOrder)
+    }
+    
+    const res = await fetch(`/api/admin/products?${params.toString()}`)
+    const data = await res.json()
+    setProducts(data.products)
+    setTotalPages(data.totalPages)
+    setSelectedArticles(new Set())
+  } catch (error) {
+    console.error('Ошибка загрузки товаров:', error)
+  } finally {
+    setLoading(false)
+  }
+}, [currentPage, searchQuery, sortBy, sortOrder]) // добавили зависимости
 
   useEffect(() => {
     fetchProducts()
@@ -1465,10 +2055,19 @@ export default function AdminProductsPage() {
     }
   }
 
-  // Экспорт CSV
-  const handleExport = () => {
+  // ЭКСПОРТ CSV – теперь с учётом выбранных товаров
+const handleExport = () => {
+  // Проверяем, есть ли выбранные товары
+  if (selectedArticles.size > 0) {
+    // Превращаем Set в массив и склеиваем через запятую
+    const articlesList = Array.from(selectedArticles).join(',')
+    // Открываем ссылку с параметром ?articles=...
+    window.open(`/api/admin/products/export?articles=${encodeURIComponent(articlesList)}`, '_blank')
+  } else {
+    // Ничего не выбрано – экспортируем всё (старое поведение)
     window.open('/api/admin/products/export', '_blank')
   }
+}
 
   // Импорт CSV
   const handleImport = async () => {
@@ -1500,6 +2099,26 @@ export default function AdminProductsPage() {
       setImporting(false)
     }
   }
+
+  // Обработчик клика по заголовку таблицы для сортировки
+const handleSort = (column: string) => {
+  if (sortBy === column) {
+    // Если кликнули по тому же столбцу – переключаем направление
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+  } else {
+    // Новый столбец – устанавливаем его и сортировку по возрастанию
+    setSortBy(column)
+    setSortOrder('asc')
+  }
+  // После изменения сортировки сбрасываем на первую страницу
+  setCurrentPage(1)
+}
+
+// Возвращает иконку направления сортировки для указанного столбца
+const renderSortIndicator = (column: string) => {
+  if (sortBy !== column) return null
+  return sortOrder === 'asc' ? ' ▲' : ' ▼'
+}
 
   if (loading && products.length === 0) {
     return <div className="text-white">Загрузка...</div>
@@ -1597,22 +2216,42 @@ export default function AdminProductsPage() {
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
-            <tr className="text-gray-400">
-              <th className="p-3 w-10">
-                <input
-                  type="checkbox"
-                  checked={products.length > 0 && selectedArticles.size === products.length}
-                  onChange={toggleSelectAll}
-                  className="w-4 h-4 accent-accent"
-                />
-              </th>
-              <th className="p-3">Артикул</th>
-              <th className="p-3">Название</th>
-              <th className="p-3">Цена</th>
-              <th className="p-3">Категория</th>
-              <th className="p-3 text-center">Действия</th>
-            </tr>
-          </thead>
+  <tr className="text-gray-400">
+    <th className="p-3 w-10">
+      <input
+        type="checkbox"
+        checked={products.length > 0 && selectedArticles.size === products.length}
+        onChange={toggleSelectAll}
+        className="w-4 h-4 accent-accent"
+      />
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('article')}
+    >
+      Артикул{renderSortIndicator('article')}
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('name')}  // сортировка по названию
+    >
+      Название
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('price')}
+    >
+      Цена{renderSortIndicator('price')}
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('category')}
+    >
+      Категория{renderSortIndicator('category')}
+    </th>
+    <th className="p-3 text-center">Действия</th>
+  </tr>
+</thead>
           <tbody>
             {products.map(p => (
               <tr key={p.article} className="border-t border-borderLight">
@@ -2456,8 +3095,9 @@ export async function DELETE(
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendEmail, getOrderStatusUpdateEmail } from '@/lib/email'
 
-// GET /api/admin/orders – список всех заказов (с фильтром по статусу)
+// GET – список заказов с расширенными фильтрами и сортировкой
 export async function GET(request: Request) {
   try {
     await requireAdmin()
@@ -2466,16 +3106,80 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
+  
+  // --- Параметры фильтрации ---
+  const search = searchParams.get('search') || ''
+  const dateFrom = searchParams.get('dateFrom')
+  const dateTo = searchParams.get('dateTo')
+  const minTotal = searchParams.get('minTotal')
+  const maxTotal = searchParams.get('maxTotal')
   const status = searchParams.get('status') || undefined
 
+  // --- Параметры сортировки ---
+  const sortBy = searchParams.get('sortBy') || 'createdAt'
+  const order = searchParams.get('order') || 'desc'
+
   const where: any = {}
+  
   if (status) {
     where.status = status
   }
 
+  if (search) {
+    const isNumeric = /^\d+$/.test(search)
+    if (isNumeric) {
+      where.orderNumber = parseInt(search)
+    } else {
+      where.OR = [
+        { user: { email: { contains: search } } },
+        { guestEmail: { contains: search } }
+      ]
+    }
+  }
+
+  if (dateFrom || dateTo) {
+    where.createdAt = {}
+    if (dateFrom) {
+      where.createdAt.gte = new Date(dateFrom)
+    }
+    if (dateTo) {
+      const endDate = new Date(dateTo)
+      endDate.setHours(23, 59, 59, 999)
+      where.createdAt.lte = endDate
+    }
+  }
+
+  if (minTotal || maxTotal) {
+    where.total = {}
+    if (minTotal) {
+      where.total.gte = parseInt(minTotal)
+    }
+    if (maxTotal) {
+      where.total.lte = parseInt(maxTotal)
+    }
+  }
+
+  let orderBy: any = {}
+  switch (sortBy) {
+    case 'orderNumber':
+      orderBy = { orderNumber: order }
+      break
+    case 'total':
+      orderBy = { total: order }
+      break
+    case 'createdAt':
+      orderBy = { createdAt: order }
+      break
+    case 'status':
+      orderBy = { status: order }
+      break
+    default:
+      orderBy = { createdAt: 'desc' }
+  }
+
   const orders = await prisma.order.findMany({
     where,
-    orderBy: { createdAt: 'desc' },
+    orderBy,
     include: {
       user: true,
       items: {
@@ -2486,7 +3190,6 @@ export async function GET(request: Request) {
     },
   })
 
-  // Форматируем данные для удобства отображения
   const formattedOrders = orders.map(order => ({
     ...order,
     customerName: order.user?.name || order.guestName || order.guestEmail || 'Гость',
@@ -2496,7 +3199,61 @@ export async function GET(request: Request) {
   return NextResponse.json({ orders: formattedOrders })
 }
 
-// PUT /api/admin/orders – обновление статуса заказа
+// PATCH – массовое обновление статусов и отправка уведомлений
+export async function PATCH(request: Request) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const body = await request.json()
+  const { orderIds, newStatus, sendNotifications } = body
+
+  if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+    return NextResponse.json({ error: 'Не выбрано ни одного заказа' }, { status: 400 })
+  }
+  if (!newStatus) {
+    return NextResponse.json({ error: 'Не указан новый статус' }, { status: 400 })
+  }
+
+  // Допустимые статусы (включая новый 'in_delivery')
+  const allowedStatuses = ['processing', 'shipped', 'delivered', 'cancelled', 'in_delivery']
+  if (!allowedStatuses.includes(newStatus)) {
+    return NextResponse.json({ error: 'Недопустимый статус' }, { status: 400 })
+  }
+
+  const updateResult = await prisma.order.updateMany({
+    where: { id: { in: orderIds } },
+    data: { status: newStatus }
+  })
+
+  if (sendNotifications) {
+    const orders = await prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      include: { user: true }
+    })
+
+    for (const order of orders) {
+      const customerEmail = order.user?.email || order.guestEmail
+      if (customerEmail) {
+        const { subject, text } = await getOrderStatusUpdateEmail(order)
+        sendEmail({
+          to: customerEmail,
+          subject,
+          text
+        }).catch(err => console.error('Ошибка отправки уведомления:', err))
+      }
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    updatedCount: updateResult.count
+  })
+}
+
+// PUT – обновление одного заказа (статус)
 export async function PUT(request: Request) {
   try {
     await requireAdmin()
@@ -2510,6 +3267,11 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Не указан ID заказа или статус' }, { status: 400 })
   }
 
+  const allowedStatuses = ['processing', 'shipped', 'delivered', 'cancelled', 'in_delivery']
+  if (!allowedStatuses.includes(status)) {
+    return NextResponse.json({ error: 'Недопустимый статус' }, { status: 400 })
+  }
+
   const order = await prisma.order.update({
     where: { id },
     data: { status },
@@ -2519,9 +3281,61 @@ export async function PUT(request: Request) {
     },
   })
 
-  // TODO: Здесь можно добавить отправку письма покупателю о смене статуса
+  // По желанию можно отправить уведомление о смене статуса
+  // const customerEmail = order.user?.email || order.guestEmail;
+  // if (customerEmail) {
+  //   const { subject, text } = await getOrderStatusUpdateEmail(order);
+  //   sendEmail({ to: customerEmail, subject, text }).catch(console.error);
+  // }
 
   return NextResponse.json(order)
+}
+===== ./app/api/admin/orders/[id]/route.ts =====
+// app/api/admin/orders/[id]/route.ts
+import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const { id } = await params
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: {
+      user: true,
+      items: {
+        include: {
+          product: {
+            include: { category: true }
+          }
+        }
+      },
+      coupon: true // если есть купон
+    }
+  })
+
+  if (!order) {
+    return NextResponse.json({ error: 'Заказ не найден' }, { status: 404 })
+  }
+
+  // Добавляем вычисляемое поле для удобства
+  const formattedOrder = {
+    ...order,
+    customerName: order.user?.name || order.guestName || order.guestEmail || 'Гость',
+    customerEmail: order.user?.email || order.guestEmail || '—',
+    customerPhone: order.phone || '—'
+  }
+
+  return NextResponse.json(formattedOrder)
 }
 ===== ./app/api/admin/products/batch/route.ts =====
 // app/api/admin/products/batch/route.ts
@@ -2583,19 +3397,43 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+export async function GET(request: Request) {
+  // 1. Проверяем, что запрос делает администратор
   try {
     await requireAdmin()
   } catch (error) {
     return error
   }
 
+  // 2. Получаем параметры запроса из URL
+  const { searchParams } = new URL(request.url)
+  // articlesParam может быть строкой вида "art1,art2,art3" (если передали)
+  const articlesParam = searchParams.get('articles')
+
+  // 3. Формируем условие для выборки товаров из базы данных
+  const where: any = {}
+
+  if (articlesParam) {
+    // Если параметр передан, разбиваем его по запятой и убираем пробелы
+    const articles = articlesParam
+      .split(',')
+      .map(a => a.trim())
+      .filter(Boolean) // убираем пустые строки
+
+    if (articles.length > 0) {
+      // Указываем Prisma найти товары, у которых артикул входит в этот массив
+      where.article = { in: articles }
+    }
+  }
+
+  // 4. Запрашиваем товары из БД с учётом фильтра (или все, если фильтра нет)
   const products = await prisma.product.findMany({
+    where, // если where пустой, вернутся все товары
     include: { category: true },
     orderBy: { article: 'asc' }
   })
 
-  // Заголовки колонок (добавлен 'images')
+  // 5. Формируем CSV (эта часть осталась без изменений)
   const headers = [
     'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
     'gameSystem', 'scale', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
@@ -2614,7 +3452,7 @@ export async function GET() {
     p.faction || '',
     p.fileFormat,
     `"${p.tags.replace(/"/g, '""')}"`,
-    `"${p.images.replace(/"/g, '""')}"`,  // ← колонка images
+    `"${p.images.replace(/"/g, '""')}"`,
     p.featured ? 'true' : 'false'
   ])
 
@@ -2624,9 +3462,11 @@ export async function GET() {
     ...rows.map(row => row.join(separator))
   ].join('\n')
 
+  // Добавляем BOM для корректного отображения кириллицы в Excel
   const BOM = '\uFEFF'
   const finalContent = BOM + csvContent
 
+  // 6. Возвращаем файл
   return new NextResponse(finalContent, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
@@ -2832,6 +3672,10 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || ''
   const category = searchParams.get('category') || undefined
 
+  // Параметры сортировки
+  const sortBy = searchParams.get('sortBy') || 'createdAt'
+  const order = searchParams.get('order') || 'desc'
+
   const where: any = {}
   if (search) {
     where.OR = [
@@ -2843,11 +3687,30 @@ export async function GET(request: Request) {
     where.category = { slug: category }
   }
 
+  // Формируем объект сортировки
+  let orderBy: any = {}
+  switch (sortBy) {
+    case 'price':
+      orderBy = { price: order }
+      break
+    case 'article':
+      orderBy = { article: order }
+      break
+    case 'category':
+      orderBy = { category: { name: order } }
+      break
+    case 'name':
+      orderBy = { name: order }
+      break
+    default:
+      orderBy = { createdAt: 'desc' }
+  }
+
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
       include: { category: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit
     }),
@@ -2882,25 +3745,25 @@ export async function POST(request: Request) {
   }
 
   const product = await prisma.product.create({
-  data: {
-    article,
-    name,
-    searchName: name.toLowerCase(),   // <-- добавить
-    price: parseInt(price),
-    oldPrice: oldPrice ? parseInt(oldPrice) : null,
-    description: description || '',
-    images: Array.isArray(images) ? images.join(',') : images || '',
-    categoryId,
-    gameSystem: gameSystem || '',
-    scale: scale || '32mm',
-    type: type || 'unknown',
-    faction: faction || null,
-    fileFormat: fileFormat || 'STL',
-    tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-    featured: featured ?? false
-  },
-  include: { category: true }
-})
+    data: {
+      article,
+      name,
+      searchName: name.toLowerCase(),
+      price: parseInt(price),
+      oldPrice: oldPrice ? parseInt(oldPrice) : null,
+      description: description || '',
+      images: Array.isArray(images) ? images.join(',') : images || '',
+      categoryId,
+      gameSystem: gameSystem || '',
+      scale: scale || '32mm',
+      type: type || 'unknown',
+      faction: faction || null,
+      fileFormat: fileFormat || 'STL',
+      tags: Array.isArray(tags) ? tags.join(',') : tags || '',
+      featured: featured ?? false
+    },
+    include: { category: true }
+  })
 
   return NextResponse.json(product, { status: 201 })
 }
@@ -4619,15 +5482,15 @@ export default function CheckoutPage() {
           <div>
             <label className="block text-white mb-1">Способ доставки</label>
             <select
-              name="deliveryMethod"
-              className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
-              value={form.deliveryMethod}
-              onChange={handleChange}
-            >
-              <option value="СДЭК">СДЭК</option>
-              <option value="Почта России">Почта России</option>
-              <option value="Самовывоз">Самовывоз</option>
-            </select>
+  name="deliveryMethod"
+  className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
+  value={form.deliveryMethod}
+  onChange={handleChange}
+>
+  <option value="СДЭК">СДЭК</option>
+  <option value="Почта России">Почта России</option>
+  <option value="Самовывоз">Самовывоз</option>
+</select>
           </div>
           <div>
             <label className="block text-white mb-1">Способ оплаты</label>
@@ -5610,6 +6473,132 @@ export default function AdminHeader({ onMenuClick }: { onMenuClick: () => void }
     </header>
   )
 }
+===== ./components/admin/NewNotificationsWidget.tsx =====
+// components/admin/NewNotificationsWidget.tsx
+'use client'
+
+import { supportChats } from '@/lib/adminData'
+import Link from 'next/link'
+import { MessageCircle } from 'lucide-react'
+
+// Виджет показывает непрочитанные сообщения из чата поддержки
+export const NewNotificationsWidget = () => {
+  // Считаем общее количество непрочитанных сообщений
+  const unreadCount = supportChats.reduce((sum, chat) => sum + chat.unread, 0)
+  // Берём первые три чата с непрочитанными сообщениями для отображения
+  const latestUnread = supportChats.filter(c => c.unread > 0).slice(0, 3)
+
+  return (
+    <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-white">Новые уведомления</h2>
+        <Link
+          href="/admin/support"
+          className="text-accent text-sm hover:underline flex items-center gap-1"
+        >
+          <MessageCircle size={16} /> Чат поддержки →
+        </Link>
+      </div>
+      {unreadCount === 0 ? (
+        <p className="text-gray-400 text-sm">Нет новых сообщений</p>
+      ) : (
+        <>
+          <div className="space-y-2 mb-3">
+            {latestUnread.map(chat => (
+              <div key={chat.id} className="flex justify-between items-center">
+                <span className="text-white">{chat.customer}</span>
+                <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
+                  {chat.unread}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/admin/support"
+            className="block w-full text-center bg-accent/20 hover:bg-accent/30 text-accent py-2 rounded-lg text-sm transition"
+          >
+            Ответить в чате
+          </Link>
+        </>
+      )}
+    </div>
+  )
+}
+===== ./components/admin/NewOrdersWidget.tsx =====
+// components/admin/NewOrdersWidget.tsx
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { ShoppingBag } from 'lucide-react'
+
+// Виджет показывает заказы со статусом "В обработке"
+export const NewOrdersWidget = () => {
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Запрашиваем заказы со статусом processing, ограничиваем 5 штуками
+    fetch('/api/admin/orders?status=processing&limit=5')
+      .then(res => res.json())
+      .then(data => {
+        setOrders(data.orders || [])
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('Ошибка загрузки заказов:', err)
+        setLoading(false)
+      })
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+        <h2 className="text-lg font-semibold text-white mb-4">Новые заказы</h2>
+        <p className="text-gray-400">Загрузка...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-cardbg border border-borderLight rounded-xl p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-white">Новые заказы</h2>
+        <Link
+          href="/admin/orders"
+          className="text-accent text-sm hover:underline flex items-center gap-1"
+        >
+          <ShoppingBag size={16} /> Все заказы →
+        </Link>
+      </div>
+      {orders.length === 0 ? (
+        <p className="text-gray-400 text-sm">Нет заказов в обработке</p>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {orders.slice(0, 3).map(order => (
+              <div key={order.id} className="flex justify-between items-center">
+                <div>
+                  <div className="text-white font-medium">№ {order.orderNumber}</div>
+                  <div className="text-gray-400 text-sm">
+                    {order.customerName || order.guestEmail || 'Гость'}
+                  </div>
+                </div>
+                <div className="text-white font-semibold">{order.total} ₽</div>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/admin/orders?status=processing"
+            className="block w-full text-center bg-accent/20 hover:bg-accent/30 text-accent py-2 rounded-lg text-sm transition mt-4"
+          >
+            Обработать заказы
+          </Link>
+        </>
+      )}
+    </div>
+  )
+}
 ===== ./components/admin/ProductForm.tsx =====
 // components/admin/ProductForm.tsx
 'use client'
@@ -5878,23 +6867,20 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
 ===== ./components/admin/QuickActions.tsx =====
 // components/admin/QuickActions.tsx
 import Link from 'next/link'
-import { Plus, Package, ShoppingCart, Users, FileText, MessageCircle, Ticket } from 'lucide-react'
+import { Plus, Package, Users, FileText, Ticket } from 'lucide-react'
 
 const actions = [
   { name: 'Новый товар', href: '/admin/products/new', icon: Plus, color: 'bg-accent' },
   { name: 'Все товары', href: '/admin/products', icon: Package, color: 'bg-blue-600' },
-  { name: 'Заказы', href: '/admin/orders', icon: ShoppingCart, color: 'bg-green-600' },
   { name: 'Пользователи', href: '/admin/users', icon: Users, color: 'bg-purple-600' },
   { name: 'Страницы', href: '/admin/pages', icon: FileText, color: 'bg-orange-600' },
-  { name: 'Чат поддержки', href: '/admin/support', icon: MessageCircle, color: 'bg-cyan-600' },
-  // 🆕 Добавляем кнопку "Купоны"
   { name: 'Купоны', href: '/admin/coupons', icon: Ticket, color: 'bg-yellow-600' },
 ]
 
 export const QuickActions = () => (
   <div className="mt-6 bg-cardbg border border-borderLight rounded-xl p-4">
     <h2 className="text-lg font-semibold text-white mb-4">Быстрые действия</h2>
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       {actions.map(action => (
         <Link
           key={action.name}
@@ -8616,6 +9602,18 @@ Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or pa
 
 [2026-04-19T13:32:19.664Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100003 на сайте)
 Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776605410-AUQDmbCTuSw0
+
+[2026-04-20T15:10:23.502Z] Ошибка отправки письма на ivan.pust2@gmail.com (тема: Ваш заказ №100004 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776697695-E8To8I0SAGk0
+
+[2026-04-20T15:10:23.520Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100004 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776697695-E8TnrE0R7eA0
+
+[2026-04-20T15:11:06.827Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100005 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776697738-w8TAgH0SOSw0
+
+[2026-04-20T15:11:06.849Z] Ошибка отправки письма на ivan.pust2@gmail.com (тема: Ваш заказ №100005 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776697738-w8T6MG0RBW20
 
 
 ===== ./logs/info.log =====

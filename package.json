@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "mkdir -p logs"
+    "postinstall": "mkdir -p logs",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
@@ -17,6 +18,8 @@
     "next": "^16.2.3",
     "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",
+    "otplib": "^11.0.1",
+    "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18"
   },
@@ -25,6 +28,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.5.0",
