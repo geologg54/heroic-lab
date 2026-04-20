@@ -147,6 +147,27 @@ docker-compose.yml
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+===== ./app/about/page.tsx =====
+// app/about/page.tsx
+import { prisma } from '@/lib/prisma'
+
+export default async function AboutPage() {
+  const setting = await prisma.setting.findUnique({
+    where: { key: 'about_text' }
+  })
+  const content = setting?.value || 'Информация о компании появится скоро.'
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      <h1 className="text-3xl font-bold text-white mb-6">О нас</h1>
+      <div className="prose prose-invert prose-lg text-gray-300">
+        {content.split('\n').map((paragraph, idx) => (
+          <p key={idx}>{paragraph}</p>
+        ))}
+      </div>
+    </div>
+  )
+}
 ===== ./app/account/downloads/page.tsx =====
 // app/account/downloads/page.tsx
 'use client'
@@ -1725,6 +1746,356 @@ export default function EditProductPage() {
   const { article } = useParams()
   return <ProductForm productArticle={article as string} />
 }
+===== ./app/admin/settings/page.tsx =====
+// app/admin/settings/page.tsx
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { Save, Download, Upload } from 'lucide-react'
+
+interface SettingsData {
+  about_text?: string
+  delivery_text?: string
+  contacts_text?: string
+  email_order_confirmation_subject?: string
+  email_order_confirmation_body?: string
+  email_admin_new_order_subject?: string
+  email_admin_new_order_body?: string
+  email_status_update_subject?: string
+  email_status_update_body?: string
+}
+
+export default function AdminSettingsPage() {
+  const [settings, setSettings] = useState<SettingsData>({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Ссылки на скрытые input для импорта файлов
+  const aboutInputRef = useRef<HTMLInputElement>(null)
+  const deliveryInputRef = useRef<HTMLInputElement>(null)
+  const contactsInputRef = useRef<HTMLInputElement>(null)
+  const confirmBodyInputRef = useRef<HTMLInputElement>(null)
+  const adminBodyInputRef = useRef<HTMLInputElement>(null)
+  const statusBodyInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(res => res.json())
+      .then(data => {
+        setSettings(data)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error(err)
+        setMessage({ type: 'error', text: 'Ошибка загрузки настроек' })
+        setLoading(false)
+      })
+  }, [])
+
+  const handleChange = (key: keyof SettingsData, value: string) => {
+    setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      })
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Настройки сохранены' })
+      } else {
+        const err = await res.json()
+        setMessage({ type: 'error', text: err.error || 'Ошибка сохранения' })
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Ошибка сети' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Функция экспорта текста в файл
+  const handleExport = (content: string | undefined, filename: string) => {
+    const blob = new Blob([content || ''], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Обработчик импорта файла
+  const handleImport = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    key: keyof SettingsData
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const content = event.target?.result as string
+      handleChange(key, content)
+    }
+    reader.readAsText(file, 'UTF-8')
+
+    // Сбросим input, чтобы можно было повторно выбрать тот же файл
+    e.target.value = ''
+  }
+
+  if (loading) return <div className="text-white">Загрузка...</div>
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-white">Настройки сайта</h1>
+        <button
+          type="submit"
+          form="settings-form"
+          disabled={saving}
+          className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white disabled:opacity-50"
+        >
+          <Save size={18} />
+          {saving ? 'Сохранение...' : 'Сохранить все'}
+        </button>
+      </div>
+
+      {message && (
+        <div
+          className={`mb-4 p-3 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-900/30 border border-green-500 text-green-300'
+              : 'bg-red-900/30 border border-red-500 text-red-300'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      <form id="settings-form" onSubmit={handleSubmit} className="space-y-8">
+        {/* Секция: Тексты страниц */}
+        <div className="bg-cardbg border border-borderLight rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Тексты информационных страниц</h2>
+          <div className="space-y-6">
+            {/* О нас */}
+            <div>
+              <h3 className="text-white font-medium mb-2">Страница "О нас"</h3>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleExport(settings.about_text, 'about.txt')}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Download size={18} /> Экспорт
+                </button>
+                <button
+                  type="button"
+                  onClick={() => aboutInputRef.current?.click()}
+                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Upload size={18} /> Импорт
+                </button>
+                <input
+                  type="file"
+                  ref={aboutInputRef}
+                  accept=".txt,text/plain"
+                  onChange={(e) => handleImport(e, 'about_text')}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Доставка */}
+            <div>
+              <h3 className="text-white font-medium mb-2">Страница "Доставка"</h3>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleExport(settings.delivery_text, 'delivery.txt')}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Download size={18} /> Экспорт
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deliveryInputRef.current?.click()}
+                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Upload size={18} /> Импорт
+                </button>
+                <input
+                  type="file"
+                  ref={deliveryInputRef}
+                  accept=".txt,text/plain"
+                  onChange={(e) => handleImport(e, 'delivery_text')}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Контакты */}
+            <div>
+              <h3 className="text-white font-medium mb-2">Страница "Контакты"</h3>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleExport(settings.contacts_text, 'contacts.txt')}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Download size={18} /> Экспорт
+                </button>
+                <button
+                  type="button"
+                  onClick={() => contactsInputRef.current?.click()}
+                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Upload size={18} /> Импорт
+                </button>
+                <input
+                  type="file"
+                  ref={contactsInputRef}
+                  accept=".txt,text/plain"
+                  onChange={(e) => handleImport(e, 'contacts_text')}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+                {/* Секция: Шаблоны писем */}
+        <div className="bg-cardbg border border-borderLight rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Шаблоны писем</h2>
+
+          <div className="space-y-8">
+            {/* Подтверждение заказа (покупателю) */}
+            <div>
+              <h3 className="text-white font-medium mb-2">Подтверждение заказа (покупателю)</h3>
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-1">Тема письма</label>
+                <input
+                  type="text"
+                  value={settings.email_order_confirmation_subject || ''}
+                  onChange={e => handleChange('email_order_confirmation_subject', e.target.value)}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  placeholder="Тема письма"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleExport(settings.email_order_confirmation_body, 'order_confirmation_body.txt')}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Download size={18} /> Экспорт тела письма
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmBodyInputRef.current?.click()}
+                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Upload size={18} /> Импорт тела письма
+                </button>
+                <input
+                  type="file"
+                  ref={confirmBodyInputRef}
+                  accept=".txt,text/plain"
+                  onChange={(e) => handleImport(e, 'email_order_confirmation_body')}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Уведомление админа о новом заказе */}
+            <div>
+              <h3 className="text-white font-medium mb-2">Уведомление админа о новом заказе</h3>
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-1">Тема письма</label>
+                <input
+                  type="text"
+                  value={settings.email_admin_new_order_subject || ''}
+                  onChange={e => handleChange('email_admin_new_order_subject', e.target.value)}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  placeholder="Тема письма"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleExport(settings.email_admin_new_order_body, 'admin_new_order_body.txt')}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Download size={18} /> Экспорт тела письма
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adminBodyInputRef.current?.click()}
+                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Upload size={18} /> Импорт тела письма
+                </button>
+                <input
+                  type="file"
+                  ref={adminBodyInputRef}
+                  accept=".txt,text/plain"
+                  onChange={(e) => handleImport(e, 'email_admin_new_order_body')}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Уведомление о смене статуса заказа */}
+            <div>
+              <h3 className="text-white font-medium mb-2">Уведомление о смене статуса заказа</h3>
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-1">Тема письма</label>
+                <input
+                  type="text"
+                  value={settings.email_status_update_subject || ''}
+                  onChange={e => handleChange('email_status_update_subject', e.target.value)}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  placeholder="Тема письма"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleExport(settings.email_status_update_body, 'status_update_body.txt')}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Download size={18} /> Экспорт тела письма
+                </button>
+                <button
+                  type="button"
+                  onClick={() => statusBodyInputRef.current?.click()}
+                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+                >
+                  <Upload size={18} /> Импорт тела письма
+                </button>
+                <input
+                  type="file"
+                  ref={statusBodyInputRef}
+                  accept=".txt,text/plain"
+                  onChange={(e) => handleImport(e, 'email_status_update_body')}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}
 ===== ./app/admin/support/page.tsx =====
 'use client'
 import { useState } from 'react'
@@ -2511,24 +2882,25 @@ export async function POST(request: Request) {
   }
 
   const product = await prisma.product.create({
-    data: {
-      article,
-      name,
-      price: parseInt(price),
-      oldPrice: oldPrice ? parseInt(oldPrice) : null,
-      description: description || '',
-      images: Array.isArray(images) ? images.join(',') : images || '',
-      categoryId,
-      gameSystem: gameSystem || '',
-      scale: scale || '32mm',
-      type: type || 'unknown',
-      faction: faction || null,
-      fileFormat: fileFormat || 'STL',
-      tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-      featured: featured ?? false
-    },
-    include: { category: true }
-  })
+  data: {
+    article,
+    name,
+    searchName: name.toLowerCase(),   // <-- добавить
+    price: parseInt(price),
+    oldPrice: oldPrice ? parseInt(oldPrice) : null,
+    description: description || '',
+    images: Array.isArray(images) ? images.join(',') : images || '',
+    categoryId,
+    gameSystem: gameSystem || '',
+    scale: scale || '32mm',
+    type: type || 'unknown',
+    faction: faction || null,
+    fileFormat: fileFormat || 'STL',
+    tags: Array.isArray(tags) ? tags.join(',') : tags || '',
+    featured: featured ?? false
+  },
+  include: { category: true }
+})
 
   return NextResponse.json(product, { status: 201 })
 }
@@ -2577,6 +2949,7 @@ export async function PUT(
     where: { article },
     data: {
       name: data.name,
+      ssearchName: data.name.toLowerCase(), 
       price: parseInt(data.price),
       oldPrice: data.oldPrice ? parseInt(data.oldPrice) : null,
       description: data.description || '',
@@ -2607,6 +2980,107 @@ export async function DELETE(
 
   const { article } = await params
   await prisma.product.delete({ where: { article } })
+  return NextResponse.json({ success: true })
+}
+===== ./app/api/admin/settings/route.ts =====
+// app/api/admin/settings/route.ts
+import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { clearSettingsCache, loadSettingsCache } from '@/lib/settings'
+
+// GET – получить все настройки в виде объекта { key: value }
+export async function GET() {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const settings = await prisma.setting.findMany()
+  const settingsMap: Record<string, string> = {}
+  for (const { key, value } of settings) {
+    settingsMap[key] = value
+  }
+
+  return NextResponse.json(settingsMap)
+}
+
+// PUT – обновить несколько настроек
+export async function PUT(request: Request) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const updates: Record<string, string> = await request.json()
+
+  const promises = Object.entries(updates).map(([key, value]) =>
+    prisma.setting.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    })
+  )
+
+  await Promise.all(promises)
+
+  // Сбрасываем кеш, чтобы при следующем запросе загрузились новые значения
+  clearSettingsCache()
+  // Можно сразу загрузить заново (опционально)
+  await loadSettingsCache()
+
+  return NextResponse.json({ success: true })
+}
+===== ./app/api/admin/settings/[key]/route.ts =====
+// app/api/admin/settings/[key]/route.ts
+import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { clearSettingsCache } from '@/lib/settings'
+
+// GET /api/admin/settings/[key] – получить одну настройку
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ key: string }> }
+) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const { key } = await params
+  const setting = await prisma.setting.findUnique({
+    where: { key },
+  })
+
+  return NextResponse.json({ value: setting?.value || '' })
+}
+
+// PUT /api/admin/settings/[key] – обновить одну настройку
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ key: string }> }
+) {
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
+  }
+
+  const { key } = await params
+  const { value } = await request.json()
+
+  await prisma.setting.upsert({
+    where: { key },
+    update: { value },
+    create: { key, value },
+  })
+
+  clearSettingsCache()
+
   return NextResponse.json({ success: true })
 }
 ===== ./app/api/admin/users/route.ts =====
@@ -3004,13 +3478,11 @@ import { prisma } from '@/lib/prisma'
 import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
 
-// Проверка корректности email
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-// Проверка телефона (цифры, пробелы, +, -, (, ))
 function isValidPhone(phone: string): boolean {
   const phoneRegex = /^[\d\s\+\-\(\)]+$/
   return phoneRegex.test(phone)
@@ -3029,13 +3501,12 @@ export async function POST(request: Request) {
       comment,
       deliveryMethod,
       paymentMethod,
-      email,        // email, переданный клиентом (для гостей обязателен)
-      name,         // имя, переданное клиентом
-      couponId,     // 🆕 ID применённого купона
-      discount = 0, // 🆕 сумма скидки
+      email,
+      name,
+      couponId,
+      discount = 0,
     } = body
 
-    // --- ВАЛИДАЦИЯ ---
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Корзина пуста' }, { status: 400 })
     }
@@ -3050,7 +3521,6 @@ export async function POST(request: Request) {
     let guestEmail: string | undefined = undefined
     let guestName: string | undefined = undefined
 
-    // Если пользователь НЕ авторизован, email обязателен
     if (!userId) {
       if (!email || typeof email !== 'string' || !isValidEmail(email)) {
         return NextResponse.json(
@@ -3061,7 +3531,6 @@ export async function POST(request: Request) {
       guestEmail = email.trim().toLowerCase()
       guestName = name?.trim() || undefined
     } else {
-      // Авторизован: email не обязателен, но если передан – валидируем
       if (email) {
         if (!isValidEmail(email)) {
           return NextResponse.json(
@@ -3083,7 +3552,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // 🆕 Если передан couponId, проверяем его существование и активность
     if (couponId) {
       const coupon = await prisma.coupon.findUnique({
         where: { id: couponId },
@@ -3100,26 +3568,21 @@ export async function POST(request: Request) {
       if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
         return NextResponse.json({ error: 'Лимит использований купона исчерпан' }, { status: 400 })
       }
-      // Дополнительно можно проверить minOrderAmount, но это уже делалось на клиенте
     }
 
-    // Подсчёт суммы заказа (без скидки)
     const itemsTotal = items.reduce(
       (sum: number, item: any) => sum + item.product.price * item.quantity,
       0
     )
 
-    // Итоговая сумма с учётом скидки
     const total = Math.max(itemsTotal - discount, 0)
 
-    // Генерируем следующий номер заказа
     const lastOrder = await prisma.order.findFirst({
       orderBy: { orderNumber: 'desc' },
       select: { orderNumber: true },
     })
     const nextOrderNumber = lastOrder ? lastOrder.orderNumber + 1 : 100001
 
-    // Создаём заказ в базе
     const order = await prisma.order.create({
       data: {
         orderNumber: nextOrderNumber,
@@ -3127,14 +3590,14 @@ export async function POST(request: Request) {
         guestEmail: guestEmail,
         guestName: guestName,
         total,
-        discount,               // 🆕 сохраняем сумму скидки
+        discount,
         address: address.trim(),
         phone: phone?.trim() || null,
         comment: comment?.trim() || null,
         deliveryMethod: deliveryMethod || null,
         paymentMethod: paymentMethod || null,
         status: 'processing',
-        couponId: couponId || null, // 🆕 связь с купоном
+        couponId: couponId || null,
         items: {
           create: items.map((item: any) => ({
             productArticle: item.product.article,
@@ -3149,7 +3612,6 @@ export async function POST(request: Request) {
       },
     })
 
-    // 🆕 Увеличиваем счётчик использований купона
     if (couponId) {
       await prisma.coupon.update({
         where: { id: couponId },
@@ -3157,24 +3619,27 @@ export async function POST(request: Request) {
       })
     }
 
-    // Очищаем корзину только для авторизованных пользователей
     if (userId) {
       await prisma.cartItem.deleteMany({ where: { userId } })
     }
 
-    // Определяем email покупателя для отправки письма
     const customerEmail = guestEmail || session?.user?.email
 
-    // Отправляем письма (асинхронно, не блокируем ответ)
     if (customerEmail) {
+      // Получаем шаблоны писем асинхронно
+      const [confirmationEmail, adminEmail] = await Promise.all([
+        getOrderConfirmationEmail(order),
+        getNewOrderAdminEmail(order)
+      ])
+
       Promise.all([
         sendEmail({
           to: customerEmail,
-          ...getOrderConfirmationEmail(order),
+          ...confirmationEmail,
         }).catch(err => console.error('Ошибка отправки письма покупателю:', err)),
         sendEmail({
           to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
-          ...getNewOrderAdminEmail(order),
+          ...adminEmail,
         }).catch(err => console.error('Ошибка отправки письма админу:', err)),
       ])
     } else {
@@ -3211,17 +3676,14 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
   
-  // 🆕 Новый параметр: список артикулов через запятую (для избранного)
   const articlesParam = searchParams.get('articles')
 
-  // Множественные фильтры
   const gameSystems = searchParams.getAll('gameSystem')
   const scales = searchParams.getAll('scale')
   const types = searchParams.getAll('type')
 
   const where: any = {}
 
-  // 🆕 Если передан список артикулов, фильтруем только по ним
   if (articlesParam) {
     const articles = articlesParam.split(',').map(a => a.trim()).filter(Boolean)
     if (articles.length > 0) {
@@ -3235,13 +3697,12 @@ export async function GET(request: Request) {
     if (minPrice) where.price.gte = parseInt(minPrice)
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
+  
+  // 🆕 Поиск по полю searchName (регистронезависимый)
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { description: { contains: search } },
-      { article: { contains: search } }
-    ]
+    where.searchName = { contains: search.toLowerCase() }
   }
+  
   if (gameSystems.length) where.gameSystem = { in: gameSystems }
   if (scales.length) where.scale = { in: scales }
   if (types.length) where.type = { in: types }
@@ -3257,7 +3718,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Если запрошены конкретные артикулы, пагинацию не применяем (их обычно немного)
     const shouldPaginate = !articlesParam
     
     const [products, total] = await Promise.all([
@@ -3265,7 +3725,6 @@ export async function GET(request: Request) {
         where,
         include: { category: true },
         orderBy,
-        // Если это запрос избранного, не используем skip/take — возвращаем всё
         ...(shouldPaginate ? { skip, take: limit } : {})
       }),
       prisma.product.count({ where })
@@ -4277,6 +4736,44 @@ export default function CheckoutPage() {
     </div>
   )
 }
+===== ./app/contacts/page.tsx =====
+// app/contacts/page.tsx
+import { prisma } from '@/lib/prisma'
+
+export default async function ContactsPage() {
+  const setting = await prisma.setting.findUnique({
+    where: { key: 'contacts_text' }
+  })
+  const content = setting?.value || 'Контактная информация появится скоро.'
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      <h1 className="text-3xl font-bold text-white mb-6">Контакты</h1>
+      <div className="prose prose-invert prose-lg text-gray-300 whitespace-pre-wrap">
+        {content}
+      </div>
+    </div>
+  )
+}
+===== ./app/delivery/page.tsx =====
+// app/delivery/page.tsx
+import { prisma } from '@/lib/prisma'
+
+export default async function DeliveryPage() {
+  const setting = await prisma.setting.findUnique({
+    where: { key: 'delivery_text' }
+  })
+  const content = setting?.value || 'Информация о доставке появится скоро.'
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      <h1 className="text-3xl font-bold text-white mb-6">Доставка и оплата</h1>
+      <div className="prose prose-invert prose-lg text-gray-300 whitespace-pre-wrap">
+        {content}
+      </div>
+    </div>
+  )
+}
 ===== ./app/forgot-password/page.tsx =====
 // app/forgot-password/page.tsx
 'use client'
@@ -4821,61 +5318,140 @@ export default function RegisterPage() {
   )
 }
 ===== ./app/search/page.tsx =====
-// app/page.tsx
-import { HeroBanner } from '@/components/common/HeroBanner'
-import { CategoryCard } from '@/components/catalog/CategoryCard'
-import { CTASection } from '@/components/common/CTASection'
-import { CollectionBlock } from '@/components/common/CollectionBlock'
-import { getCategories, getProducts } from '@/lib/db'
+// app/search/page.tsx
+'use client'
 
-export default async function HomePage() {
-  const categories = await getCategories()
-  const allProducts = await getProducts()
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { ProductCard } from '@/components/catalog/ProductCard'
+import { EmptyState } from '@/components/common/EmptyState'
+import SearchBar from '@/components/common/SearchBar'
+import type { Product } from '@/types'
 
-  const featuredProducts = allProducts.slice(0, 4)
-  const trenchProducts = allProducts
-    .filter(p => p.categorySlug === 'trench-crusade')
-    .slice(0, 3)
+// Компонент, который использует useSearchParams, должен быть обёрнут в Suspense
+function SearchResults() {
+  const searchParams = useSearchParams()
+  const query = searchParams.get('q') || ''
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!query) {
+      setProducts([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    fetch(`/api/products?search=${encodeURIComponent(query)}&limit=50`)
+      .then(res => res.json())
+      .then(data => {
+        // API возвращает { products, total, ... }
+        setProducts(data.products || [])
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [query])
+
+  if (!query) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 className="text-2xl font-bold text-white mb-6">Поиск моделей</h1>
+        <SearchBar />
+        <p className="text-gray-400 mt-4 text-center">Введите запрос в поле выше</p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return <div className="text-white text-center py-20">Поиск...</div>
+  }
 
   return (
-    <div>
-      <HeroBanner
-        title="Героическая лаборатория миниатюр"
-        subtitle="Цифровые 3D-модели для ваших сражений"
-        ctaText="Каталог"
-        ctaLink="/catalog"
-        backgroundImage="/hero-bg.jpg"
-      />
-      
-      <section className="bg-[#071f30] py-12">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8 text-white text-center">Вселенные</h2>
-          <div className="flex flex-col md:flex-row gap-6 justify-center">
-            {categories.map((cat) => (
-              <div key={cat.slug} className="flex-1 max-w-2xl">
-                <CategoryCard category={cat} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      
-      <section className="container mx-auto px-4 py-12">
-        <CollectionBlock
-          title="Коллекция «Траншейный кошмар»"
-          subtitle="Модели для Trench Crusade"
-          link="/category/trench-crusade"
-          products={trenchProducts}
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-white mb-2">
+        Результаты поиска: «{query}»
+      </h1>
+      <p className="text-gray-400 mb-6">Найдено {products.length} моделей</p>
+
+      {products.length === 0 ? (
+        <EmptyState
+          title="Ничего не найдено"
+          message="Попробуйте изменить запрос или посмотрите все модели в каталоге"
+          actionLink="/catalog"
+          actionText="Перейти в каталог"
         />
-      </section>
-      
-      <CTASection
-        title="Подпишитесь на рассылку"
-        text="Получайте новинки и скидки на 3D-модели"
-        buttonText="Подписаться"
-      />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map(product => (
+            <ProductCard key={product.article} product={product} />
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+// Основная страница с Suspense для корректной работы useSearchParams
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-center py-20">Загрузка...</div>}>
+      <SearchResults />
+    </Suspense>
+  )
+}
+===== ./app/sitemap.ts =====
+// app/sitemap.ts
+import { MetadataRoute } from 'next'
+import { prisma } from '@/lib/prisma'
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+  // Получаем все товары и категории из БД
+  const [products, categories] = await Promise.all([
+    prisma.product.findMany({
+      select: { article: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.category.findMany({
+      select: { slug: true }
+    })
+  ])
+
+  // Статические страницы
+  const staticPages: MetadataRoute.Sitemap = [
+    {
+      url: baseUrl,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 1,
+    },
+    {
+      url: `${baseUrl}/catalog`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+  ]
+
+  // Страницы товаров
+  const productPages: MetadataRoute.Sitemap = products.map((product) => ({
+    url: `${baseUrl}/product/${product.article}`,
+    lastModified: product.createdAt,
+    changeFrequency: 'weekly',
+    priority: 0.8,
+  }))
+
+  // Страницы категорий
+  const categoryPages: MetadataRoute.Sitemap = categories.map((category) => ({
+    url: `${baseUrl}/category/${category.slug}`,
+    lastModified: new Date(), // категории обновляются редко, можно поставить текущую дату
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  }))
+
+  return [...staticPages, ...productPages, ...categoryPages]
 }
 ===== ./CLAUDE.md =====
 @AGENTS.md
@@ -5390,7 +5966,7 @@ import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Package, FolderTree, Layout, Image, 
   Library, ShoppingCart, Users, FileText, MessageCircle, X,
-  Ticket // 🆕 импорт иконки для купонов
+  Ticket, Settings // 🆕 импорт иконки для купонов
 } from 'lucide-react'
 
 const menu = [
@@ -5405,6 +5981,7 @@ const menu = [
   { name: 'Пользователи', href: '/admin/users', icon: Users },
   { name: 'Страницы', href: '/admin/pages', icon: FileText },
   { name: 'Чат поддержки', href: '/admin/support', icon: MessageCircle },
+  { name: 'Настройки', href: '/admin/settings', icon: Settings },
 ]
 
 export default function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -7634,41 +8211,32 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
 import nodemailer from 'nodemailer'
 import fs from 'fs'
 import path from 'path'
+import { getSetting } from './settings'
 
-// Настройки SMTP берутся из переменных окружения
+// Настройки SMTP
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
-  secure: process.env.EMAIL_SERVER_SECURE === 'true', // true для 465 порта
+  secure: process.env.EMAIL_SERVER_SECURE === 'true',
   auth: {
     user: process.env.EMAIL_SERVER_USER,
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 })
 
-/**
- * Записывает ошибку отправки письма в лог-файл
- */
 function logEmailError(error: unknown, context: { to: string; subject: string }) {
   const logDir = path.join(process.cwd(), 'logs')
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true })
   }
-  
+
   const logFile = path.join(logDir, 'email-errors.log')
   const timestamp = new Date().toISOString()
   const logEntry = `[${timestamp}] Ошибка отправки письма на ${context.to} (тема: ${context.subject})\n${error}\n\n`
-  
+
   fs.appendFileSync(logFile, logEntry, 'utf-8')
 }
 
-/**
- * Отправляет письмо
- * @param to - email получателя
- * @param subject - тема письма
- * @param text - текстовое содержимое
- * @param html - HTML-содержимое (опционально)
- */
 export async function sendEmail({
   to,
   subject,
@@ -7680,7 +8248,6 @@ export async function sendEmail({
   text?: string
   html?: string
 }) {
-  // Если не указан адрес отправителя, пропускаем отправку (для разработки)
   if (!process.env.EMAIL_FROM) {
     console.warn('EMAIL_FROM is not set. Email will not be sent.')
     return
@@ -7703,9 +8270,7 @@ export async function sendEmail({
   }
 }
 
-/**
- * Возвращает читаемую метку статуса заказа
- */
+// Вспомогательные функции для подстановки переменных
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     processing: 'В работе',
@@ -7716,89 +8281,129 @@ function getStatusLabel(status: string): string {
   return labels[status] || status
 }
 
-/**
- * Шаблон письма для нового заказа (администратору)
- */
-export function getNewOrderAdminEmail(order: any) {
-  const itemsList = order.items.map((item: any) =>
+function formatItemsList(order: any): string {
+  return order.items.map((item: any) =>
     `${item.product.name} x ${item.quantity} = ${item.priceAtPurchase * item.quantity} ₽`
   ).join('\n')
-
-  return {
-    subject: `Новый заказ №${order.orderNumber} на сайте`,
-    text: `
-Новый заказ на сайте!
-
-Номер заказа: ${order.orderNumber}
-Дата: ${new Date(order.createdAt).toLocaleString('ru-RU')}
-Сумма: ${order.total} ₽
-Покупатель: ${order.user?.name || order.guestName || order.guestEmail || 'Гость'}
-Email: ${order.user?.email || order.guestEmail || 'не указан'}
-Телефон: ${order.phone || 'не указан'}
-Адрес доставки: ${order.address}
-Способ доставки: ${order.deliveryMethod || 'не указан'}
-Способ оплаты: ${order.paymentMethod || 'не указан'}
-Комментарий: ${order.comment || 'нет'}
-
-Состав заказа:
-${itemsList}
-
-Ссылка на заказ в админке: ${process.env.NEXTAUTH_URL}/admin/orders
-    `,
-  }
 }
 
 /**
- * Шаблон письма для покупателя (подтверждение заказа)
+ * Шаблон письма для администратора о новом заказе.
+ * Использует настройки email_admin_new_order_subject и email_admin_new_order_body.
  */
-export function getOrderConfirmationEmail(order: any) {
-  const itemsList = order.items.map((item: any) =>
-    `${item.product.name} x ${item.quantity} = ${item.priceAtPurchase * item.quantity} ₽`
-  ).join('\n')
+export async function getNewOrderAdminEmail(order: any) {
+  const customerName = order.user?.name || order.guestName || order.guestEmail || 'Гость'
+  const customerEmail = order.user?.email || order.guestEmail || 'не указан'
+  const itemsList = formatItemsList(order)
 
-  return {
-    subject: `Ваш заказ №${order.orderNumber} принят`,
-    text: `
-Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
+  const subject = await getSetting(
+    'email_admin_new_order_subject',
+    `Новый заказ №${order.orderNumber} на сайте`
+  )
 
-Ваш заказ №${order.orderNumber} успешно оформлен и принят в работу.
+  let body = await getSetting(
+    'email_admin_new_order_body',
+    `Новый заказ на сайте!\n\n` +
+    `Номер заказа: {{orderNumber}}\n` +
+    `Дата: {{createdAt}}\n` +
+    `Сумма: {{total}} ₽\n` +
+    `Покупатель: {{customerName}}\n` +
+    `Email: {{customerEmail}}\n` +
+    `Телефон: {{phone}}\n` +
+    `Адрес доставки: {{address}}\n` +
+    `Способ доставки: {{deliveryMethod}}\n` +
+    `Способ оплаты: {{paymentMethod}}\n` +
+    `Комментарий: {{comment}}\n\n` +
+    `Состав заказа:\n{{itemsList}}\n\n` +
+    `Ссылка на заказ в админке: ${process.env.NEXTAUTH_URL}/admin/orders`
+  )
 
-Дата заказа: ${new Date(order.createdAt).toLocaleString('ru-RU')}
-Сумма заказа: ${order.total} ₽
-Адрес доставки: ${order.address}
-Телефон: ${order.phone || 'не указан'}
-Способ доставки: ${order.deliveryMethod || 'не указан'}
+  body = body
+    .replace(/{{orderNumber}}/g, order.orderNumber.toString())
+    .replace(/{{createdAt}}/g, new Date(order.createdAt).toLocaleString('ru-RU'))
+    .replace(/{{total}}/g, order.total.toString())
+    .replace(/{{customerName}}/g, customerName)
+    .replace(/{{customerEmail}}/g, customerEmail)
+    .replace(/{{phone}}/g, order.phone || 'не указан')
+    .replace(/{{address}}/g, order.address)
+    .replace(/{{deliveryMethod}}/g, order.deliveryMethod || 'не указан')
+    .replace(/{{paymentMethod}}/g, order.paymentMethod || 'не указан')
+    .replace(/{{comment}}/g, order.comment || 'нет')
+    .replace(/{{itemsList}}/g, itemsList)
 
-Состав заказа:
-${itemsList}
-
-Мы свяжемся с вами для подтверждения деталей.
-Спасибо за заказ!
-
-С уважением,
-Героическая лаборатория миниатюр
-    `,
-  }
+  return { subject, text: body }
 }
 
 /**
- * Шаблон письма при смене статуса заказа
+ * Шаблон письма для покупателя (подтверждение заказа).
+ * Использует настройки email_order_confirmation_subject и email_order_confirmation_body.
  */
-export function getOrderStatusUpdateEmail(order: any) {
-  return {
-    subject: `Статус заказа №${order.orderNumber} изменён`,
-    text: `
-Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
+export async function getOrderConfirmationEmail(order: any) {
+  const customerName = order.user?.name || order.guestName || 'покупатель'
+  const itemsList = formatItemsList(order)
 
-Статус вашего заказа №${order.orderNumber} изменился на: ${getStatusLabel(order.status)}.
+  const subject = await getSetting(
+    'email_order_confirmation_subject',
+    `Ваш заказ №${order.orderNumber} принят`
+  )
 
-Вы можете следить за статусом заказа в личном кабинете: ${process.env.NEXTAUTH_URL}/account/orders
+  let body = await getSetting(
+    'email_order_confirmation_body',
+    `Здравствуйте, {{customerName}}!\n\n` +
+    `Ваш заказ №{{orderNumber}} успешно оформлен и принят в работу.\n\n` +
+    `Дата заказа: {{createdAt}}\n` +
+    `Сумма заказа: {{total}} ₽\n` +
+    `Адрес доставки: {{address}}\n` +
+    `Телефон: {{phone}}\n` +
+    `Способ доставки: {{deliveryMethod}}\n\n` +
+    `Состав заказа:\n{{itemsList}}\n\n` +
+    `Мы свяжемся с вами для подтверждения деталей.\n` +
+    `Спасибо за заказ!\n\n` +
+    `С уважением,\n` +
+    `Героическая лаборатория миниатюр`
+  )
 
-С уважением,
-Героическая лаборатория миниатюр
-    `,
-  }
-}       
+  body = body
+    .replace(/{{orderNumber}}/g, order.orderNumber.toString())
+    .replace(/{{createdAt}}/g, new Date(order.createdAt).toLocaleString('ru-RU'))
+    .replace(/{{total}}/g, order.total.toString())
+    .replace(/{{customerName}}/g, customerName)
+    .replace(/{{address}}/g, order.address)
+    .replace(/{{phone}}/g, order.phone || 'не указан')
+    .replace(/{{deliveryMethod}}/g, order.deliveryMethod || 'не указан')
+    .replace(/{{itemsList}}/g, itemsList)
+
+  return { subject, text: body }
+}
+
+/**
+ * Шаблон письма при смене статуса заказа.
+ * Использует настройки email_status_update_subject и email_status_update_body.
+ */
+export async function getOrderStatusUpdateEmail(order: any) {
+  const customerName = order.user?.name || order.guestName || 'покупатель'
+
+  const subject = await getSetting(
+    'email_status_update_subject',
+    `Статус заказа №${order.orderNumber} изменён`
+  )
+
+  let body = await getSetting(
+    'email_status_update_body',
+    `Здравствуйте, {{customerName}}!\n\n` +
+    `Статус вашего заказа №{{orderNumber}} изменился на: {{status}}.\n\n` +
+    `Вы можете следить за статусом заказа в личном кабинете: ${process.env.NEXTAUTH_URL}/account/orders\n\n` +
+    `С уважением,\n` +
+    `Героическая лаборатория миниатюр`
+  )
+
+  body = body
+    .replace(/{{orderNumber}}/g, order.orderNumber.toString())
+    .replace(/{{customerName}}/g, customerName)
+    .replace(/{{status}}/g, getStatusLabel(order.status))
+
+  return { subject, text: body }
+}
 ===== ./lib/logger.ts =====
 // lib/logger.ts
 import fs from 'fs'
@@ -7932,6 +8537,44 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000) // каждые 5 минут
+===== ./lib/settings.ts =====
+// lib/settings.ts
+import { prisma } from './prisma'
+
+// Простой кеш в памяти
+const cache = new Map<string, string>()
+let cacheLoaded = false
+
+/**
+ * Загружает все настройки из БД в кеш.
+ */
+export async function loadSettingsCache() {
+  const settings = await prisma.setting.findMany()
+  cache.clear()
+  for (const { key, value } of settings) {
+    cache.set(key, value)
+  }
+  cacheLoaded = true
+}
+
+/**
+ * Получить значение настройки по ключу.
+ * Если кеш не загружен – загружает.
+ */
+export async function getSetting(key: string, defaultValue: string = ''): Promise<string> {
+  if (!cacheLoaded) {
+    await loadSettingsCache()
+  }
+  return cache.get(key) ?? defaultValue
+}
+
+/**
+ * Сбросить кеш (вызвать после обновления настроек).
+ */
+export function clearSettingsCache() {
+  cache.clear()
+  cacheLoaded = false
+}
 ===== ./lib/utils.ts =====
 // lib/utils.ts
 import { Product } from '@/types'
@@ -19068,6 +19711,54 @@ PRAGMA defer_foreign_keys=OFF;
 -- CreateIndex
 CREATE UNIQUE INDEX "Coupon_code_key" ON "Coupon"("code");
 
+===== ./prisma/migrations/20260420115240_add_search_indexes/migration.sql =====
+-- CreateIndex
+CREATE INDEX "Product_name_idx" ON "Product"("name");
+
+-- CreateIndex
+CREATE INDEX "Product_article_idx" ON "Product"("article");
+
+===== ./prisma/migrations/20260420120509_add_search_name_field/migration.sql =====
+-- RedefineTables
+PRAGMA defer_foreign_keys=ON;
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_Product" (
+    "article" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "searchName" TEXT NOT NULL DEFAULT '',
+    "description" TEXT NOT NULL,
+    "price" INTEGER NOT NULL,
+    "oldPrice" INTEGER,
+    "images" TEXT NOT NULL,
+    "categoryId" TEXT NOT NULL,
+    "gameSystem" TEXT NOT NULL,
+    "scale" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "faction" TEXT,
+    "fileFormat" TEXT NOT NULL,
+    "tags" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "featured" BOOLEAN NOT NULL DEFAULT false,
+    "popularity" INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO "new_Product" ("article", "categoryId", "createdAt", "description", "faction", "featured", "fileFormat", "gameSystem", "images", "name", "oldPrice", "popularity", "price", "scale", "tags", "type") SELECT "article", "categoryId", "createdAt", "description", "faction", "featured", "fileFormat", "gameSystem", "images", "name", "oldPrice", "popularity", "price", "scale", "tags", "type" FROM "Product";
+DROP TABLE "Product";
+ALTER TABLE "new_Product" RENAME TO "Product";
+CREATE INDEX "Product_name_idx" ON "Product"("name");
+CREATE INDEX "Product_article_idx" ON "Product"("article");
+CREATE INDEX "Product_searchName_idx" ON "Product"("searchName");
+PRAGMA foreign_keys=ON;
+PRAGMA defer_foreign_keys=OFF;
+
+===== ./prisma/migrations/20260420122055_add_settings/migration.sql =====
+-- CreateTable
+CREATE TABLE "Setting" (
+    "key" TEXT NOT NULL PRIMARY KEY,
+    "value" TEXT NOT NULL,
+    "updatedAt" DATETIME NOT NULL
+);
+
 ===== ./prisma/migrations/migration_lock.toml =====
 # Please do not edit this file manually
 # It should be added in your version-control system (i.e. Git)
@@ -19100,6 +19791,7 @@ model User {
 model Product {
   article        String      @id
   name           String
+  searchName     String      @default("")   // временно с default
   description    String
   price          Int
   oldPrice       Int?
@@ -19117,6 +19809,10 @@ model Product {
   popularity     Int         @default(0)
   orderItems     OrderItem[]
   cartItems      CartItem[]
+
+  @@index([name])
+  @@index([article])
+  @@index([searchName])   // 🆕 индекс для ускорения поиска
 }
 
 // Категория
@@ -19192,6 +19888,12 @@ model Coupon {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   orders        Order[]  // заказы, в которых использован этот купон
+}
+
+model Setting {
+  key       String   @id
+  value     String   // храним как текст, для длинных текстов подходит
+  updatedAt DateTime @updatedAt
 }
 ===== ./prisma/seed.ts =====
 // prisma/seed.ts
@@ -19346,6 +20048,30 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
   })
+===== ./prisma/update-searchName.ts =====
+// prisma/update-searchName.ts
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  const products = await prisma.product.findMany()
+  
+  let updated = 0
+  for (const product of products) {
+    await prisma.product.update({
+      where: { article: product.article },
+      data: { searchName: product.name.toLowerCase() }
+    })
+    updated++
+  }
+  
+  console.log(`Обновлено товаров: ${updated}`)
+}
+
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect())
 ===== ./project_code.txt =====
 
 ===== ./proxy.ts =====
@@ -19386,6 +20112,16 @@ export const config = {
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
 ===== ./public/next.svg =====
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+===== ./public/robots.txt =====
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /account/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+
+Sitemap: https://вашсайт.ru/sitemap.xml
 ===== ./public/vercel.svg =====
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
 ===== ./public/window.svg =====

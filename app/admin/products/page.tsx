@@ -157,10 +157,19 @@ export default function AdminProductsPage() {
     }
   }
 
-  // Экспорт CSV
-  const handleExport = () => {
+  // ЭКСПОРТ CSV – теперь с учётом выбранных товаров
+const handleExport = () => {
+  // Проверяем, есть ли выбранные товары
+  if (selectedArticles.size > 0) {
+    // Превращаем Set в массив и склеиваем через запятую
+    const articlesList = Array.from(selectedArticles).join(',')
+    // Открываем ссылку с параметром ?articles=...
+    window.open(`/api/admin/products/export?articles=${encodeURIComponent(articlesList)}`, '_blank')
+  } else {
+    // Ничего не выбрано – экспортируем всё (старое поведение)
     window.open('/api/admin/products/export', '_blank')
   }
+}
 
   // Импорт CSV
   const handleImport = async () => {
