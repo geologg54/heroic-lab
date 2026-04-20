@@ -241,15 +241,15 @@ export default function CheckoutPage() {
           <div>
             <label className="block text-white mb-1">Способ доставки</label>
             <select
-              name="deliveryMethod"
-              className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
-              value={form.deliveryMethod}
-              onChange={handleChange}
-            >
-              <option value="СДЭК">СДЭК</option>
-              <option value="Почта России">Почта России</option>
-              <option value="Самовывоз">Самовывоз</option>
-            </select>
+  name="deliveryMethod"
+  className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
+  value={form.deliveryMethod}
+  onChange={handleChange}
+>
+  <option value="СДЭК">СДЭК</option>
+  <option value="Почта России">Почта России</option>
+  <option value="Самовывоз">Самовывоз</option>
+</select>
           </div>
           <div>
             <label className="block text-white mb-1">Способ оплаты</label>
