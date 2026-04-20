@@ -32,6 +32,8 @@ export default function AdminProductsPage() {
   const [importResult, setImportResult] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  const [sortBy, setSortBy] = useState<string>('createdAt')
+  const [sortOrder, setSortOrder] = useState<string>('desc')
   const limit = 20
 
   useEffect(() => {
@@ -41,27 +43,32 @@ export default function AdminProductsPage() {
   }, [])
 
   const fetchProducts = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: limit.toString(),
-      })
-      if (searchQuery) {
-        params.set('search', searchQuery)
-      }
-      
-      const res = await fetch(`/api/admin/products?${params.toString()}`)
-      const data = await res.json()
-      setProducts(data.products)
-      setTotalPages(data.totalPages)
-      setSelectedArticles(new Set())
-    } catch (error) {
-      console.error('Ошибка загрузки товаров:', error)
-    } finally {
-      setLoading(false)
+  setLoading(true)
+  try {
+    const params = new URLSearchParams({
+      page: currentPage.toString(),
+      limit: limit.toString(),
+    })
+    if (searchQuery) {
+      params.set('search', searchQuery)
     }
-  }, [currentPage, searchQuery])
+    // ===== НОВОЕ: добавляем параметры сортировки =====
+    if (sortBy) {
+      params.set('sortBy', sortBy)
+      params.set('order', sortOrder)
+    }
+    
+    const res = await fetch(`/api/admin/products?${params.toString()}`)
+    const data = await res.json()
+    setProducts(data.products)
+    setTotalPages(data.totalPages)
+    setSelectedArticles(new Set())
+  } catch (error) {
+    console.error('Ошибка загрузки товаров:', error)
+  } finally {
+    setLoading(false)
+  }
+}, [currentPage, searchQuery, sortBy, sortOrder]) // добавили зависимости
 
   useEffect(() => {
     fetchProducts()
@@ -202,6 +209,26 @@ const handleExport = () => {
     }
   }
 
+  // Обработчик клика по заголовку таблицы для сортировки
+const handleSort = (column: string) => {
+  if (sortBy === column) {
+    // Если кликнули по тому же столбцу – переключаем направление
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+  } else {
+    // Новый столбец – устанавливаем его и сортировку по возрастанию
+    setSortBy(column)
+    setSortOrder('asc')
+  }
+  // После изменения сортировки сбрасываем на первую страницу
+  setCurrentPage(1)
+}
+
+// Возвращает иконку направления сортировки для указанного столбца
+const renderSortIndicator = (column: string) => {
+  if (sortBy !== column) return null
+  return sortOrder === 'asc' ? ' ▲' : ' ▼'
+}
+
   if (loading && products.length === 0) {
     return <div className="text-white">Загрузка...</div>
   }
@@ -298,22 +325,42 @@ const handleExport = () => {
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
-            <tr className="text-gray-400">
-              <th className="p-3 w-10">
-                <input
-                  type="checkbox"
-                  checked={products.length > 0 && selectedArticles.size === products.length}
-                  onChange={toggleSelectAll}
-                  className="w-4 h-4 accent-accent"
-                />
-              </th>
-              <th className="p-3">Артикул</th>
-              <th className="p-3">Название</th>
-              <th className="p-3">Цена</th>
-              <th className="p-3">Категория</th>
-              <th className="p-3 text-center">Действия</th>
-            </tr>
-          </thead>
+  <tr className="text-gray-400">
+    <th className="p-3 w-10">
+      <input
+        type="checkbox"
+        checked={products.length > 0 && selectedArticles.size === products.length}
+        onChange={toggleSelectAll}
+        className="w-4 h-4 accent-accent"
+      />
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('article')}
+    >
+      Артикул{renderSortIndicator('article')}
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('name')}  // сортировка по названию
+    >
+      Название
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('price')}
+    >
+      Цена{renderSortIndicator('price')}
+    </th>
+    <th 
+      className="p-3 cursor-pointer hover:text-white transition"
+      onClick={() => handleSort('category')}
+    >
+      Категория{renderSortIndicator('category')}
+    </th>
+    <th className="p-3 text-center">Действия</th>
+  </tr>
+</thead>
           <tbody>
             {products.map(p => (
               <tr key={p.article} className="border-t border-borderLight">
