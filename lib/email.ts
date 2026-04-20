@@ -2,41 +2,32 @@
 import nodemailer from 'nodemailer'
 import fs from 'fs'
 import path from 'path'
+import { getSetting } from './settings'
 
-// Настройки SMTP берутся из переменных окружения
+// Настройки SMTP
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
-  secure: process.env.EMAIL_SERVER_SECURE === 'true', // true для 465 порта
+  secure: process.env.EMAIL_SERVER_SECURE === 'true',
   auth: {
     user: process.env.EMAIL_SERVER_USER,
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 })
 
-/**
- * Записывает ошибку отправки письма в лог-файл
- */
 function logEmailError(error: unknown, context: { to: string; subject: string }) {
   const logDir = path.join(process.cwd(), 'logs')
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true })
   }
-  
+
   const logFile = path.join(logDir, 'email-errors.log')
   const timestamp = new Date().toISOString()
   const logEntry = `[${timestamp}] Ошибка отправки письма на ${context.to} (тема: ${context.subject})\n${error}\n\n`
-  
+
   fs.appendFileSync(logFile, logEntry, 'utf-8')
 }
 
-/**
- * Отправляет письмо
- * @param to - email получателя
- * @param subject - тема письма
- * @param text - текстовое содержимое
- * @param html - HTML-содержимое (опционально)
- */
 export async function sendEmail({
   to,
   subject,
@@ -48,7 +39,6 @@ export async function sendEmail({
   text?: string
   html?: string
 }) {
-  // Если не указан адрес отправителя, пропускаем отправку (для разработки)
   if (!process.env.EMAIL_FROM) {
     console.warn('EMAIL_FROM is not set. Email will not be sent.')
     return
@@ -71,9 +61,7 @@ export async function sendEmail({
   }
 }
 
-/**
- * Возвращает читаемую метку статуса заказа
- */
+// Вспомогательные функции для подстановки переменных
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     processing: 'В работе',
@@ -84,86 +72,126 @@ function getStatusLabel(status: string): string {
   return labels[status] || status
 }
 
-/**
- * Шаблон письма для нового заказа (администратору)
- */
-export function getNewOrderAdminEmail(order: any) {
-  const itemsList = order.items.map((item: any) =>
+function formatItemsList(order: any): string {
+  return order.items.map((item: any) =>
     `${item.product.name} x ${item.quantity} = ${item.priceAtPurchase * item.quantity} ₽`
   ).join('\n')
-
-  return {
-    subject: `Новый заказ №${order.orderNumber} на сайте`,
-    text: `
-Новый заказ на сайте!
-
-Номер заказа: ${order.orderNumber}
-Дата: ${new Date(order.createdAt).toLocaleString('ru-RU')}
-Сумма: ${order.total} ₽
-Покупатель: ${order.user?.name || order.guestName || order.guestEmail || 'Гость'}
-Email: ${order.user?.email || order.guestEmail || 'не указан'}
-Телефон: ${order.phone || 'не указан'}
-Адрес доставки: ${order.address}
-Способ доставки: ${order.deliveryMethod || 'не указан'}
-Способ оплаты: ${order.paymentMethod || 'не указан'}
-Комментарий: ${order.comment || 'нет'}
-
-Состав заказа:
-${itemsList}
-
-Ссылка на заказ в админке: ${process.env.NEXTAUTH_URL}/admin/orders
-    `,
-  }
 }
 
 /**
- * Шаблон письма для покупателя (подтверждение заказа)
+ * Шаблон письма для администратора о новом заказе.
+ * Использует настройки email_admin_new_order_subject и email_admin_new_order_body.
  */
-export function getOrderConfirmationEmail(order: any) {
-  const itemsList = order.items.map((item: any) =>
-    `${item.product.name} x ${item.quantity} = ${item.priceAtPurchase * item.quantity} ₽`
-  ).join('\n')
+export async function getNewOrderAdminEmail(order: any) {
+  const customerName = order.user?.name || order.guestName || order.guestEmail || 'Гость'
+  const customerEmail = order.user?.email || order.guestEmail || 'не указан'
+  const itemsList = formatItemsList(order)
 
-  return {
-    subject: `Ваш заказ №${order.orderNumber} принят`,
-    text: `
-Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
+  const subject = await getSetting(
+    'email_admin_new_order_subject',
+    `Новый заказ №${order.orderNumber} на сайте`
+  )
 
-Ваш заказ №${order.orderNumber} успешно оформлен и принят в работу.
+  let body = await getSetting(
+    'email_admin_new_order_body',
+    `Новый заказ на сайте!\n\n` +
+    `Номер заказа: {{orderNumber}}\n` +
+    `Дата: {{createdAt}}\n` +
+    `Сумма: {{total}} ₽\n` +
+    `Покупатель: {{customerName}}\n` +
+    `Email: {{customerEmail}}\n` +
+    `Телефон: {{phone}}\n` +
+    `Адрес доставки: {{address}}\n` +
+    `Способ доставки: {{deliveryMethod}}\n` +
+    `Способ оплаты: {{paymentMethod}}\n` +
+    `Комментарий: {{comment}}\n\n` +
+    `Состав заказа:\n{{itemsList}}\n\n` +
+    `Ссылка на заказ в админке: ${process.env.NEXTAUTH_URL}/admin/orders`
+  )
 
-Дата заказа: ${new Date(order.createdAt).toLocaleString('ru-RU')}
-Сумма заказа: ${order.total} ₽
-Адрес доставки: ${order.address}
-Телефон: ${order.phone || 'не указан'}
-Способ доставки: ${order.deliveryMethod || 'не указан'}
+  body = body
+    .replace(/{{orderNumber}}/g, order.orderNumber.toString())
+    .replace(/{{createdAt}}/g, new Date(order.createdAt).toLocaleString('ru-RU'))
+    .replace(/{{total}}/g, order.total.toString())
+    .replace(/{{customerName}}/g, customerName)
+    .replace(/{{customerEmail}}/g, customerEmail)
+    .replace(/{{phone}}/g, order.phone || 'не указан')
+    .replace(/{{address}}/g, order.address)
+    .replace(/{{deliveryMethod}}/g, order.deliveryMethod || 'не указан')
+    .replace(/{{paymentMethod}}/g, order.paymentMethod || 'не указан')
+    .replace(/{{comment}}/g, order.comment || 'нет')
+    .replace(/{{itemsList}}/g, itemsList)
 
-Состав заказа:
-${itemsList}
-
-Мы свяжемся с вами для подтверждения деталей.
-Спасибо за заказ!
-
-С уважением,
-Героическая лаборатория миниатюр
-    `,
-  }
+  return { subject, text: body }
 }
 
 /**
- * Шаблон письма при смене статуса заказа
+ * Шаблон письма для покупателя (подтверждение заказа).
+ * Использует настройки email_order_confirmation_subject и email_order_confirmation_body.
  */
-export function getOrderStatusUpdateEmail(order: any) {
-  return {
-    subject: `Статус заказа №${order.orderNumber} изменён`,
-    text: `
-Здравствуйте, ${order.user?.name || order.guestName || 'покупатель'}!
+export async function getOrderConfirmationEmail(order: any) {
+  const customerName = order.user?.name || order.guestName || 'покупатель'
+  const itemsList = formatItemsList(order)
 
-Статус вашего заказа №${order.orderNumber} изменился на: ${getStatusLabel(order.status)}.
+  const subject = await getSetting(
+    'email_order_confirmation_subject',
+    `Ваш заказ №${order.orderNumber} принят`
+  )
 
-Вы можете следить за статусом заказа в личном кабинете: ${process.env.NEXTAUTH_URL}/account/orders
+  let body = await getSetting(
+    'email_order_confirmation_body',
+    `Здравствуйте, {{customerName}}!\n\n` +
+    `Ваш заказ №{{orderNumber}} успешно оформлен и принят в работу.\n\n` +
+    `Дата заказа: {{createdAt}}\n` +
+    `Сумма заказа: {{total}} ₽\n` +
+    `Адрес доставки: {{address}}\n` +
+    `Телефон: {{phone}}\n` +
+    `Способ доставки: {{deliveryMethod}}\n\n` +
+    `Состав заказа:\n{{itemsList}}\n\n` +
+    `Мы свяжемся с вами для подтверждения деталей.\n` +
+    `Спасибо за заказ!\n\n` +
+    `С уважением,\n` +
+    `Героическая лаборатория миниатюр`
+  )
 
-С уважением,
-Героическая лаборатория миниатюр
-    `,
-  }
-}       
+  body = body
+    .replace(/{{orderNumber}}/g, order.orderNumber.toString())
+    .replace(/{{createdAt}}/g, new Date(order.createdAt).toLocaleString('ru-RU'))
+    .replace(/{{total}}/g, order.total.toString())
+    .replace(/{{customerName}}/g, customerName)
+    .replace(/{{address}}/g, order.address)
+    .replace(/{{phone}}/g, order.phone || 'не указан')
+    .replace(/{{deliveryMethod}}/g, order.deliveryMethod || 'не указан')
+    .replace(/{{itemsList}}/g, itemsList)
+
+  return { subject, text: body }
+}
+
+/**
+ * Шаблон письма при смене статуса заказа.
+ * Использует настройки email_status_update_subject и email_status_update_body.
+ */
+export async function getOrderStatusUpdateEmail(order: any) {
+  const customerName = order.user?.name || order.guestName || 'покупатель'
+
+  const subject = await getSetting(
+    'email_status_update_subject',
+    `Статус заказа №${order.orderNumber} изменён`
+  )
+
+  let body = await getSetting(
+    'email_status_update_body',
+    `Здравствуйте, {{customerName}}!\n\n` +
+    `Статус вашего заказа №{{orderNumber}} изменился на: {{status}}.\n\n` +
+    `Вы можете следить за статусом заказа в личном кабинете: ${process.env.NEXTAUTH_URL}/account/orders\n\n` +
+    `С уважением,\n` +
+    `Героическая лаборатория миниатюр`
+  )
+
+  body = body
+    .replace(/{{orderNumber}}/g, order.orderNumber.toString())
+    .replace(/{{customerName}}/g, customerName)
+    .replace(/{{status}}/g, getStatusLabel(order.status))
+
+  return { subject, text: body }
+}

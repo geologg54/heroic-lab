@@ -6,13 +6,11 @@ import { prisma } from '@/lib/prisma'
 import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
 
-// Проверка корректности email
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-// Проверка телефона (цифры, пробелы, +, -, (, ))
 function isValidPhone(phone: string): boolean {
   const phoneRegex = /^[\d\s\+\-\(\)]+$/
   return phoneRegex.test(phone)
@@ -31,13 +29,12 @@ export async function POST(request: Request) {
       comment,
       deliveryMethod,
       paymentMethod,
-      email,        // email, переданный клиентом (для гостей обязателен)
-      name,         // имя, переданное клиентом
-      couponId,     // 🆕 ID применённого купона
-      discount = 0, // 🆕 сумма скидки
+      email,
+      name,
+      couponId,
+      discount = 0,
     } = body
 
-    // --- ВАЛИДАЦИЯ ---
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'Корзина пуста' }, { status: 400 })
     }
@@ -52,7 +49,6 @@ export async function POST(request: Request) {
     let guestEmail: string | undefined = undefined
     let guestName: string | undefined = undefined
 
-    // Если пользователь НЕ авторизован, email обязателен
     if (!userId) {
       if (!email || typeof email !== 'string' || !isValidEmail(email)) {
         return NextResponse.json(
@@ -63,7 +59,6 @@ export async function POST(request: Request) {
       guestEmail = email.trim().toLowerCase()
       guestName = name?.trim() || undefined
     } else {
-      // Авторизован: email не обязателен, но если передан – валидируем
       if (email) {
         if (!isValidEmail(email)) {
           return NextResponse.json(
@@ -85,7 +80,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // 🆕 Если передан couponId, проверяем его существование и активность
     if (couponId) {
       const coupon = await prisma.coupon.findUnique({
         where: { id: couponId },
@@ -102,26 +96,21 @@ export async function POST(request: Request) {
       if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
         return NextResponse.json({ error: 'Лимит использований купона исчерпан' }, { status: 400 })
       }
-      // Дополнительно можно проверить minOrderAmount, но это уже делалось на клиенте
     }
 
-    // Подсчёт суммы заказа (без скидки)
     const itemsTotal = items.reduce(
       (sum: number, item: any) => sum + item.product.price * item.quantity,
       0
     )
 
-    // Итоговая сумма с учётом скидки
     const total = Math.max(itemsTotal - discount, 0)
 
-    // Генерируем следующий номер заказа
     const lastOrder = await prisma.order.findFirst({
       orderBy: { orderNumber: 'desc' },
       select: { orderNumber: true },
     })
     const nextOrderNumber = lastOrder ? lastOrder.orderNumber + 1 : 100001
 
-    // Создаём заказ в базе
     const order = await prisma.order.create({
       data: {
         orderNumber: nextOrderNumber,
@@ -129,14 +118,14 @@ export async function POST(request: Request) {
         guestEmail: guestEmail,
         guestName: guestName,
         total,
-        discount,               // 🆕 сохраняем сумму скидки
+        discount,
         address: address.trim(),
         phone: phone?.trim() || null,
         comment: comment?.trim() || null,
         deliveryMethod: deliveryMethod || null,
         paymentMethod: paymentMethod || null,
         status: 'processing',
-        couponId: couponId || null, // 🆕 связь с купоном
+        couponId: couponId || null,
         items: {
           create: items.map((item: any) => ({
             productArticle: item.product.article,
@@ -151,7 +140,6 @@ export async function POST(request: Request) {
       },
     })
 
-    // 🆕 Увеличиваем счётчик использований купона
     if (couponId) {
       await prisma.coupon.update({
         where: { id: couponId },
@@ -159,24 +147,27 @@ export async function POST(request: Request) {
       })
     }
 
-    // Очищаем корзину только для авторизованных пользователей
     if (userId) {
       await prisma.cartItem.deleteMany({ where: { userId } })
     }
 
-    // Определяем email покупателя для отправки письма
     const customerEmail = guestEmail || session?.user?.email
 
-    // Отправляем письма (асинхронно, не блокируем ответ)
     if (customerEmail) {
+      // Получаем шаблоны писем асинхронно
+      const [confirmationEmail, adminEmail] = await Promise.all([
+        getOrderConfirmationEmail(order),
+        getNewOrderAdminEmail(order)
+      ])
+
       Promise.all([
         sendEmail({
           to: customerEmail,
-          ...getOrderConfirmationEmail(order),
+          ...confirmationEmail,
         }).catch(err => console.error('Ошибка отправки письма покупателю:', err)),
         sendEmail({
           to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
-          ...getNewOrderAdminEmail(order),
+          ...adminEmail,
         }).catch(err => console.error('Ошибка отправки письма админу:', err)),
       ])
     } else {

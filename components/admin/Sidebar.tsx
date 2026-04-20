@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Package, FolderTree, Layout, Image, 
   Library, ShoppingCart, Users, FileText, MessageCircle, X,
-  Ticket // 🆕 импорт иконки для купонов
+  Ticket, Settings // 🆕 импорт иконки для купонов
 } from 'lucide-react'
 
 const menu = [
@@ -19,6 +19,7 @@ const menu = [
   { name: 'Пользователи', href: '/admin/users', icon: Users },
   { name: 'Страницы', href: '/admin/pages', icon: FileText },
   { name: 'Чат поддержки', href: '/admin/support', icon: MessageCircle },
+  { name: 'Настройки', href: '/admin/settings', icon: Settings },
 ]
 
 export default function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
