@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
   
-  // 🆕 Поиск по полю searchName (регистронезависимый)
+  // Поиск по полю searchName (регистронезависимый)
   if (search) {
     where.searchName = { contains: search.toLowerCase() }
   }
@@ -78,12 +78,24 @@ export async function GET(request: Request) {
       categoryName: p.category.name
     }))
 
-    return NextResponse.json({
-      products: formattedProducts,
-      total,
-      page: shouldPaginate ? page : 1,
-      totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
-    })
+    // === НАСТРОЙКИ КЕШИРОВАНИЯ ДЛЯ API ===
+    // Устанавливаем заголовки, чтобы ответ кешировался на 60 секунд в CDN/браузере,
+    // и ещё 300 секунд может отдаваться устаревший контент, пока в фоне генерируется свежий.
+    const headers = new Headers()
+    headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+
+    return new NextResponse(
+      JSON.stringify({
+        products: formattedProducts,
+        total,
+        page: shouldPaginate ? page : 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
+      }),
+      {
+        status: 200,
+        headers
+      }
+    )
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

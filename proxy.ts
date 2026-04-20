@@ -8,8 +8,16 @@ export default withAuth(
     const path = req.nextUrl.pathname
 
     // Защита админских маршрутов
-    if (path.startsWith("/admin") && token?.role !== "admin") {
-      return NextResponse.redirect(new URL("/", req.url))
+    if (path.startsWith("/admin")) {
+      if (token?.role !== "admin") {
+        return NextResponse.redirect(new URL("/", req.url))
+      }
+      // Проверка 2FA для админа
+      if (token?.twoFactorEnabled && !token?.twoFactorVerified) {
+        const url = new URL("/auth/2fa", req.url)
+        url.searchParams.set("callbackUrl", path)
+        return NextResponse.redirect(url)
+      }
     }
 
     // Защита личного кабинета
@@ -21,7 +29,7 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token, // по умолчанию требуется авторизация
+      authorized: ({ token }) => !!token,
     },
   }
 )
