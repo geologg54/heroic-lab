@@ -123,3 +123,9 @@ model Coupon {
   updatedAt     DateTime @updatedAt
   orders        Order[]  // заказы, в которых использован этот купон
 }
+
+model Setting {
+  key       String   @id
+  value     String   // храним как текст, для длинных текстов подходит
+  updatedAt DateTime @updatedAt
+}
