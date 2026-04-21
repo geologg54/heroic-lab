@@ -1,14 +1,40 @@
+// app/cart/page.tsx
 'use client'
 import { useCart } from '@/hooks/useCart'
 import Link from 'next/link'
+import Image from 'next/image'
 import CartItem from '@/components/cart/CartItem'
-import { EmptyState } from '@/components/common/EmptyState'
 
 export default function CartPage() {
   const { items, totalPrice, clearCart } = useCart()
 
   if (items.length === 0) {
-    return <EmptyState title="Корзина пуста" message="Добавьте товары из каталога" actionLink="/catalog" actionText="Перейти в каталог" />
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        {/* Кастомный блок пустой корзины с адаптивным размером картинки */}
+        <div className="flex flex-col items-center py-20 px-4">
+          <div className="relative w-32 h-32 md:w-64 md:h-64 mb-4">
+            <Image
+              src="/card-empty.png"
+              alt="Корзина пуста"
+              fill
+              className="object-contain"
+            />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Корзина пуста</h2>
+          <p className="text-gray-400 mb-6">Наполните её миниатюрами, достойными вашего приключения!</p>
+        </div>
+        
+        <div className="mt-6">
+          <Link
+            href="/catalog"
+            className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
+          >
+            перейти в каталог
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -26,7 +52,7 @@ export default function CartPage() {
             <span className="font-bold">{totalPrice} ₽</span>
           </div>
           <Link href="/checkout" className="block w-full border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white text-center py-3 rounded-lg font-semibold transition-colors duration-300">
-          Оформить заказ
+            Оформить заказ
           </Link>
         </div>
       </div>

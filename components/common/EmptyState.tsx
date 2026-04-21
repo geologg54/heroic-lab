@@ -7,19 +7,21 @@ interface EmptyStateProps {
   message: string
   actionLink?: string
   actionText?: string
-  image?: string // 🆕 путь к кастомной картинке
+  image?: string
+  imageClassName?: string // 🆕 дополнительные классы для контейнера картинки
 }
 
-export const EmptyState = ({ title, message, actionLink, actionText, image }: EmptyStateProps) => (
+export const EmptyState = ({ title, message, actionLink, actionText, image, imageClassName }: EmptyStateProps) => (
   <div className="text-center py-20 px-4">
     {image ? (
-      <Image 
-        src={image} 
-        alt={title} 
-        width={200} 
-        height={200} 
-        className="mx-auto mb-4"
-      />
+      <div className={`relative mx-auto mb-4 ${imageClassName || 'w-32 h-32'}`}>
+        <Image 
+          src={image} 
+          alt={title} 
+          fill
+          className="object-contain"
+        />
+      </div>
     ) : (
       <div className="text-6xl mb-4">🛒</div>
     )}
