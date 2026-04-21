@@ -13,12 +13,11 @@ export interface FilterState {
   filter4: string[]
   filter5: string[]
   tags: string[]
-  // для обратной совместимости оставим старые, но не будем их показывать
-  gameSystems?: string[]
-  factions?: string[]
-  types?: string[]
-  scales?: string[]
-  fileFormats?: string[]
+  scales: string[]
+  gameSystems: string[]
+  factions: string[]
+  types: string[]
+  fileFormats: string[]
 }
 
 interface FilterPanelProps {
@@ -26,7 +25,6 @@ interface FilterPanelProps {
   onFilter: (filtered: Product[], activeFilters: FilterState) => void
   hidePriceSlider?: boolean
   hideMobileButton?: boolean
-  // 🆕 Настройки фильтров из категории
   filterNames?: {
     filter1Name?: string | null
     filter2Name?: string | null
@@ -34,6 +32,8 @@ interface FilterPanelProps {
     filter4Name?: string | null
     filter5Name?: string | null
   }
+  // 🆕 Список всех категорий (не зависит от товаров)
+  allCategories?: string[]
 }
 
 export const FilterPanel = ({ 
@@ -41,7 +41,8 @@ export const FilterPanel = ({
   onFilter, 
   hidePriceSlider = false, 
   hideMobileButton = false,
-  filterNames = {}
+  filterNames = {},
+  allCategories = []
 }: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
@@ -52,13 +53,13 @@ export const FilterPanel = ({
     filter4: [],
     filter5: [],
     tags: [],
+    scales: [],
     gameSystems: [],
     factions: [],
     types: [],
-    scales: [],
     fileFormats: [],
   })
-  const [priceMax, setPriceMax] = useState(2000)
+  const [priceMax, setPriceMax] = useState(3500)
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     categories: false,
@@ -68,21 +69,26 @@ export const FilterPanel = ({
     filter4: false,
     filter5: false,
     tags: false,
+    scales: false,
   })
 
   const prevFiltersRef = useRef<FilterState>(filters)
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  // 🆕 Собираем уникальные значения для каждого фильтра из товаров
+  // Собираем уникальные значения для фильтров из товаров
   const filterOptions = {
-    categories: [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
-    filter1: [...new Set(products.map(p => p.filter1).filter(Boolean))],
-    filter2: [...new Set(products.map(p => p.filter2).filter(Boolean))],
-    filter3: [...new Set(products.map(p => p.filter3).filter(Boolean))],
-    filter4: [...new Set(products.map(p => p.filter4).filter(Boolean))],
-    filter5: [...new Set(products.map(p => p.filter5).filter(Boolean))],
+    // Категории берём из пропса, если он передан, иначе из товаров
+    categories: allCategories.length > 0 
+      ? allCategories 
+      : [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
+    filter1: [...new Set(products.flatMap(p => (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter2: [...new Set(products.flatMap(p => (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter3: [...new Set(products.flatMap(p => (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter4: [...new Set(products.flatMap(p => (p.filter4 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter5: [...new Set(products.flatMap(p => (p.filter5 || '').split(',').map(s => s.trim()).filter(Boolean)))],
     tags: [...new Set(products.flatMap(p => p.tags))],
+    scales: [...new Set(products.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))],
   }
 
   const toggleSection = (section: string) => {
@@ -90,10 +96,13 @@ export const FilterPanel = ({
   }
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: prev[key].includes(value) ? prev[key].filter(v => v !== value) : [...prev[key], value]
-    }))
+    setFilters(prev => {
+      const current = prev[key] as string[] // теперь гарантированно массив
+      return {
+        ...prev,
+        [key]: current.includes(value) ? current.filter(v => v !== value) : [...current, value]
+      }
+    })
   }
 
   const resetFilters = () => {
@@ -105,13 +114,13 @@ export const FilterPanel = ({
       filter4: [],
       filter5: [],
       tags: [],
+      scales: [],
       gameSystems: [],
       factions: [],
       types: [],
-      scales: [],
       fileFormats: [],
     })
-    setPriceMax(2000)
+    setPriceMax(3500)
   }
 
   const applyFilters = useCallback(() => {
@@ -123,17 +132,55 @@ export const FilterPanel = ({
         return filters.categories.includes(catSlug)
       })
     }
-    if (filters.filter1.length) filtered = filtered.filter(p => p.filter1 && filters.filter1.includes(p.filter1))
-    if (filters.filter2.length) filtered = filtered.filter(p => p.filter2 && filters.filter2.includes(p.filter2))
-    if (filters.filter3.length) filtered = filtered.filter(p => p.filter3 && filters.filter3.includes(p.filter3))
-    if (filters.filter4.length) filtered = filtered.filter(p => p.filter4 && filters.filter4.includes(p.filter4))
-    if (filters.filter5.length) filtered = filtered.filter(p => p.filter5 && filters.filter5.includes(p.filter5))
-    if (filters.tags.length) {
-      filtered = filtered.filter(p => p.tags.some(t => filters.tags.includes(t)))
+
+    const hasAny = (productValues: string[], selected: string[]) => {
+      return selected.some(sel => productValues.includes(sel))
     }
-    // Старые фильтры пока не применяем, чтобы не мешать
+
+    if (filters.filter1.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter1 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter1)
+      })
+    }
+    if (filters.filter2.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter2 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter2)
+      })
+    }
+    if (filters.filter3.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter3 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter3)
+      })
+    }
+    if (filters.filter4.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter4 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter4)
+      })
+    }
+    if (filters.filter5.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter5 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter5)
+      })
+    }
+
+    if (filters.tags.length) {
+      filtered = filtered.filter(p => hasAny(p.tags, filters.tags))
+    }
+
+    if (filters.scales.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.scale || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.scales)
+      })
+    }
 
     filtered = filtered.filter(p => p.price <= priceMax)
+
     onFilter(filtered, filters)
   }, [products, filters, priceMax, onFilter])
 
@@ -152,7 +199,6 @@ export const FilterPanel = ({
     prevPriceMaxRef.current = priceMax
   }, [filters, priceMax, applyFilters])
 
-  // Определяем, какие секции показывать (если название задано и есть хотя бы одно значение)
   const sections = [
     { key: 'categories', title: 'Категория' },
     { key: 'filter1', title: filterNames.filter1Name || '' },
@@ -161,8 +207,9 @@ export const FilterPanel = ({
     { key: 'filter4', title: filterNames.filter4Name || '' },
     { key: 'filter5', title: filterNames.filter5Name || '' },
     { key: 'tags', title: 'Теги' },
+    { key: 'scales', title: 'Масштаб' },
   ].filter(section => {
-    if (section.key === 'categories' || section.key === 'tags') return true
+    if (section.key === 'categories' || section.key === 'tags' || section.key === 'scales') return true
     return section.title && filterOptions[section.key as keyof typeof filterOptions]?.length > 0
   })
 
@@ -213,7 +260,7 @@ export const FilterPanel = ({
               title={section.title}
               sectionKey={section.key}
               options={filterOptions[section.key as keyof typeof filterOptions] || []}
-              selected={filters[section.key as keyof FilterState] as string[] || []}
+              selected={filters[section.key as keyof FilterState] as string[]}
             />
           ))}
           {!hidePriceSlider && (
@@ -221,7 +268,7 @@ export const FilterPanel = ({
               <div className="flex justify-between items-center">
                 <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
               </div>
-              <input type="range" min={0} max={2000} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+              <input type="range" min={0} max={3500} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
             </div>
           )}
           {hasActiveFilters && (
@@ -236,7 +283,7 @@ export const FilterPanel = ({
           <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
         </div>
       </div>
-      {/* Мобильная модалка (аналогично) */}
+      {/* Мобильная модалка */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 p-4 overflow-auto">
           <div className="bg-cardbg p-6 rounded-xl max-w-md mx-auto relative">
@@ -249,7 +296,7 @@ export const FilterPanel = ({
                   title={section.title}
                   sectionKey={section.key}
                   options={filterOptions[section.key as keyof typeof filterOptions] || []}
-                  selected={filters[section.key as keyof FilterState] as string[] || []}
+                  selected={filters[section.key as keyof FilterState] as string[]}
                 />
               ))}
               {!hidePriceSlider && (
@@ -257,7 +304,7 @@ export const FilterPanel = ({
                   <div className="flex justify-between items-center">
                     <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
                   </div>
-                  <input type="range" min={0} max={2000} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+                  <input type="range" min={0} max={3500} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
                 </div>
               )}
               <button onClick={() => setIsOpen(false)} className="mt-6 w-full bg-accent py-2 rounded-lg">Применить</button>
