@@ -45,7 +45,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     { label: product.name },
   ]
 
-  const isSet = product.heightMin !== null && product.heightMax !== null && product.heightMin !== product.heightMax
+  // Определяем, показывать ли блок с минимальной высотой (только если stock > 1)
+  const showMinHeight = product.stock > 1 && product.heightMin != null
 
   return (
     <div className="w-full bg-darkbg">
@@ -157,40 +158,38 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <h2 className="text-xl font-semibold text-white pb-3">Размеры</h2>
                 
                 {product.heightMax && (
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-[8%] aspect-square bg-darkbg rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="flex items-center">
+                    <div className="relative w-[15%] aspect-square bg-transparent overflow-hidden flex-shrink-0">
                       <Image src={product.images[0]} alt="" fill className="object-cover" />
                     </div>
-                    <div className="relative w-[8%] aspect-square bg-transparent flex items-center justify-center flex-shrink-0">
+                    <div className="relative w-[15%] aspect-square bg-transparent flex items-center justify-center flex-shrink-0">
                       <Image 
                         src="/size-arrow.png" 
                         alt="" 
-                        width={32} 
-                        height={32}
-                        className="object-contain"
+                        fill
+                        className="object-contain p-2"
                       />
                     </div>
-                    <span className="text-white text-sm md:text-base">
+                    <span className="text-white text-base md:text-lg whitespace-nowrap ml-4">
                       {product.heightMax} мм — самая высокая модель
                     </span>
                   </div>
                 )}
 
-                {isSet && product.heightMin && (
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-[8%] aspect-square bg-darkbg rounded-lg overflow-hidden flex-shrink-0">
+                {showMinHeight && product.heightMin && (
+                  <div className="flex items-center">
+                    <div className="relative w-[15%] aspect-square bg-transparent overflow-hidden flex-shrink-0">
                       <Image src={product.images[1] || product.images[0]} alt="" fill className="object-cover" />
                     </div>
-                    <div className="relative w-[8%] aspect-square bg-transparent flex items-center justify-center flex-shrink-0">
+                    <div className="relative w-[15%] aspect-square bg-transparent flex items-center justify-center flex-shrink-0">
                       <Image 
                         src="/size-arrow.png" 
                         alt="" 
-                        width={32} 
-                        height={32}
-                        className="object-contain"
+                        fill
+                        className="object-contain p-2"
                       />
                     </div>
-                    <span className="text-white text-sm md:text-base">
+                    <span className="text-white text-base md:text-lg whitespace-nowrap ml-4">
                       {product.heightMin} мм — самая низкая модель
                     </span>
                   </div>
@@ -200,7 +199,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {/* Другие характеристики */}
               <div className="mt-10">
                 <h2 className="text-xl font-semibold text-white pb-3 mb-4">Другие характеристики</h2>
-                <ul className="space-y-3 text-gray-300">
+                <ul className="space-y-3 text-gray-300 text-lg">
                   <li><span className="font-medium text-white">Масштаб:</span> {product.scale}</li>
                   <li><span className="font-medium text-white">Материал:</span> фотополимерная смола Anycubic waterwash 2.0</li>
                   <li className="flex items-center gap-2">
@@ -219,7 +218,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {/* Описание */}
               <div className="mt-10">
                 <h2 className="text-xl font-semibold text-white pb-3 mb-4">Описание</h2>
-                <div className="prose prose-invert text-gray-300 max-w-none">
+                <div className="prose prose-invert text-gray-300 max-w-none text-lg">
                   {product.description.split('\n').map((para, idx) => (
                     <p key={idx}>{para}</p>
                   ))}
@@ -230,14 +229,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {product.contents && (
                 <div className="mt-10">
                   <h2 className="text-xl font-semibold text-white pb-3 mb-4">Комплектация</h2>
-                  <p className="text-gray-300">{product.contents}</p>
+                  <p className="text-gray-300 text-lg">{product.contents}</p>
                 </div>
               )}
 
               {/* Совет */}
               <div className="mt-10">
                 <h2 className="text-xl font-semibold text-white pb-3 mb-4">Совет</h2>
-                <p className="text-gray-300">
+                <p className="text-gray-300 text-lg">
                   Рекомендуем приклеить к подставке, клей и краски не входят в комплект.
                 </p>
               </div>
