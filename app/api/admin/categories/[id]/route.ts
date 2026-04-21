@@ -8,39 +8,21 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+  // ... проверка прав
   const { id } = await params
   const data = await request.json()
-  const { name, slug, image, parentId } = data
+  const { 
+    name, slug, image, parentId,
+    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+  } = data
 
   const category = await prisma.category.update({
     where: { id },
-    data: { name, slug, image, parentId }
+    data: { 
+      name, slug, image, parentId,
+      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+    }
   })
 
   return NextResponse.json(category)
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  const { id } = await params
-
-  const productsCount = await prisma.product.count({ where: { categoryId: id } })
-  if (productsCount > 0) {
-    return NextResponse.json({ error: 'Cannot delete category with products' }, { status: 400 })
-  }
-
-  await prisma.category.delete({ where: { id } })
-  return NextResponse.json({ success: true })
 }

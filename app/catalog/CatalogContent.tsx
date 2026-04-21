@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProductCard } from '@/components/catalog/ProductCard'
-import { FilterPanel, FilterContent } from '@/components/catalog/FilterPanel'
+import { FilterPanel } from '@/components/catalog/FilterPanel'
 import type { FilterState } from '@/components/catalog/FilterPanel'
 import { SortDropdown } from '@/components/catalog/SortDropdown'
 import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'

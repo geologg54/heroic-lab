@@ -11,26 +11,28 @@ import type { Product } from '@/types'
 
 interface CategoryProductsWrapperProps {
   products: Product[]
+  filterNames?: {
+    filter1Name?: string | null
+    filter2Name?: string | null
+    filter3Name?: string | null
+    filter4Name?: string | null
+    filter5Name?: string | null
+  }
 }
 
-export default function CategoryProductsWrapper({ products: initialProducts }: CategoryProductsWrapperProps) {
+export default function CategoryProductsWrapper({ products: initialProducts, filterNames = {} }: CategoryProductsWrapperProps) {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(initialProducts)
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({})
   const [sortBy, setSortBy] = useState('default')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 9
 
-  // Сортировка
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
-      case 'price-asc':
-        return a.price - b.price
-      case 'price-desc':
-        return b.price - a.price
-      case 'name':
-        return a.name.localeCompare(b.name)
-      default:
-        return 0
+      case 'price-asc': return a.price - b.price
+      case 'price-desc': return b.price - a.price
+      case 'name': return a.name.localeCompare(b.name)
+      default: return 0
     }
   })
 
@@ -53,18 +55,22 @@ export default function CategoryProductsWrapper({ products: initialProducts }: C
   }
 
   const handleRemoveFilter = (key: string, value: string) => {
-    // Простой сброс — для демо, можно доработать
+    // Здесь нужно реализовать снятие конкретного фильтра, но для простоты сбросим всё
     handleClearAll()
   }
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
       <aside className="lg:w-1/4">
-        <FilterPanel products={initialProducts} onFilter={handleFilter} />
+        <FilterPanel 
+          products={initialProducts} 
+          onFilter={handleFilter} 
+          filterNames={filterNames}
+        />
       </aside>
       <main className="lg:w-3/4">
         <div className="flex justify-between items-center mb-4">
-          <SortDropdown onSort={setSortBy} products={sortedProducts} />
+          <SortDropdown onSort={setSortBy} />
           <span className="text-gray-400">{filteredProducts.length} моделей</span>
         </div>
         <ActiveFilters

@@ -379,6 +379,7 @@ export default function SettingsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // Состояния для профиля
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -386,6 +387,16 @@ export default function SettingsPage() {
     newPassword: '',
     confirmPassword: ''
   })
+
+  // Состояния для 2FA
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false)
+  const [twoFALoading, setTwoFALoading] = useState(false)
+  const [showTwoFAModal, setShowTwoFAModal] = useState(false)
+  const [twoFAStep, setTwoFAStep] = useState<'qr' | 'verify'>('qr')
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [twoFASecret, setTwoFASecret] = useState('')
+  const [twoFACode, setTwoFACode] = useState('')
+  const [twoFAError, setTwoFAError] = useState('')
 
   useEffect(() => {
     if (status === 'loading') return
@@ -398,8 +409,10 @@ export default function SettingsPage() {
       name: session.user.name || '',
       email: session.user.email || ''
     }))
+    setTwoFAEnabled(session.user.twoFactorEnabled || false)
   }, [session, status, router])
 
+  // Обновление профиля (без изменений)
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
@@ -453,6 +466,90 @@ export default function SettingsPage() {
     setLoading(false)
   }
 
+  // === Функции для 2FA ===
+
+  const enable2FA = async () => {
+    setTwoFALoading(true)
+    try {
+      const res = await fetch('/api/user/2fa/enable', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setQrCode(data.qrCode)
+        setTwoFASecret(data.secret)
+        setTwoFAStep('qr')
+        setShowTwoFAModal(true)
+      } else {
+        setError(data.error || 'Ошибка включения 2FA')
+      }
+    } catch {
+      setError('Ошибка сети')
+    } finally {
+      setTwoFALoading(false)
+    }
+  }
+
+  const verify2FA = async () => {
+    if (!twoFACode || twoFACode.length !== 6) {
+      setTwoFAError('Введите 6-значный код')
+      return
+    }
+    setTwoFALoading(true)
+    setTwoFAError('')
+    try {
+      const res = await fetch('/api/user/2fa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: twoFACode })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        await update() // обновляем сессию, чтобы получить twoFactorEnabled: true
+        setTwoFAEnabled(true)
+        setShowTwoFAModal(false)
+        setSuccess('2FA успешно включена')
+      } else {
+        setTwoFAError(data.error || 'Неверный код')
+      }
+    } catch {
+      setTwoFAError('Ошибка сети')
+    } finally {
+      setTwoFALoading(false)
+    }
+  }
+
+  const disable2FA = async () => {
+    const code = prompt('Введите код из приложения для подтверждения отключения 2FA')
+    if (!code) return
+    setTwoFALoading(true)
+    try {
+      const res = await fetch('/api/user/2fa/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: code })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        await update()
+        setTwoFAEnabled(false)
+        setSuccess('2FA отключена')
+      } else {
+        setError(data.error || 'Неверный код')
+      }
+    } catch {
+      setError('Ошибка сети')
+    } finally {
+      setTwoFALoading(false)
+    }
+  }
+
+  const closeTwoFAModal = () => {
+    setShowTwoFAModal(false)
+    setTwoFACode('')
+    setTwoFAError('')
+    setQrCode(null)
+    setTwoFASecret('')
+  }
+
   if (status === 'loading') {
     return <div className="text-white text-center py-20">Загрузка...</div>
   }
@@ -474,6 +571,7 @@ export default function SettingsPage() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
+            {/* Поля профиля (без изменений) */}
             <div>
               <label className="block text-white mb-2">Имя</label>
               <input
@@ -533,6 +631,40 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Блок 2FA (только для админов) */}
+            {session?.user?.role === 'admin' && (
+              <div className="border-t border-borderLight pt-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Двухфакторная аутентификация</h3>
+                {!twoFAEnabled ? (
+                  <div>
+                    <p className="text-gray-300 mb-4">
+                      Двухфакторная аутентификация отключена. Включите для повышения безопасности.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={enable2FA}
+                      disabled={twoFALoading}
+                      className="bg-accent px-4 py-2 rounded-lg text-white"
+                    >
+                      {twoFALoading ? 'Загрузка...' : 'Включить 2FA'}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-green-400 mb-2">✅ Двухфакторная аутентификация включена</p>
+                    <button
+                      type="button"
+                      onClick={disable2FA}
+                      disabled={twoFALoading}
+                      className="text-red-400 hover:text-red-300 underline"
+                    >
+                      Отключить 2FA
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -543,6 +675,65 @@ export default function SettingsPage() {
           </form>
         </div>
       </div>
+
+      {/* Модальное окно для настройки 2FA */}
+      {showTwoFAModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Настройка 2FA</h3>
+            {twoFAStep === 'qr' && (
+              <>
+                <p className="text-gray-300 mb-2">
+                  Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Authy).
+                </p>
+                <div className="flex justify-center mb-4">
+                  {qrCode && <img src={qrCode} alt="QR Code" />}
+                </div>
+                <p className="text-gray-300 text-sm mb-4">
+                  Или введите секретный ключ вручную: <br />
+                  <code className="bg-black/30 p-1 rounded break-all">{twoFASecret}</code>
+                </p>
+                <button
+                  onClick={() => setTwoFAStep('verify')}
+                  className="w-full bg-accent py-2 rounded-lg text-white mb-2"
+                >
+                  Далее
+                </button>
+              </>
+            )}
+            {twoFAStep === 'verify' && (
+              <>
+                <p className="text-gray-300 mb-4">
+                  Введите код из приложения для подтверждения:
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  maxLength={6}
+                  value={twoFACode}
+                  onChange={e => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0,6))}
+                  className="w-full p-3 rounded-lg bg-[#0f2a42] border border-borderLight text-white text-center text-2xl mb-4"
+                />
+                {twoFAError && <p className="text-red-400 mb-2">{twoFAError}</p>}
+                <button
+                  onClick={verify2FA}
+                  disabled={twoFALoading}
+                  className="w-full bg-accent py-2 rounded-lg text-white mb-2"
+                >
+                  {twoFALoading ? 'Проверка...' : 'Подтвердить'}
+                </button>
+              </>
+            )}
+            <button
+              onClick={closeTwoFAModal}
+              className="w-full text-gray-400 hover:text-white py-2"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -560,7 +751,19 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', slug: '', image: '', parentId: '' })
+  
+  // 🆕 Добавляем поля для названий фильтров в состояние формы
+  const [form, setForm] = useState({
+    name: '',
+    slug: '',
+    image: '',
+    parentId: '',
+    filter1Name: '',
+    filter2Name: '',
+    filter3Name: '',
+    filter4Name: '',
+    filter5Name: '',
+  })
 
   useEffect(() => {
     fetchCategories()
@@ -589,7 +792,10 @@ export default function AdminCategoriesPage() {
     if (res.ok) {
       setShowForm(false)
       setEditingId(null)
-      setForm({ name: '', slug: '', image: '', parentId: '' })
+      setForm({
+        name: '', slug: '', image: '', parentId: '',
+        filter1Name: '', filter2Name: '', filter3Name: '', filter4Name: '', filter5Name: ''
+      })
       fetchCategories()
     } else {
       const error = await res.json()
@@ -603,7 +809,13 @@ export default function AdminCategoriesPage() {
       name: cat.name,
       slug: cat.slug,
       image: cat.image || '',
-      parentId: cat.parentId || ''
+      parentId: cat.parentId || '',
+      // 🆕 Загружаем существующие названия фильтров
+      filter1Name: cat.filter1Name || '',
+      filter2Name: cat.filter2Name || '',
+      filter3Name: cat.filter3Name || '',
+      filter4Name: cat.filter4Name || '',
+      filter5Name: cat.filter5Name || '',
     })
     setShowForm(true)
   }
@@ -628,7 +840,10 @@ export default function AdminCategoriesPage() {
         <button
           onClick={() => {
             setEditingId(null)
-            setForm({ name: '', slug: '', image: '', parentId: '' })
+            setForm({
+              name: '', slug: '', image: '', parentId: '',
+              filter1Name: '', filter2Name: '', filter3Name: '', filter4Name: '', filter5Name: ''
+            })
             setShowForm(true)
           }}
           className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
@@ -637,13 +852,15 @@ export default function AdminCategoriesPage() {
         </button>
       </div>
 
+      {/* Модальное окно формы */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full my-auto">
             <h2 className="text-xl font-bold text-white mb-4">
               {editingId ? 'Редактировать категорию' : 'Новая категория'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Основные поля */}
               <input
                 type="text"
                 placeholder="Название"
@@ -677,6 +894,51 @@ export default function AdminCategoriesPage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+
+              {/* 🆕 Поля для названий динамических фильтров */}
+              <div className="border-t border-borderLight pt-4 mt-4">
+                <h3 className="text-white font-semibold mb-3">Названия фильтров для этой категории</h3>
+                <p className="text-gray-400 text-sm mb-3">Оставьте пустыми, если фильтр не нужен</p>
+                
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Фильтр 1 (например: Фракция)"
+                    value={form.filter1Name}
+                    onChange={e => setForm({ ...form, filter1Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 2 (например: Тип войск)"
+                    value={form.filter2Name}
+                    onChange={e => setForm({ ...form, filter2Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 3"
+                    value={form.filter3Name}
+                    onChange={e => setForm({ ...form, filter3Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 4"
+                    value={form.filter4Name}
+                    onChange={e => setForm({ ...form, filter4Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 5"
+                    value={form.filter5Name}
+                    onChange={e => setForm({ ...form, filter5Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <button type="submit" className="bg-accent px-4 py-2 rounded-lg text-white">
                   Сохранить
@@ -694,6 +956,7 @@ export default function AdminCategoriesPage() {
         </div>
       )}
 
+      {/* Таблица категорий */}
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
@@ -701,6 +964,7 @@ export default function AdminCategoriesPage() {
               <th className="p-3">Название</th>
               <th className="p-3">Slug</th>
               <th className="p-3">Родитель</th>
+              <th className="p-3">Фильтры</th>
               <th className="p-3 text-center">Действия</th>
             </tr>
           </thead>
@@ -710,6 +974,12 @@ export default function AdminCategoriesPage() {
                 <td className="p-3">{cat.name}</td>
                 <td className="p-3">{cat.slug}</td>
                 <td className="p-3">{cat.parent?.name || '—'}</td>
+                <td className="p-3 text-sm text-gray-300">
+                  {/* Показываем, какие фильтры заданы */}
+                  {[cat.filter1Name, cat.filter2Name, cat.filter3Name, cat.filter4Name, cat.filter5Name]
+                    .filter(Boolean)
+                    .join(', ') || '—'}
+                </td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-3">
                     <button
@@ -2873,7 +3143,11 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json()
-  const { name, slug, image, parentId } = data
+  const { 
+    name, slug, image, parentId,
+    // 🆕 Принимаем названия фильтров
+    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name 
+  } = data
 
   if (!name || !slug) {
     return NextResponse.json({ error: 'Имя и slug обязательны' }, { status: 400 })
@@ -2885,11 +3159,15 @@ export async function POST(request: Request) {
   }
 
   const category = await prisma.category.create({
-    data: { name, slug, image, parentId }
+    data: { 
+      name, slug, image, parentId,
+      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+    }
   })
 
   return NextResponse.json(category, { status: 201 })
 }
+
 ===== ./app/api/admin/categories/[id]/route.ts =====
 // app/api/admin/categories/[id]/route.ts
 import { NextResponse } from 'next/server'
@@ -2901,41 +3179,23 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+  // ... проверка прав
   const { id } = await params
   const data = await request.json()
-  const { name, slug, image, parentId } = data
+  const { 
+    name, slug, image, parentId,
+    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+  } = data
 
   const category = await prisma.category.update({
     where: { id },
-    data: { name, slug, image, parentId }
+    data: { 
+      name, slug, image, parentId,
+      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+    }
   })
 
   return NextResponse.json(category)
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  const { id } = await params
-
-  const productsCount = await prisma.product.count({ where: { categoryId: id } })
-  if (productsCount > 0) {
-    return NextResponse.json({ error: 'Cannot delete category with products' }, { status: 400 })
-  }
-
-  await prisma.category.delete({ where: { id } })
-  return NextResponse.json({ success: true })
 }
 ===== ./app/api/admin/coupons/route.ts =====
 // app/api/admin/coupons/route.ts
@@ -3398,45 +3658,35 @@ import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
-  // 1. Проверяем, что запрос делает администратор
   try {
     await requireAdmin()
   } catch (error) {
     return error
   }
 
-  // 2. Получаем параметры запроса из URL
   const { searchParams } = new URL(request.url)
-  // articlesParam может быть строкой вида "art1,art2,art3" (если передали)
   const articlesParam = searchParams.get('articles')
 
-  // 3. Формируем условие для выборки товаров из базы данных
   const where: any = {}
-
   if (articlesParam) {
-    // Если параметр передан, разбиваем его по запятой и убираем пробелы
-    const articles = articlesParam
-      .split(',')
-      .map(a => a.trim())
-      .filter(Boolean) // убираем пустые строки
-
+    const articles = articlesParam.split(',').map(a => a.trim()).filter(Boolean)
     if (articles.length > 0) {
-      // Указываем Prisma найти товары, у которых артикул входит в этот массив
       where.article = { in: articles }
     }
   }
 
-  // 4. Запрашиваем товары из БД с учётом фильтра (или все, если фильтра нет)
   const products = await prisma.product.findMany({
-    where, // если where пустой, вернутся все товары
+    where,
     include: { category: true },
     orderBy: { article: 'asc' }
   })
 
-  // 5. Формируем CSV (эта часть осталась без изменений)
   const headers = [
     'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
-    'gameSystem', 'scale', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+    'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
+    'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
+    'scale', 'assembly', 'contents', 'artist',
+    'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
   ]
 
   const rows = products.map(p => [
@@ -3446,11 +3696,24 @@ export async function GET(request: Request) {
     p.oldPrice || '',
     p.category.slug,
     `"${p.description.replace(/"/g, '""')}"`,
-    p.gameSystem,
-    p.scale,
-    p.type,
+    p.filter1 || '',
+    p.filter2 || '',
+    p.filter3 || '',
+    p.filter4 || '',
+    p.filter5 || '',
+    p.stock?.toString() || '0',
+    p.heightMax?.toString() || '',
+    p.baseMax?.toString() || '',
+    p.heightMin?.toString() || '',
+    p.baseMin?.toString() || '',
+    p.scale || '',
+    p.assembly || '',
+    p.contents || '',
+    p.artist || '',
+    p.gameSystem || '',
+    p.type || '',
     p.faction || '',
-    p.fileFormat,
+    p.fileFormat || '',
     `"${p.tags.replace(/"/g, '""')}"`,
     `"${p.images.replace(/"/g, '""')}"`,
     p.featured ? 'true' : 'false'
@@ -3462,11 +3725,9 @@ export async function GET(request: Request) {
     ...rows.map(row => row.join(separator))
   ].join('\n')
 
-  // Добавляем BOM для корректного отображения кириллицы в Excel
   const BOM = '\uFEFF'
   const finalContent = BOM + csvContent
 
-  // 6. Возвращаем файл
   return new NextResponse(finalContent, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
@@ -3510,20 +3771,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Файл должен содержать заголовок и хотя бы одну строку данных' }, { status: 400 })
     }
 
-    // Определяем разделитель (запятая или точка с запятой)
     const firstLine = lines[0]
     const separator = firstLine.includes(';') ? ';' : ','
     
     const headers = firstLine.split(separator).map(h => h.trim())
+    
+    // 🆕 Ожидаемые заголовки (полный список)
     const expectedHeaders = [
       'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
-      'gameSystem', 'scale', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+      'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
+      'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
+      'scale', 'assembly', 'contents', 'artist',
+      'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
     ]
     
-    const missingHeaders = expectedHeaders.filter(h => !headers.includes(h))
-    if (missingHeaders.length > 0) {
+    // Проверяем наличие обязательных колонок (минимум)
+    const requiredHeaders = ['article', 'name', 'price', 'categorySlug']
+    const missingRequired = requiredHeaders.filter(h => !headers.includes(h))
+    if (missingRequired.length > 0) {
       return NextResponse.json({ 
-        error: `В CSV отсутствуют обязательные колонки: ${missingHeaders.join(', ')}` 
+        error: `В CSV отсутствуют обязательные колонки: ${missingRequired.join(', ')}` 
       }, { status: 400 })
     }
 
@@ -3575,16 +3842,34 @@ export async function POST(request: Request) {
         continue
       }
 
+      // 🆕 Собираем данные с новыми полями
       const productData = {
         article: record.article.trim(),
         name: record.name.trim(),
+        searchName: record.name.trim().toLowerCase(),
         price: price,
         oldPrice: record.oldPrice ? parseInt(record.oldPrice) || null : null,
         description: record.description?.trim() || '',
-        images: record.images?.trim() || '', // ← обработка images
+        images: record.images?.trim() || '',
         categoryId: categoryId,
-        gameSystem: record.gameSystem?.trim() || '',
+        // Динамические фильтры
+        filter1: record.filter1?.trim() || null,
+        filter2: record.filter2?.trim() || null,
+        filter3: record.filter3?.trim() || null,
+        filter4: record.filter4?.trim() || null,
+        filter5: record.filter5?.trim() || null,
+        // Новые поля
+        stock: record.stock ? parseInt(record.stock) || 0 : 0,
+        heightMax: record.heightMax ? parseFloat(record.heightMax) || null : null,
+        baseMax: record.baseMax ? parseFloat(record.baseMax) || null : null,
+        heightMin: record.heightMin ? parseFloat(record.heightMin) || null : null,
+        baseMin: record.baseMin ? parseFloat(record.baseMin) || null : null,
         scale: record.scale?.trim() || '32mm',
+        assembly: record.assembly?.trim() || null,
+        contents: record.contents?.trim() || null,
+        artist: record.artist?.trim() || null,
+        // Старые поля
+        gameSystem: record.gameSystem?.trim() || '',
         type: record.type?.trim() || 'unknown',
         faction: record.faction?.trim() || null,
         fileFormat: record.fileFormat?.trim() || 'STL',
@@ -3624,9 +3909,6 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * Разбирает строку CSV с учётом кавычек и выбранного разделителя.
- */
 function parseCSVLine(line: string, separator: string): string[] {
   const result: string[] = []
   let current = ''
@@ -3687,7 +3969,6 @@ export async function GET(request: Request) {
     where.category = { slug: category }
   }
 
-  // Формируем объект сортировки
   let orderBy: any = {}
   switch (sortBy) {
     case 'price':
@@ -3733,7 +4014,19 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json()
-  const { article, name, price, oldPrice, description, images, categoryId, gameSystem, scale, type, faction, fileFormat, tags, inStock, featured } = data
+  
+  // 🆕 Деструктурируем все новые поля
+  const {
+    article, name, price, oldPrice, description, images, categoryId,
+    gameSystem, scale, type, faction, fileFormat, tags, featured,
+    filter1, filter2, filter3, filter4, filter5,
+    stock,                // Количество
+    heightMax, baseMax,   // Самая большая модель
+    heightMin, baseMin,   // Самая маленькая модель
+    assembly,             // Сборка
+    contents,             // Комплектация
+    artist                // Художник
+  } = data
 
   if (!article || !name || !price || !categoryId) {
     return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 })
@@ -3754,6 +4047,25 @@ export async function POST(request: Request) {
       description: description || '',
       images: Array.isArray(images) ? images.join(',') : images || '',
       categoryId,
+      
+      // 🆕 Новые универсальные фильтры
+      filter1: filter1 || null,
+      filter2: filter2 || null,
+      filter3: filter3 || null,
+      filter4: filter4 || null,
+      filter5: filter5 || null,
+      
+      // 🆕 Новые поля для карточки товара
+      stock: stock !== undefined ? parseInt(stock) : 0,
+      heightMax: heightMax ? parseFloat(heightMax) : null,
+      baseMax: baseMax ? parseFloat(baseMax) : null,
+      heightMin: heightMin ? parseFloat(heightMin) : null,
+      baseMin: baseMin ? parseFloat(baseMin) : null,
+      assembly: assembly || null,
+      contents: contents || null,
+      artist: artist || null,
+      
+      // Старые поля (оставляем для обратной совместимости)
       gameSystem: gameSystem || '',
       scale: scale || '32mm',
       type: type || 'unknown',
@@ -4040,6 +4352,53 @@ export async function DELETE(
   await prisma.user.delete({ where: { id } })
   return NextResponse.json({ success: true })
 }
+===== ./app/api/auth/2fa/verify-admin/route.ts =====
+// app/api/auth/2fa/verify-admin/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { verifyTOTP } from '@/lib/twoFactor';
+import { generateTrustedToken, getTrustedCookieName, getTrustedCookieOptions } from '@/lib/trustedDevice';
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  }
+
+  const { code, rememberDevice } = await request.json();
+  if (!code) {
+    return NextResponse.json({ error: 'Код обязателен' }, { status: 400 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { twoFactorSecret: true, twoFactorEnabled: true }
+  });
+
+  if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
+    return NextResponse.json({ error: '2FA не включена' }, { status: 400 });
+  }
+
+  const isValid = verifyTOTP(code, user.twoFactorSecret);
+  if (!isValid) {
+    return NextResponse.json({ error: 'Неверный код' }, { status: 400 });
+  }
+
+  const response = NextResponse.json({ success: true });
+
+  if (rememberDevice) {
+    const trustedToken = generateTrustedToken(session.user.id);
+    const cookieOptions = getTrustedCookieOptions(30 * 24 * 60 * 60);
+    response.cookies.set(getTrustedCookieName(), trustedToken, cookieOptions);
+    console.log('✅ Кука доверенного устройства установлена');
+  } else {
+    console.log('ℹ️ Кука не установлена (галочка не отмечена)');
+  }
+
+  return response;
+}
 ===== ./app/api/auth/register/route.ts =====
 // app/api/auth/register/route.ts
 import { NextResponse } from "next/server"
@@ -4099,8 +4458,8 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcrypt"
-import { checkRateLimit } from '@/lib/rate-limit' // <-- Подключаем защиту от брутфорса
-import { logger } from '@/lib/logger'             // <-- Подключаем логгер
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -4112,84 +4471,82 @@ export const authOptions: AuthOptions = {
         password: { label: "Пароль", type: "password" }
       },
       async authorize(credentials, req) {
-        // --- ЗАЩИТА ОТ БРУТФОРСА ---
-        // Получаем IP-адрес пользователя, который пытается войти.
-        // req содержит информацию о запросе.
-        // @ts-ignore – игнорируем ошибку типов, потому что в реальности поля есть.
-        const ip = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 
-                   // @ts-ignore
-                   req?.socket?.remoteAddress || 
-                   'unknown'
-        
-        // Проверяем, не превышен ли лимит попыток с этого IP.
-        const rateLimit = checkRateLimit(ip)
-        if (!rateLimit.allowed) {
-          // Если лимит превышен, записываем предупреждение в лог
-          logger.warn(`Попытка входа с заблокированного IP: ${ip}`, { email: credentials?.email })
-          // и выбрасываем ошибку с сообщением, которое увидит пользователь.
-          throw new Error(rateLimit.message)
-        }
+  // --- ЗАЩИТА ОТ БРУТФОРСА ---
+  // Получаем IP-адрес из заголовков
+  const forwarded = req?.headers?.['x-forwarded-for'];
+  const ip = typeof forwarded === 'string' 
+    ? forwarded.split(',')[0].trim() 
+    : (req?.headers?.['x-real-ip'] as string) || 'unknown';
 
-        // Проверяем, что email и пароль вообще переданы
-        if (!credentials?.email || !credentials?.password) {
-          return null // если нет – возвращаем null (ошибка авторизации)
-        }
+  const rateLimit = checkRateLimit(ip);
+  if (!rateLimit.allowed) {
+    logger.warn(`Попытка входа с заблокированного IP: ${ip}`, { email: credentials?.email });
+    throw new Error(rateLimit.message);
+  }
 
-        // Ищем пользователя в базе данных по email
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        })
+  // Проверяем, что email и пароль переданы
+  if (!credentials?.email || !credentials?.password) {
+    return null;
+  }
 
-        // Если пользователь не найден или у него нет пароля (например, вошёл через соцсети)
-        if (!user || !user.password) {
-          logger.warn(`Неудачная попытка входа: email ${credentials.email} не найден`, { ip })
-          return null
-        }
+  // Ищем пользователя
+  const user = await prisma.user.findUnique({
+    where: { email: credentials.email }
+  });
 
-        // Сравниваем введённый пароль с хешем в базе
-        const passwordMatch = await bcrypt.compare(credentials.password, user.password)
-        if (!passwordMatch) {
-          logger.warn(`Неудачная попытка входа: неверный пароль для ${credentials.email}`, { ip })
-          return null
-        }
+  if (!user || !user.password) {
+    logger.warn(`Неудачная попытка входа: email ${credentials.email} не найден`, { ip });
+    return null;
+  }
 
-        // Успешный вход! Можно записать в лог.
-        logger.info(`Успешный вход: ${user.email}`, { ip })
-        
-        // Возвращаем объект пользователя, который попадёт в сессию
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        }
-      }
+  const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+  if (!passwordMatch) {
+    logger.warn(`Неудачная попытка входа: неверный пароль для ${credentials.email}`, { ip });
+    return null;
+  }
+
+  logger.info(`Успешный вход: ${user.email}`, { ip });
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    twoFactorEnabled: user.twoFactorEnabled,
+  };
+}
     })
   ],
   session: {
-    strategy: "jwt", // используем JSON Web Tokens для сессий
+    strategy: "jwt",
   },
   callbacks: {
-    // Добавляем роль и ID пользователя в токен
-    async jwt({ token, user }: { token: any; user?: User }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = user.role
         token.id = user.id
+        token.twoFactorEnabled = user.twoFactorEnabled || false
+        token.twoFactorVerified = false // изначально не подтверждено
+      }
+      // Если сессия обновляется с флагом twoFactorVerified
+      if (trigger === "update" && session?.twoFactorVerified) {
+        token.twoFactorVerified = true
       }
       return token
     },
-    // Прокидываем данные из токена в сессию, чтобы они были доступны на клиенте
-    async session({ session, token }: { session: any; token: any }) {
+    async session({ session, token }) {
       if (session?.user) {
         session.user.role = token.role as string
         session.user.id = token.id as string
+        session.user.twoFactorEnabled = token.twoFactorEnabled as boolean
+        session.user.twoFactorVerified = token.twoFactorVerified as boolean
       }
       return session
     },
   },
   pages: {
-    signIn: "/login",   // кастомная страница входа
-    error: "/login",    // страница с ошибкой (тоже перенаправляем на логин)
+    signIn: "/login",
+    error: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
@@ -4561,7 +4918,7 @@ export async function GET(request: Request) {
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
   
-  // 🆕 Поиск по полю searchName (регистронезависимый)
+  // Поиск по полю searchName (регистронезависимый)
   if (search) {
     where.searchName = { contains: search.toLowerCase() }
   }
@@ -4602,12 +4959,24 @@ export async function GET(request: Request) {
       categoryName: p.category.name
     }))
 
-    return NextResponse.json({
-      products: formattedProducts,
-      total,
-      page: shouldPaginate ? page : 1,
-      totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
-    })
+    // === НАСТРОЙКИ КЕШИРОВАНИЯ ДЛЯ API ===
+    // Устанавливаем заголовки, чтобы ответ кешировался на 60 секунд в CDN/браузере,
+    // и ещё 300 секунд может отдаваться устаревший контент, пока в фоне генерируется свежий.
+    const headers = new Headers()
+    headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+
+    return new NextResponse(
+      JSON.stringify({
+        products: formattedProducts,
+        total,
+        page: shouldPaginate ? page : 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
+      }),
+      {
+        status: 200,
+        headers
+      }
+    )
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
@@ -4645,6 +5014,120 @@ export async function GET(
       { status: 500 }
     )
   }
+}
+===== ./app/api/user/2fa/disable/route.ts =====
+// app/api/user/2fa/disable/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { verifyTOTP } from '@/lib/twoFactor';
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  }
+
+  const { token } = await request.json();
+  if (!token) {
+    return NextResponse.json({ error: 'Код обязателен' }, { status: 400 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { twoFactorSecret: true, twoFactorEnabled: true },
+  });
+
+  if (!user?.twoFactorEnabled) {
+    return NextResponse.json({ error: '2FA не включена' }, { status: 400 });
+  }
+  if (!user.twoFactorSecret) {
+    return NextResponse.json({ error: 'Секрет не найден' }, { status: 400 });
+  }
+
+  const isValid = verifyTOTP(token, user.twoFactorSecret);
+  if (!isValid) {
+    return NextResponse.json({ error: 'Неверный код' }, { status: 400 });
+  }
+
+  // Отключаем 2FA и удаляем секрет
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { twoFactorEnabled: false, twoFactorSecret: null },
+  });
+
+  return NextResponse.json({ success: true });
+}
+===== ./app/api/user/2fa/enable/route.ts =====
+// app/api/user/2fa/enable/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { generateSecret, generateOTPAuthURL, generateQRCodeDataURL } from '@/lib/twoFactor';
+
+export async function POST() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  }
+
+  const userId = session.user.id;
+
+  // Генерируем новый секрет
+  const secret = generateSecret();
+  const otpauthUrl = generateOTPAuthURL(session.user.email, secret);
+  const qrCodeDataURL = await generateQRCodeDataURL(otpauthUrl);
+
+  // Сохраняем секрет в базе (но пока не включаем 2FA)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorSecret: secret },
+  });
+
+  return NextResponse.json({ qrCode: qrCodeDataURL, secret });
+}
+===== ./app/api/user/2fa/verify/route.ts =====
+// app/api/user/2fa/verify/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { verifyTOTP } from '@/lib/twoFactor';
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  }
+
+  const { token } = await request.json();
+  if (!token || typeof token !== 'string') {
+    return NextResponse.json({ error: 'Код не предоставлен' }, { status: 400 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { twoFactorSecret: true },
+  });
+
+  if (!user?.twoFactorSecret) {
+    return NextResponse.json({ error: '2FA не была инициирована' }, { status: 400 });
+  }
+
+  const isValid = verifyTOTP(token, user.twoFactorSecret);
+  if (!isValid) {
+    return NextResponse.json({ error: 'Неверный код' }, { status: 400 });
+  }
+
+  // Активируем 2FA
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { twoFactorEnabled: true },
+  });
+
+  return NextResponse.json({ success: true });
 }
 ===== ./app/api/user/profile/route.ts =====
 // app/api/user/profile/route.ts
@@ -4723,6 +5206,104 @@ export async function PUT(request: Request) {
 
   return NextResponse.json(updatedUser)
 }
+===== ./app/auth/2fa/page.tsx =====
+// app/auth/2fa/page.tsx
+'use client'
+
+import { useState, Suspense } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+function TwoFactorForm() {
+  const { data: session, update } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/admin'
+
+  const [code, setCode] = useState('')
+  const [rememberDevice, setRememberDevice] = useState(true)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    const res = await fetch('/api/auth/2fa/verify-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, rememberDevice })
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      setError(data.error || 'Ошибка')
+      setLoading(false)
+      return
+    }
+
+    await update({ twoFactorVerified: true })
+    router.push(callbackUrl)
+  }
+
+  if (!session) {
+    return <div className="text-white text-center py-20">Загрузка...</div>
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-16 max-w-md">
+      <div className="premium-card p-8">
+        <h1 className="text-2xl font-bold text-white mb-4">Двухфакторная аутентификация</h1>
+        <p className="text-gray-300 mb-6">Введите код из приложения-аутентификатора</p>
+        {error && (
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-500 text-red-300 rounded-lg">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={6}
+            placeholder="000000"
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0,6))}
+            required
+            className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white text-center text-2xl tracking-widest"
+            disabled={loading}
+          />
+          <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              className="w-4 h-4 accent-accent"
+              disabled={loading}
+            />
+            Запомнить это устройство на 30 дней
+          </label>
+          <button
+            type="submit"
+            className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50 hover:bg-white hover:text-darkbg hover:border-white border border-transparent transition-colors duration-300"
+            disabled={loading}
+          >
+            {loading ? 'Проверка...' : 'Подтвердить'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function TwoFactorPage() {
+  return (
+    <Suspense fallback={<div className="text-white text-center py-20">Загрузка...</div>}>
+      <TwoFactorForm />
+    </Suspense>
+  )
+}
 ===== ./app/cart/page.tsx =====
 'use client'
 import { useCart } from '@/hooks/useCart'
@@ -4766,7 +5347,7 @@ export default function CartPage() {
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProductCard } from '@/components/catalog/ProductCard'
-import { FilterPanel, FilterContent } from '@/components/catalog/FilterPanel'
+import { FilterPanel } from '@/components/catalog/FilterPanel'
 import type { FilterState } from '@/components/catalog/FilterPanel'
 import { SortDropdown } from '@/components/catalog/SortDropdown'
 import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
@@ -5150,7 +5731,16 @@ export default function CatalogContent({
 import { fetchAllProducts } from '@/lib/api'
 import CatalogContent from './CatalogContent'
 
+// === НАСТРОЙКИ КЕШИРОВАНИЯ ===
+// Указываем Next.js перегенерировать эту страницу не чаще чем раз в 60 секунд.
+// Первый запрос создаст статическую версию, последующие 60 секунд она будет отдаваться из кеша.
+export const revalidate = 60
+
+// Явно указываем, что страница должна быть статической (будет сгенерирована при сборке и обновляться по revalidate)
+export const dynamic = 'force-static'
+
 export default async function CatalogPage() {
+  // Загружаем все товары (этот вызов происходит при генерации страницы, не на каждый запрос)
   const allProducts = await fetchAllProducts()
   const categories = [...new Set(allProducts.map(p => p.categorySlug))]
 
@@ -5179,7 +5769,6 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params
 
-  // Получаем все категории и ищем по slug (который теперь без пробелов)
   const categories = await getCategories()
   const category = categories.find(c => c.slug === slug)
 
@@ -5187,11 +5776,17 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     notFound()
   }
 
-  // Получаем товары категории
   const products = await getProductsByCategorySlug(slug)
 
-  // Подкатегории (если есть в данных)
   const subcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory))]
+
+  const filterNames = {
+    filter1Name: category.filter1Name,
+    filter2Name: category.filter2Name,
+    filter3Name: category.filter3Name,
+    filter4Name: category.filter4Name,
+    filter5Name: category.filter5Name,
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -5233,7 +5828,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       )}
 
       <Suspense fallback={<div className="text-white text-center py-10">Загрузка товаров...</div>}>
-        <CategoryProductsWrapper products={products} />
+        <CategoryProductsWrapper products={products} filterNames={filterNames} />
       </Suspense>
     </div>
   )
@@ -5993,13 +6588,11 @@ interface ProductPageProps {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { article } = await params
 
-  // Получаем товар по артикулу
   const product = await getProductByArticle(article)
   if (!product) {
     notFound()
   }
 
-  // Получаем все товары для блока "Похожие модели"
   const allProducts = await getProducts()
   const productCatSlug = typeof product.category === 'object' 
     ? product.category.slug 
@@ -6012,7 +6605,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     })
     .slice(0, 4)
 
-  // Хлебные крошки
   const categoryName = typeof product.category === 'object' 
     ? product.category.name 
     : product.categoryName || product.category
@@ -6024,30 +6616,123 @@ export default async function ProductPage({ params }: ProductPageProps) {
     { label: product.name },
   ]
 
+  // Флаг одиночной модели
+  const isSingleModel = product.stock === 1
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Breadcrumbs items={breadcrumbItems} />
 
       <div className="grid md:grid-cols-2 gap-10 mt-6">
-        <ProductGallery images={product.images} />
+        <ProductGallery images={product.images.split(',')} />
+
         <div>
           <h1 className="text-3xl font-bold text-white">{product.name}</h1>
-          <div className="flex gap-2 mt-2 flex-wrap">
-            <span className="chip">{product.gameSystem}</span>
-            <span className="chip">{product.scale}</span>
-            <span className="chip">{product.type}</span>
+
+          {/* Артикул */}
+          <div className="text-gray-400 mt-1">Артикул: {product.article}</div>
+
+          {/* Цена и акция */}
+          <div className="mt-4">
+            {product.oldPrice && product.oldPrice > 0 ? (
+              <div className="flex items-center gap-3">
+                <span className="text-2xl line-through text-gray-500">{product.oldPrice} ₽</span>
+                <span className="text-3xl font-bold text-amber-400">{product.price} ₽</span>
+                <span className="bg-red-600 text-white px-2 py-1 rounded text-sm font-semibold">🔥 АКЦИЯ</span>
+              </div>
+            ) : (
+              <div className="text-3xl font-bold text-amber-400">{product.price} ₽</div>
+            )}
           </div>
-          <div className="mt-4 text-3xl font-bold text-amber-400">{product.price} ₽</div>
-          {product.oldPrice && (
-            <div className="text-sm line-through text-gray-500">{product.oldPrice} ₽</div>
-          )}
+
+          {/* Наличие */}
+          <div className="mt-2 text-gray-300">
+            В наличии: <span className="text-white font-semibold">{product.stock || 0} шт.</span>
+          </div>
+
+          {/* Краткое описание */}
           <p className="mt-4 text-gray-300">
             {product.shortDesc || product.description.slice(0, 150) + '…'}
           </p>
+
           <div className="mt-6 flex gap-4">
             <AddToCartButton product={product} />
             <FavoritesButton productId={product.article} />
           </div>
+
+          {/* Характеристики */}
+          <div className="mt-8 p-4 bg-cardbg rounded-lg border border-borderLight">
+            <h2 className="text-xl font-semibold text-white mb-4">Характеристики</h2>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <dt className="text-gray-400">Масштаб</dt>
+              <dd className="text-white">{product.scale}</dd>
+
+              {product.assembly && (
+                <>
+                  <dt className="text-gray-400">Сборка</dt>
+                  <dd className="text-white">{product.assembly}</dd>
+                </>
+              )}
+
+              {product.artist && (
+                <>
+                  <dt className="text-gray-400">Художник</dt>
+                  <dd className="text-white">{product.artist}</dd>
+                </>
+              )}
+
+              {/* Большая модель */}
+              {product.heightMax && (
+                <>
+                  <dt className="text-gray-400">Высота (макс.)</dt>
+                  <dd className="text-white">{product.heightMax} мм</dd>
+                </>
+              )}
+              {product.baseMax && (
+                <>
+                  <dt className="text-gray-400">База (макс.)</dt>
+                  <dd className="text-white">{product.baseMax} мм</dd>
+                </>
+              )}
+
+              {/* Маленькая модель — показываем только если не одиночная */}
+              {!isSingleModel && (
+                <>
+                  {product.heightMin && (
+                    <>
+                      <dt className="text-gray-400">Высота (мин.)</dt>
+                      <dd className="text-white">{product.heightMin} мм</dd>
+                    </>
+                  )}
+                  {product.baseMin && (
+                    <>
+                      <dt className="text-gray-400">База (мин.)</dt>
+                      <dd className="text-white">{product.baseMin} мм</dd>
+                    </>
+                  )}
+                </>
+              )}
+            </dl>
+          </div>
+
+          {/* Комплектация */}
+          {product.contents && (
+            <div className="mt-4 p-4 bg-cardbg rounded-lg border border-borderLight">
+              <h2 className="text-xl font-semibold text-white mb-2">Комплектация</h2>
+              <p className="text-gray-300">{product.contents} моделей</p>
+              <p className="text-gray-300">{product.contents} подставок/баз</p>
+            </div>
+          )}
+
+          {/* Теги */}
+          {product.tags && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {product.tags.split(',').map(tag => (
+                <span key={tag} className="chip">{tag.trim()}</span>
+              ))}
+            </div>
+          )}
+
           <div className="mt-6 p-4 bg-cardbg rounded-lg border border-borderLight">
             <p className="text-sm text-cyan-300">
               🚚 Доставка по всей России. Срок изготовления: 2-3 дня.
@@ -6611,12 +7296,19 @@ interface Category {
   id: string
   name: string
   slug: string
+  filter1Name?: string | null
+  filter2Name?: string | null
+  filter3Name?: string | null
+  filter4Name?: string | null
+  filter5Name?: string | null
 }
 
 export const ProductForm = ({ productArticle }: { productArticle?: string }) => {
   const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  
   const [form, setForm] = useState({
     article: '',
     name: '',
@@ -6631,7 +7323,21 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
     faction: '',
     fileFormat: 'STL',
     tags: '',
-    featured: false
+    featured: false,
+    // 🆕 Новые поля
+    filter1: '',
+    filter2: '',
+    filter3: '',
+    filter4: '',
+    filter5: '',
+    stock: '0',
+    heightMax: '',
+    baseMax: '',
+    heightMin: '',
+    baseMin: '',
+    assembly: '',
+    contents: '',
+    artist: '',
   })
 
   useEffect(() => {
@@ -6659,11 +7365,29 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             faction: data.faction || '',
             fileFormat: data.fileFormat,
             tags: data.tags,
-            featured: data.featured
+            featured: data.featured,
+            filter1: data.filter1 || '',
+            filter2: data.filter2 || '',
+            filter3: data.filter3 || '',
+            filter4: data.filter4 || '',
+            filter5: data.filter5 || '',
+            stock: data.stock?.toString() || '0',
+            heightMax: data.heightMax?.toString() || '',
+            baseMax: data.baseMax?.toString() || '',
+            heightMin: data.heightMin?.toString() || '',
+            baseMin: data.baseMin?.toString() || '',
+            assembly: data.assembly || '',
+            contents: data.contents || '',
+            artist: data.artist || '',
           })
         })
     }
   }, [productArticle])
+
+  useEffect(() => {
+    const cat = categories.find(c => c.id === form.categoryId)
+    setSelectedCategory(cat || null)
+  }, [form.categoryId, categories])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target
@@ -6679,6 +7403,11 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
       ...form,
       price: parseInt(form.price),
       oldPrice: form.oldPrice ? parseInt(form.oldPrice) : null,
+      stock: parseInt(form.stock),
+      heightMax: form.heightMax ? parseFloat(form.heightMax) : null,
+      baseMax: form.baseMax ? parseFloat(form.baseMax) : null,
+      heightMin: form.heightMin ? parseFloat(form.heightMin) : null,
+      baseMin: form.baseMin ? parseFloat(form.baseMin) : null,
     }
 
     const url = productArticle
@@ -6719,6 +7448,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
+        {/* Основные поля */}
         <div>
           <label className="block text-white mb-1">Артикул*</label>
           <input
@@ -6776,6 +7506,69 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             ))}
           </select>
         </div>
+        
+        {/* Динамические фильтры на основе выбранной категории */}
+        {selectedCategory && (
+          <>
+            {selectedCategory.filter1Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter1Name}</label>
+                <input
+                  name="filter1"
+                  value={form.filter1}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter2Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter2Name}</label>
+                <input
+                  name="filter2"
+                  value={form.filter2}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter3Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter3Name}</label>
+                <input
+                  name="filter3"
+                  value={form.filter3}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter4Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter4Name}</label>
+                <input
+                  name="filter4"
+                  value={form.filter4}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter5Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter5Name}</label>
+                <input
+                  name="filter5"
+                  value={form.filter5}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Старые поля (можно оставить для совместимости) */}
         <div>
           <label className="block text-white mb-1">Система</label>
           <input
@@ -6821,6 +7614,94 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
         </div>
+
+        {/* 🆕 Новые поля для карточки товара */}
+        <div>
+          <label className="block text-white mb-1">Количество</label>
+          <input
+            name="stock"
+            type="number"
+            min="0"
+            value={form.stock}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Высота самой большой модели (мм)</label>
+          <input
+            name="heightMax"
+            type="number"
+            step="0.1"
+            value={form.heightMax}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">База самой большой модели (мм)</label>
+          <input
+            name="baseMax"
+            type="number"
+            step="0.1"
+            value={form.baseMax}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Высота самой маленькой модели (мм)</label>
+          <input
+            name="heightMin"
+            type="number"
+            step="0.1"
+            value={form.heightMin}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">База самой маленькой модели (мм)</label>
+          <input
+            name="baseMin"
+            type="number"
+            step="0.1"
+            value={form.baseMin}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Сборка</label>
+          <input
+            name="assembly"
+            value={form.assembly}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Комплектация (число моделей)</label>
+          <input
+            name="contents"
+            type="number"
+            min="0"
+            value={form.contents}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Художник</label>
+          <input
+            name="artist"
+            value={form.artist}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+
+        {/* Общие поля */}
         <div>
           <label className="block text-white mb-1">Теги (через запятую)</label>
           <input
@@ -6849,7 +7730,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
         </div>
-                <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6">
           <label className="flex items-center gap-2 text-white">
             <input
               type="checkbox"
@@ -7239,13 +8120,18 @@ import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 
 export interface FilterState {
   categories: string[]
-  subcategories: string[]
-  gameSystems: string[]
-  factions: string[]
-  types: string[]
-  scales: string[]
-  fileFormats: string[]
+  filter1: string[]
+  filter2: string[]
+  filter3: string[]
+  filter4: string[]
+  filter5: string[]
   tags: string[]
+  // для обратной совместимости оставим старые, но не будем их показывать
+  gameSystems?: string[]
+  factions?: string[]
+  types?: string[]
+  scales?: string[]
+  fileFormats?: string[]
 }
 
 interface FilterPanelProps {
@@ -7253,135 +8139,47 @@ interface FilterPanelProps {
   onFilter: (filtered: Product[], activeFilters: FilterState) => void
   hidePriceSlider?: boolean
   hideMobileButton?: boolean
-}
-
-interface FilterContentProps {
-  products: Product[]
-  filters: FilterState
-  setFilters: (filters: FilterState) => void
-  priceMax: number
-  setPriceMax: (price: number) => void
-  expandedSections: Record<string, boolean>
-  toggleSection: (section: string) => void
-  toggleFilter: (key: keyof FilterState, value: string) => void
-  resetFilters: () => void
-  hidePriceSlider?: boolean
-  showActiveFilters?: boolean // новый проп
-  onRemoveFilter?: (key: keyof FilterState, value: string) => void // для активных фильтров
-  onClearAllFilters?: () => void
-}
-
-// Экспортируем содержимое фильтров отдельно
-export const FilterContent = ({
-  products,
-  filters,
-  setFilters,
-  priceMax,
-  setPriceMax,
-  expandedSections,
-  toggleSection,
-  toggleFilter,
-  resetFilters,
-  hidePriceSlider = false,
-  showActiveFilters = false,
-  onRemoveFilter,
-  onClearAllFilters,
-}: FilterContentProps) => {
-  const allCategories = [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))]
-  const allSubcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory as string))]
-  const allGameSystems = [...new Set(products.map(p => p.gameSystem))]
-  const allFactions = [...new Set(products.filter(p => p.faction).map(p => p.faction as string))]
-  const allTypes = [...new Set(products.map(p => p.type))]
-  const allScales = [...new Set(products.map(p => p.scale))]
-  const allFileFormats = [...new Set(products.flatMap(p => p.fileFormat.split(',').map(f => f.trim())))]
-  const allTags = [...new Set(products.flatMap(p => p.tags))]
-
-  const FilterSection = ({ title, sectionKey, options, selected }: { title: string; sectionKey: keyof FilterState; options: string[]; selected: string[] }) => {
-    const isExpanded = expandedSections[sectionKey]
-    return (
-      <div className="pb-3">
-        <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
-          <span>{title}</span>
-          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-        </button>
-        {isExpanded && (
-          <div className="mt-2 space-y-1">
-            {options.map(opt => (
-              <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
-                <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggleFilter(sectionKey, opt)} /> {opt}
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-    )
+  // 🆕 Настройки фильтров из категории
+  filterNames?: {
+    filter1Name?: string | null
+    filter2Name?: string | null
+    filter3Name?: string | null
+    filter4Name?: string | null
+    filter5Name?: string | null
   }
-
-  const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
-
-  return (
-    <div className="space-y-4">
-      <FilterSection title="Категория" sectionKey="categories" options={allCategories} selected={filters.categories} />
-      <FilterSection title="Подкатегория" sectionKey="subcategories" options={allSubcategories} selected={filters.subcategories} />
-      <FilterSection title="Система" sectionKey="gameSystems" options={allGameSystems} selected={filters.gameSystems} />
-      <FilterSection title="Фракция" sectionKey="factions" options={allFactions} selected={filters.factions} />
-      <FilterSection title="Тип модели" sectionKey="types" options={allTypes} selected={filters.types} />
-      <FilterSection title="Масштаб" sectionKey="scales" options={allScales} selected={filters.scales} />
-      <FilterSection title="Формат" sectionKey="fileFormats" options={allFileFormats} selected={filters.fileFormats} />
-      <FilterSection title="Теги" sectionKey="tags" options={allTags.slice(0, 30)} selected={filters.tags} />
-      
-      {!hidePriceSlider && (
-        <div className="pt-2">
-          <div className="flex justify-between items-center">
-            <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
-          </div>
-          <input type="range" min={0} max={2000} step={1} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
-        </div>
-      )}
-
-      {/* Активные фильтры (только если включено и есть фильтры) */}
-      {showActiveFilters && hasActiveFilters && onRemoveFilter && onClearAllFilters && (
-        <div className="pt-2">
-          <ActiveFilters
-            filters={filters}
-            onRemove={onRemoveFilter}
-            onClearAll={onClearAllFilters}
-          />
-        </div>
-      )}
-
-      <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
-    </div>
-  )
 }
 
 export const FilterPanel = ({ 
   products, 
   onFilter, 
   hidePriceSlider = false, 
-  hideMobileButton = false 
+  hideMobileButton = false,
+  filterNames = {}
 }: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
-    subcategories: [],
+    filter1: [],
+    filter2: [],
+    filter3: [],
+    filter4: [],
+    filter5: [],
+    tags: [],
     gameSystems: [],
     factions: [],
     types: [],
     scales: [],
     fileFormats: [],
-    tags: [],
   })
   const [priceMax, setPriceMax] = useState(2000)
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     categories: false,
-    subcategories: false,
-    gameSystems: false,
-    factions: false,
-    types: false,
-    scales: false,
-    fileFormats: false,
+    filter1: false,
+    filter2: false,
+    filter3: false,
+    filter4: false,
+    filter5: false,
     tags: false,
   })
 
@@ -7389,39 +8187,65 @@ export const FilterPanel = ({
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
+  // 🆕 Собираем уникальные значения для каждого фильтра из товаров
+  const filterOptions = {
+    categories: [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
+    filter1: [...new Set(products.map(p => p.filter1).filter(Boolean))],
+    filter2: [...new Set(products.map(p => p.filter2).filter(Boolean))],
+    filter3: [...new Set(products.map(p => p.filter3).filter(Boolean))],
+    filter4: [...new Set(products.map(p => p.filter4).filter(Boolean))],
+    filter5: [...new Set(products.map(p => p.filter5).filter(Boolean))],
+    tags: [...new Set(products.flatMap(p => p.tags))],
+  }
+
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
+  const toggleFilter = (key: keyof FilterState, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: prev[key].includes(value) ? prev[key].filter(v => v !== value) : [...prev[key], value]
+    }))
+  }
+
+  const resetFilters = () => {
+    setFilters({
+      categories: [],
+      filter1: [],
+      filter2: [],
+      filter3: [],
+      filter4: [],
+      filter5: [],
+      tags: [],
+      gameSystems: [],
+      factions: [],
+      types: [],
+      scales: [],
+      fileFormats: [],
+    })
+    setPriceMax(2000)
+  }
+
   const applyFilters = useCallback(() => {
     let filtered = products
+
     if (filters.categories.length) {
       filtered = filtered.filter(p => {
         const catSlug = typeof p.category === 'object' ? p.category.slug : p.categorySlug
         return filters.categories.includes(catSlug)
       })
     }
-    if (filters.subcategories.length) {
-      filtered = filtered.filter(p => p.subcategory && filters.subcategories.includes(p.subcategory))
-    }
-    if (filters.gameSystems.length) {
-      filtered = filtered.filter(p => filters.gameSystems.includes(p.gameSystem))
-    }
-    if (filters.factions.length) {
-      filtered = filtered.filter(p => p.faction && filters.factions.includes(p.faction))
-    }
-    if (filters.types.length) {
-      filtered = filtered.filter(p => filters.types.includes(p.type))
-    }
-    if (filters.scales.length) {
-      filtered = filtered.filter(p => filters.scales.includes(p.scale))
-    }
-    if (filters.fileFormats.length) {
-      filtered = filtered.filter(p => filters.fileFormats.some(f => p.fileFormat.includes(f)))
-    }
+    if (filters.filter1.length) filtered = filtered.filter(p => p.filter1 && filters.filter1.includes(p.filter1))
+    if (filters.filter2.length) filtered = filtered.filter(p => p.filter2 && filters.filter2.includes(p.filter2))
+    if (filters.filter3.length) filtered = filtered.filter(p => p.filter3 && filters.filter3.includes(p.filter3))
+    if (filters.filter4.length) filtered = filtered.filter(p => p.filter4 && filters.filter4.includes(p.filter4))
+    if (filters.filter5.length) filtered = filtered.filter(p => p.filter5 && filters.filter5.includes(p.filter5))
     if (filters.tags.length) {
       filtered = filtered.filter(p => p.tags.some(t => filters.tags.includes(t)))
     }
+    // Старые фильтры пока не применяем, чтобы не мешать
+
     filtered = filtered.filter(p => p.price <= priceMax)
     onFilter(filtered, filters)
   }, [products, filters, priceMax, onFilter])
@@ -7441,26 +8265,51 @@ export const FilterPanel = ({
     prevPriceMaxRef.current = priceMax
   }, [filters, priceMax, applyFilters])
 
-  const toggleFilter = (key: keyof FilterState, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: prev[key].includes(value) ? prev[key].filter(v => v !== value) : [...prev[key], value]
-    }))
+  // Определяем, какие секции показывать (если название задано и есть хотя бы одно значение)
+  const sections = [
+    { key: 'categories', title: 'Категория' },
+    { key: 'filter1', title: filterNames.filter1Name || '' },
+    { key: 'filter2', title: filterNames.filter2Name || '' },
+    { key: 'filter3', title: filterNames.filter3Name || '' },
+    { key: 'filter4', title: filterNames.filter4Name || '' },
+    { key: 'filter5', title: filterNames.filter5Name || '' },
+    { key: 'tags', title: 'Теги' },
+  ].filter(section => {
+    if (section.key === 'categories' || section.key === 'tags') return true
+    return section.title && filterOptions[section.key as keyof typeof filterOptions]?.length > 0
+  })
+
+  const FilterSection = ({ title, sectionKey, options, selected }: { 
+    title: string; 
+    sectionKey: string; 
+    options: string[]; 
+    selected: string[] 
+  }) => {
+    const isExpanded = expandedSections[sectionKey]
+    return (
+      <div className="pb-3">
+        <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
+          <span>{title}</span>
+          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        </button>
+        {isExpanded && (
+          <div className="mt-2 space-y-1">
+            {options.map(opt => (
+              <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
+                <input 
+                  type="checkbox" 
+                  checked={selected.includes(opt)} 
+                  onChange={() => toggleFilter(sectionKey as keyof FilterState, opt)} 
+                /> {opt}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
-  const resetFilters = () => {
-    setFilters({
-      categories: [],
-      subcategories: [],
-      gameSystems: [],
-      factions: [],
-      types: [],
-      scales: [],
-      fileFormats: [],
-      tags: [],
-    })
-    setPriceMax(2000)
-  }
+  const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
 
   return (
     <>
@@ -7470,37 +8319,62 @@ export const FilterPanel = ({
         </button>
       )}
       <div className="hidden lg:block">
-        <FilterContent
-          products={products}
-          filters={filters}
-          setFilters={setFilters}
-          priceMax={priceMax}
-          setPriceMax={setPriceMax}
-          expandedSections={expandedSections}
-          toggleSection={toggleSection}
-          toggleFilter={toggleFilter}
-          resetFilters={resetFilters}
-          hidePriceSlider={hidePriceSlider}
-        />
+        <div className="space-y-4">
+          {sections.map(section => (
+            <FilterSection
+              key={section.key}
+              title={section.title}
+              sectionKey={section.key}
+              options={filterOptions[section.key as keyof typeof filterOptions] || []}
+              selected={filters[section.key as keyof FilterState] as string[] || []}
+            />
+          ))}
+          {!hidePriceSlider && (
+            <div className="pt-2">
+              <div className="flex justify-between items-center">
+                <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
+              </div>
+              <input type="range" min={0} max={2000} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+            </div>
+          )}
+          {hasActiveFilters && (
+            <div className="pt-2">
+              <ActiveFilters
+                filters={filters}
+                onRemove={(key, value) => toggleFilter(key as keyof FilterState, value)}
+                onClearAll={resetFilters}
+              />
+            </div>
+          )}
+          <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
+        </div>
       </div>
+      {/* Мобильная модалка (аналогично) */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 p-4 overflow-auto">
           <div className="bg-cardbg p-6 rounded-xl max-w-md mx-auto relative">
             <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 text-gray-400"><X size={24} /></button>
             <h2 className="text-xl font-bold text-white mb-4">Фильтры</h2>
-            <FilterContent
-              products={products}
-              filters={filters}
-              setFilters={setFilters}
-              priceMax={priceMax}
-              setPriceMax={setPriceMax}
-              expandedSections={expandedSections}
-              toggleSection={toggleSection}
-              toggleFilter={toggleFilter}
-              resetFilters={resetFilters}
-              hidePriceSlider={hidePriceSlider}
-            />
-            <button onClick={() => setIsOpen(false)} className="mt-6 w-full bg-accent py-2 rounded-lg">Применить</button>
+            <div className="space-y-4">
+              {sections.map(section => (
+                <FilterSection
+                  key={section.key}
+                  title={section.title}
+                  sectionKey={section.key}
+                  options={filterOptions[section.key as keyof typeof filterOptions] || []}
+                  selected={filters[section.key as keyof FilterState] as string[] || []}
+                />
+              ))}
+              {!hidePriceSlider && (
+                <div className="pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
+                  </div>
+                  <input type="range" min={0} max={2000} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+                </div>
+              )}
+              <button onClick={() => setIsOpen(false)} className="mt-6 w-full bg-accent py-2 rounded-lg">Применить</button>
+            </div>
           </div>
         </div>
       )}
@@ -7650,26 +8524,28 @@ import type { Product } from '@/types'
 
 interface CategoryProductsWrapperProps {
   products: Product[]
+  filterNames?: {
+    filter1Name?: string | null
+    filter2Name?: string | null
+    filter3Name?: string | null
+    filter4Name?: string | null
+    filter5Name?: string | null
+  }
 }
 
-export default function CategoryProductsWrapper({ products: initialProducts }: CategoryProductsWrapperProps) {
+export default function CategoryProductsWrapper({ products: initialProducts, filterNames = {} }: CategoryProductsWrapperProps) {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(initialProducts)
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({})
   const [sortBy, setSortBy] = useState('default')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 9
 
-  // Сортировка
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
-      case 'price-asc':
-        return a.price - b.price
-      case 'price-desc':
-        return b.price - a.price
-      case 'name':
-        return a.name.localeCompare(b.name)
-      default:
-        return 0
+      case 'price-asc': return a.price - b.price
+      case 'price-desc': return b.price - a.price
+      case 'name': return a.name.localeCompare(b.name)
+      default: return 0
     }
   })
 
@@ -7692,18 +8568,22 @@ export default function CategoryProductsWrapper({ products: initialProducts }: C
   }
 
   const handleRemoveFilter = (key: string, value: string) => {
-    // Простой сброс — для демо, можно доработать
+    // Здесь нужно реализовать снятие конкретного фильтра, но для простоты сбросим всё
     handleClearAll()
   }
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
       <aside className="lg:w-1/4">
-        <FilterPanel products={initialProducts} onFilter={handleFilter} />
+        <FilterPanel 
+          products={initialProducts} 
+          onFilter={handleFilter} 
+          filterNames={filterNames}
+        />
       </aside>
       <main className="lg:w-3/4">
         <div className="flex justify-between items-center mb-4">
-          <SortDropdown onSort={setSortBy} products={sortedProducts} />
+          <SortDropdown onSort={setSortBy} />
           <span className="text-gray-400">{filteredProducts.length} моделей</span>
         </div>
         <ActiveFilters
@@ -9561,6 +10441,73 @@ export function clearSettingsCache() {
   cache.clear()
   cacheLoaded = false
 }
+===== ./lib/trustedDevice.ts =====
+// lib/trustedDevice.ts
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-change-me';
+const TRUSTED_DEVICE_COOKIE_NAME = '2fa_trusted';
+const TRUST_DURATION_DAYS = 30;
+
+export function generateTrustedToken(userId: string): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: `${TRUST_DURATION_DAYS}d` });
+}
+
+export function verifyTrustedToken(token: string): string | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+}
+
+export function getTrustedCookieName(): string {
+  return TRUSTED_DEVICE_COOKIE_NAME;
+}
+
+export function getTrustedCookieOptions(maxAge?: number) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    path: '/',
+    maxAge,
+  };
+}
+===== ./lib/twoFactor.ts =====
+// lib/twoFactor.ts
+import * as otplib from 'otplib';
+import QRCode from 'qrcode';
+
+// @ts-ignore - в текущей версии otplib экспорт немного отличается, но метод работает
+const { authenticator } = otplib;
+
+authenticator.options = {
+  step: 30,
+  digits: 6,
+};
+
+export function generateSecret(): string {
+  return authenticator.generateSecret();
+}
+
+export function generateOTPAuthURL(email: string, secret: string): string {
+  const serviceName = 'HeroicLab';
+  return authenticator.keyuri(email, serviceName, secret);
+}
+
+export async function generateQRCodeDataURL(otpauthUrl: string): Promise<string> {
+  return await QRCode.toDataURL(otpauthUrl);
+}
+
+export function verifyTOTP(token: string, secret: string): boolean {
+  try {
+    return authenticator.verify({ token, secret });
+  } catch {
+    return false;
+  }
+}
 ===== ./lib/utils.ts =====
 // lib/utils.ts
 import { Product } from '@/types'
@@ -9621,6 +10568,58 @@ Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or pa
 -----------------------------------
 [2026-04-19T17:52:39.472Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
 -----------------------------------
+[2026-04-20T17:28:19.523Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-20T17:28:25.214Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-20T17:30:32.064Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-20T17:30:49.412Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-20T17:32:46.712Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-21T07:27:14.092Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-21T07:27:55.306Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-21T07:31:28.863Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-21T07:31:50.191Z] Успешный вход: ivan.pust2@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+
+===== ./logs/warn.log =====
+[2026-04-20T17:30:25.507Z] Неудачная попытка входа: email valerabiven@borrow.zhmih не найден
+{
+  "ip": "::1"
+}
+-----------------------------------
 
 ===== ./next-env.d.ts =====
 /// <reference types="next" />
@@ -9670,22 +10669,28 @@ export default nextConfig;
     "": {
       "name": "heroic-lab",
       "version": "0.1.0",
+      "hasInstallScript": true,
       "dependencies": {
         "@auth/prisma-adapter": "^2.11.2",
         "@tailwindcss/vite": "^4.2.2",
         "bcrypt": "^6.0.0",
+        "jsonwebtoken": "^9.0.3",
         "lucide-react": "^0.394.0",
         "next": "^16.2.3",
         "next-auth": "^4.24.14",
         "nodemailer": "^7.0.13",
+        "otplib": "^11.0.1",
+        "qrcode": "^1.5.4",
         "react": "^18",
         "react-dom": "^18"
       },
       "devDependencies": {
         "@prisma/client": "^5.22.0",
         "@types/bcrypt": "^6.0.0",
+        "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^20",
         "@types/nodemailer": "^8.0.0",
+        "@types/qrcode": "^1.5.6",
         "@types/react": "^18",
         "@types/react-dom": "^18",
         "autoprefixer": "^10.5.0",
@@ -11723,6 +12728,24 @@ export default nextConfig;
       "dev": true,
       "license": "MIT"
     },
+    "node_modules/@types/jsonwebtoken": {
+      "version": "9.0.10",
+      "resolved": "https://registry.npmjs.org/@types/jsonwebtoken/-/jsonwebtoken-9.0.10.tgz",
+      "integrity": "sha512-asx5hIG9Qmf/1oStypjanR7iKTv0gXQ1Ov/jfrX6kS/EO0OFni8orbmGCn0672NHR3kXHwpAwR+B368ZGN/2rA==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/ms": "*",
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/ms": {
+      "version": "2.1.0",
+      "resolved": "https://registry.npmjs.org/@types/ms/-/ms-2.1.0.tgz",
+      "integrity": "sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==",
+      "dev": true,
+      "license": "MIT"
+    },
     "node_modules/@types/node": {
       "version": "20.19.39",
       "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.39.tgz",
@@ -11749,6 +12772,16 @@ export default nextConfig;
       "integrity": "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==",
       "dev": true,
       "license": "MIT"
+    },
+    "node_modules/@types/qrcode": {
+      "version": "1.5.6",
+      "resolved": "https://registry.npmjs.org/@types/qrcode/-/qrcode-1.5.6.tgz",
+      "integrity": "sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*"
+      }
     },
     "node_modules/@types/react": {
       "version": "18.3.28",
@@ -12423,7 +13456,6 @@ export default nextConfig;
       "version": "5.0.1",
       "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
       "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
-      "dev": true,
       "license": "MIT",
       "engines": {
         "node": ">=8"
@@ -12433,7 +13465,6 @@ export default nextConfig;
       "version": "4.3.0",
       "resolved": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz",
       "integrity": "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==",
-      "dev": true,
       "license": "MIT",
       "dependencies": {
         "color-convert": "^2.0.1"
@@ -12844,6 +13875,12 @@ export default nextConfig;
         "node": "^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7"
       }
     },
+    "node_modules/buffer-equal-constant-time": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/buffer-equal-constant-time/-/buffer-equal-constant-time-1.0.1.tgz",
+      "integrity": "sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==",
+      "license": "BSD-3-Clause"
+    },
     "node_modules/call-bind": {
       "version": "1.0.9",
       "resolved": "https://registry.npmjs.org/call-bind/-/call-bind-1.0.9.tgz",
@@ -12899,6 +13936,15 @@ export default nextConfig;
       "resolved": "https://registry.npmjs.org/callsites/-/callsites-3.1.0.tgz",
       "integrity": "sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==",
       "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=6"
+      }
+    },
+    "node_modules/camelcase": {
+      "version": "5.3.1",
+      "resolved": "https://registry.npmjs.org/camelcase/-/camelcase-5.3.1.tgz",
+      "integrity": "sha512-L28STB170nwWS63UjtlEOE3dldQApaJXZkOI1uMFfzf3rRuPegHaHesyee+YxQ+W6SvRDQV6UrdOdRiR153wJg==",
       "license": "MIT",
       "engines": {
         "node": ">=6"
@@ -12995,11 +14041,21 @@ export default nextConfig;
       "integrity": "sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==",
       "license": "MIT"
     },
+    "node_modules/cliui": {
+      "version": "6.0.0",
+      "resolved": "https://registry.npmjs.org/cliui/-/cliui-6.0.0.tgz",
+      "integrity": "sha512-t6wbgtoCXvAzst7QgXxJYqPt0usEfbgQdftEPbLL/cvv6HPE5VgvqCuAIDR0NgU52ds6rFwqrgakNLrHEjCbrQ==",
+      "license": "ISC",
+      "dependencies": {
+        "string-width": "^4.2.0",
+        "strip-ansi": "^6.0.0",
+        "wrap-ansi": "^6.2.0"
+      }
+    },
     "node_modules/color-convert": {
       "version": "2.0.1",
       "resolved": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
       "integrity": "sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==",
-      "dev": true,
       "license": "MIT",
       "dependencies": {
         "color-name": "~1.1.4"
@@ -13012,7 +14068,6 @@ export default nextConfig;
       "version": "1.1.4",
       "resolved": "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz",
       "integrity": "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==",
-      "dev": true,
       "license": "MIT"
     },
     "node_modules/commander": {
@@ -13169,6 +14224,15 @@ export default nextConfig;
         }
       }
     },
+    "node_modules/decamelize": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/decamelize/-/decamelize-1.2.0.tgz",
+      "integrity": "sha512-z2S+W9X73hAUUki+N+9Za2lBlun89zigOyGrsax+KUQ6wKW4ZoWpEYBkGhQjwAjjDCkWxhY0VKEhk8wzY7F5cA==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
     "node_modules/deep-is": {
       "version": "0.1.4",
       "resolved": "https://registry.npmjs.org/deep-is/-/deep-is-0.1.4.tgz",
@@ -13238,6 +14302,12 @@ export default nextConfig;
         "node": ">=0.3.1"
       }
     },
+    "node_modules/dijkstrajs": {
+      "version": "1.0.3",
+      "resolved": "https://registry.npmjs.org/dijkstrajs/-/dijkstrajs-1.0.3.tgz",
+      "integrity": "sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==",
+      "license": "MIT"
+    },
     "node_modules/dlv": {
       "version": "1.1.3",
       "resolved": "https://registry.npmjs.org/dlv/-/dlv-1.1.3.tgz",
@@ -13284,6 +14354,15 @@ export default nextConfig;
       },
       "engines": {
         "node": ">= 0.4"
+      }
+    },
+    "node_modules/ecdsa-sig-formatter": {
+      "version": "1.0.11",
+      "resolved": "https://registry.npmjs.org/ecdsa-sig-formatter/-/ecdsa-sig-formatter-1.0.11.tgz",
+      "integrity": "sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==",
+      "license": "Apache-2.0",
+      "dependencies": {
+        "safe-buffer": "^5.0.1"
       }
     },
     "node_modules/electron-to-chromium": {
@@ -14180,6 +15259,15 @@ export default nextConfig;
         "node": ">=6.9.0"
       }
     },
+    "node_modules/get-caller-file": {
+      "version": "2.0.5",
+      "resolved": "https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz",
+      "integrity": "sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==",
+      "license": "ISC",
+      "engines": {
+        "node": "6.* || 8.* || >= 10.*"
+      }
+    },
     "node_modules/get-intrinsic": {
       "version": "1.3.0",
       "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
@@ -14723,6 +15811,15 @@ export default nextConfig;
         "url": "https://github.com/sponsors/ljharb"
       }
     },
+    "node_modules/is-fullwidth-code-point": {
+      "version": "3.0.0",
+      "resolved": "https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz",
+      "integrity": "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=8"
+      }
+    },
     "node_modules/is-generator-function": {
       "version": "1.1.2",
       "resolved": "https://registry.npmjs.org/is-generator-function/-/is-generator-function-1.1.2.tgz",
@@ -15080,6 +16177,40 @@ export default nextConfig;
         "node": ">=6"
       }
     },
+    "node_modules/jsonwebtoken": {
+      "version": "9.0.3",
+      "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-9.0.3.tgz",
+      "integrity": "sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==",
+      "license": "MIT",
+      "dependencies": {
+        "jws": "^4.0.1",
+        "lodash.includes": "^4.3.0",
+        "lodash.isboolean": "^3.0.3",
+        "lodash.isinteger": "^4.0.4",
+        "lodash.isnumber": "^3.0.3",
+        "lodash.isplainobject": "^4.0.6",
+        "lodash.isstring": "^4.0.1",
+        "lodash.once": "^4.0.0",
+        "ms": "^2.1.1",
+        "semver": "^7.5.4"
+      },
+      "engines": {
+        "node": ">=12",
+        "npm": ">=6"
+      }
+    },
+    "node_modules/jsonwebtoken/node_modules/semver": {
+      "version": "7.7.4",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.7.4.tgz",
+      "integrity": "sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==",
+      "license": "ISC",
+      "bin": {
+        "semver": "bin/semver.js"
+      },
+      "engines": {
+        "node": ">=10"
+      }
+    },
     "node_modules/jsx-ast-utils": {
       "version": "3.3.5",
       "resolved": "https://registry.npmjs.org/jsx-ast-utils/-/jsx-ast-utils-3.3.5.tgz",
@@ -15094,6 +16225,27 @@ export default nextConfig;
       },
       "engines": {
         "node": ">=4.0"
+      }
+    },
+    "node_modules/jwa": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/jwa/-/jwa-2.0.1.tgz",
+      "integrity": "sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==",
+      "license": "MIT",
+      "dependencies": {
+        "buffer-equal-constant-time": "^1.0.1",
+        "ecdsa-sig-formatter": "1.0.11",
+        "safe-buffer": "^5.0.1"
+      }
+    },
+    "node_modules/jws": {
+      "version": "4.0.1",
+      "resolved": "https://registry.npmjs.org/jws/-/jws-4.0.1.tgz",
+      "integrity": "sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==",
+      "license": "MIT",
+      "dependencies": {
+        "jwa": "^2.0.1",
+        "safe-buffer": "^5.0.1"
       }
     },
     "node_modules/keyv": {
@@ -15437,11 +16589,53 @@ export default nextConfig;
         "url": "https://github.com/sponsors/sindresorhus"
       }
     },
+    "node_modules/lodash.includes": {
+      "version": "4.3.0",
+      "resolved": "https://registry.npmjs.org/lodash.includes/-/lodash.includes-4.3.0.tgz",
+      "integrity": "sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==",
+      "license": "MIT"
+    },
+    "node_modules/lodash.isboolean": {
+      "version": "3.0.3",
+      "resolved": "https://registry.npmjs.org/lodash.isboolean/-/lodash.isboolean-3.0.3.tgz",
+      "integrity": "sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==",
+      "license": "MIT"
+    },
+    "node_modules/lodash.isinteger": {
+      "version": "4.0.4",
+      "resolved": "https://registry.npmjs.org/lodash.isinteger/-/lodash.isinteger-4.0.4.tgz",
+      "integrity": "sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==",
+      "license": "MIT"
+    },
+    "node_modules/lodash.isnumber": {
+      "version": "3.0.3",
+      "resolved": "https://registry.npmjs.org/lodash.isnumber/-/lodash.isnumber-3.0.3.tgz",
+      "integrity": "sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw==",
+      "license": "MIT"
+    },
+    "node_modules/lodash.isplainobject": {
+      "version": "4.0.6",
+      "resolved": "https://registry.npmjs.org/lodash.isplainobject/-/lodash.isplainobject-4.0.6.tgz",
+      "integrity": "sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==",
+      "license": "MIT"
+    },
+    "node_modules/lodash.isstring": {
+      "version": "4.0.1",
+      "resolved": "https://registry.npmjs.org/lodash.isstring/-/lodash.isstring-4.0.1.tgz",
+      "integrity": "sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==",
+      "license": "MIT"
+    },
     "node_modules/lodash.merge": {
       "version": "4.6.2",
       "resolved": "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz",
       "integrity": "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==",
       "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/lodash.once": {
+      "version": "4.1.1",
+      "resolved": "https://registry.npmjs.org/lodash.once/-/lodash.once-4.1.1.tgz",
+      "integrity": "sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==",
       "license": "MIT"
     },
     "node_modules/loose-envify": {
@@ -15552,7 +16746,6 @@ export default nextConfig;
       "version": "2.1.3",
       "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
       "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
-      "dev": true,
       "license": "MIT"
     },
     "node_modules/mz": {
@@ -16004,6 +17197,15 @@ export default nextConfig;
         "node": ">= 0.8.0"
       }
     },
+    "node_modules/otplib": {
+      "version": "11.0.1",
+      "resolved": "https://registry.npmjs.org/otplib/-/otplib-11.0.1.tgz",
+      "integrity": "sha512-oi57teljNyWTC/JqJztHOtSGeFNDiDh5C1myd+faocUtFAX27Sm1mbx69kpEJ8/JqrblI3kAm4Pqd6tZJoOIBQ==",
+      "license": "MIT",
+      "dependencies": {
+        "thirty-two": "1.0.2"
+      }
+    },
     "node_modules/own-keys": {
       "version": "1.0.1",
       "resolved": "https://registry.npmjs.org/own-keys/-/own-keys-1.0.1.tgz",
@@ -16054,6 +17256,15 @@ export default nextConfig;
         "url": "https://github.com/sponsors/sindresorhus"
       }
     },
+    "node_modules/p-try": {
+      "version": "2.2.0",
+      "resolved": "https://registry.npmjs.org/p-try/-/p-try-2.2.0.tgz",
+      "integrity": "sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=6"
+      }
+    },
     "node_modules/parent-module": {
       "version": "1.0.1",
       "resolved": "https://registry.npmjs.org/parent-module/-/parent-module-1.0.1.tgz",
@@ -16071,7 +17282,6 @@ export default nextConfig;
       "version": "4.0.0",
       "resolved": "https://registry.npmjs.org/path-exists/-/path-exists-4.0.0.tgz",
       "integrity": "sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==",
-      "dev": true,
       "license": "MIT",
       "engines": {
         "node": ">=8"
@@ -16141,6 +17351,15 @@ export default nextConfig;
       "license": "MIT",
       "engines": {
         "node": ">= 6"
+      }
+    },
+    "node_modules/pngjs": {
+      "version": "5.0.0",
+      "resolved": "https://registry.npmjs.org/pngjs/-/pngjs-5.0.0.tgz",
+      "integrity": "sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=10.13.0"
       }
     },
     "node_modules/possible-typed-array-names": {
@@ -16417,6 +17636,23 @@ export default nextConfig;
         "node": ">=6"
       }
     },
+    "node_modules/qrcode": {
+      "version": "1.5.4",
+      "resolved": "https://registry.npmjs.org/qrcode/-/qrcode-1.5.4.tgz",
+      "integrity": "sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==",
+      "license": "MIT",
+      "dependencies": {
+        "dijkstrajs": "^1.0.1",
+        "pngjs": "^5.0.0",
+        "yargs": "^15.3.1"
+      },
+      "bin": {
+        "qrcode": "bin/qrcode"
+      },
+      "engines": {
+        "node": ">=10.13.0"
+      }
+    },
     "node_modules/queue-microtask": {
       "version": "1.2.3",
       "resolved": "https://registry.npmjs.org/queue-microtask/-/queue-microtask-1.2.3.tgz",
@@ -16536,6 +17772,21 @@ export default nextConfig;
       "funding": {
         "url": "https://github.com/sponsors/ljharb"
       }
+    },
+    "node_modules/require-directory": {
+      "version": "2.1.1",
+      "resolved": "https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz",
+      "integrity": "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/require-main-filename": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/require-main-filename/-/require-main-filename-2.0.0.tgz",
+      "integrity": "sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==",
+      "license": "ISC"
     },
     "node_modules/resolve": {
       "version": "2.0.0-next.6",
@@ -16687,6 +17938,26 @@ export default nextConfig;
         "url": "https://github.com/sponsors/ljharb"
       }
     },
+    "node_modules/safe-buffer": {
+      "version": "5.2.1",
+      "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
+      "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/feross"
+        },
+        {
+          "type": "patreon",
+          "url": "https://www.patreon.com/feross"
+        },
+        {
+          "type": "consulting",
+          "url": "https://feross.org/support"
+        }
+      ],
+      "license": "MIT"
+    },
     "node_modules/safe-push-apply": {
       "version": "1.0.0",
       "resolved": "https://registry.npmjs.org/safe-push-apply/-/safe-push-apply-1.0.0.tgz",
@@ -16740,6 +18011,12 @@ export default nextConfig;
       "bin": {
         "semver": "bin/semver.js"
       }
+    },
+    "node_modules/set-blocking": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/set-blocking/-/set-blocking-2.0.0.tgz",
+      "integrity": "sha512-KiKBS8AnWGEyLzofFfmvKwpdPzqiy16LvQfK3yv/fVH7Bj13/wl3JSR1J+rfgRE9q7xUJK4qvgS8raSOeLUehw==",
+      "license": "ISC"
     },
     "node_modules/set-function-length": {
       "version": "1.2.2",
@@ -16977,6 +18254,26 @@ export default nextConfig;
         "node": ">= 0.4"
       }
     },
+    "node_modules/string-width": {
+      "version": "4.2.3",
+      "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
+      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
+      "license": "MIT",
+      "dependencies": {
+        "emoji-regex": "^8.0.0",
+        "is-fullwidth-code-point": "^3.0.0",
+        "strip-ansi": "^6.0.1"
+      },
+      "engines": {
+        "node": ">=8"
+      }
+    },
+    "node_modules/string-width/node_modules/emoji-regex": {
+      "version": "8.0.0",
+      "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
+      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
+      "license": "MIT"
+    },
     "node_modules/string.prototype.includes": {
       "version": "2.0.1",
       "resolved": "https://registry.npmjs.org/string.prototype.includes/-/string.prototype.includes-2.0.1.tgz",
@@ -17094,7 +18391,6 @@ export default nextConfig;
       "version": "6.0.1",
       "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
       "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
-      "dev": true,
       "license": "MIT",
       "dependencies": {
         "ansi-regex": "^5.0.1"
@@ -17339,6 +18635,14 @@ export default nextConfig;
       },
       "engines": {
         "node": ">=0.8"
+      }
+    },
+    "node_modules/thirty-two": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/thirty-two/-/thirty-two-1.0.2.tgz",
+      "integrity": "sha512-OEI0IWCe+Dw46019YLl6V10Us5bi574EvlJEOcAkB29IzQ/mYD1A6RyNHLjZPiHCmuodxvgF6U+vZO1L15lxVA==",
+      "engines": {
+        "node": ">=0.2.6"
       }
     },
     "node_modules/tinyglobby": {
@@ -17943,6 +19247,12 @@ export default nextConfig;
         "url": "https://github.com/sponsors/ljharb"
       }
     },
+    "node_modules/which-module": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/which-module/-/which-module-2.0.1.tgz",
+      "integrity": "sha512-iBdZ57RDvnOR9AGBhML2vFZf7h8vmBjhoaZqODJBFWHVtKkDmKuHai3cx5PgVMrX5YDNp27AofYbAwctSS+vhQ==",
+      "license": "ISC"
+    },
     "node_modules/which-typed-array": {
       "version": "1.1.20",
       "resolved": "https://registry.npmjs.org/which-typed-array/-/which-typed-array-1.1.20.tgz",
@@ -17975,11 +19285,31 @@ export default nextConfig;
         "node": ">=0.10.0"
       }
     },
+    "node_modules/wrap-ansi": {
+      "version": "6.2.0",
+      "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-6.2.0.tgz",
+      "integrity": "sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==",
+      "license": "MIT",
+      "dependencies": {
+        "ansi-styles": "^4.0.0",
+        "string-width": "^4.1.0",
+        "strip-ansi": "^6.0.0"
+      },
+      "engines": {
+        "node": ">=8"
+      }
+    },
     "node_modules/wrappy": {
       "version": "1.0.2",
       "resolved": "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz",
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==",
       "dev": true,
+      "license": "ISC"
+    },
+    "node_modules/y18n": {
+      "version": "4.0.3",
+      "resolved": "https://registry.npmjs.org/y18n/-/y18n-4.0.3.tgz",
+      "integrity": "sha512-JKhqTOwSrqNA1NY5lSztJ1GrBiUodLMmIZuLiDaMRJ+itFd+ABVE8XBjOvIWL+rSqNDC74LCSFmlb/U4UZ4hJQ==",
       "license": "ISC"
     },
     "node_modules/yallist": {
@@ -17988,6 +19318,93 @@ export default nextConfig;
       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==",
       "dev": true,
       "license": "ISC"
+    },
+    "node_modules/yargs": {
+      "version": "15.4.1",
+      "resolved": "https://registry.npmjs.org/yargs/-/yargs-15.4.1.tgz",
+      "integrity": "sha512-aePbxDmcYW++PaqBsJ+HYUFwCdv4LVvdnhBy78E57PIor8/OVvhMrADFFEDh8DHDFRv/O9i3lPhsENjO7QX0+A==",
+      "license": "MIT",
+      "dependencies": {
+        "cliui": "^6.0.0",
+        "decamelize": "^1.2.0",
+        "find-up": "^4.1.0",
+        "get-caller-file": "^2.0.1",
+        "require-directory": "^2.1.1",
+        "require-main-filename": "^2.0.0",
+        "set-blocking": "^2.0.0",
+        "string-width": "^4.2.0",
+        "which-module": "^2.0.0",
+        "y18n": "^4.0.0",
+        "yargs-parser": "^18.1.2"
+      },
+      "engines": {
+        "node": ">=8"
+      }
+    },
+    "node_modules/yargs-parser": {
+      "version": "18.1.3",
+      "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-18.1.3.tgz",
+      "integrity": "sha512-o50j0JeToy/4K6OZcaQmW6lyXXKhq7csREXcDwk2omFPJEwUNOVtJKvmDr9EI1fAJZUyZcRF7kxGBWmRXudrCQ==",
+      "license": "ISC",
+      "dependencies": {
+        "camelcase": "^5.0.0",
+        "decamelize": "^1.2.0"
+      },
+      "engines": {
+        "node": ">=6"
+      }
+    },
+    "node_modules/yargs/node_modules/find-up": {
+      "version": "4.1.0",
+      "resolved": "https://registry.npmjs.org/find-up/-/find-up-4.1.0.tgz",
+      "integrity": "sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==",
+      "license": "MIT",
+      "dependencies": {
+        "locate-path": "^5.0.0",
+        "path-exists": "^4.0.0"
+      },
+      "engines": {
+        "node": ">=8"
+      }
+    },
+    "node_modules/yargs/node_modules/locate-path": {
+      "version": "5.0.0",
+      "resolved": "https://registry.npmjs.org/locate-path/-/locate-path-5.0.0.tgz",
+      "integrity": "sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==",
+      "license": "MIT",
+      "dependencies": {
+        "p-locate": "^4.1.0"
+      },
+      "engines": {
+        "node": ">=8"
+      }
+    },
+    "node_modules/yargs/node_modules/p-limit": {
+      "version": "2.3.0",
+      "resolved": "https://registry.npmjs.org/p-limit/-/p-limit-2.3.0.tgz",
+      "integrity": "sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==",
+      "license": "MIT",
+      "dependencies": {
+        "p-try": "^2.0.0"
+      },
+      "engines": {
+        "node": ">=6"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/sindresorhus"
+      }
+    },
+    "node_modules/yargs/node_modules/p-locate": {
+      "version": "4.1.0",
+      "resolved": "https://registry.npmjs.org/p-locate/-/p-locate-4.1.0.tgz",
+      "integrity": "sha512-R79ZZ/0wAxKGu3oYMlz8jy/kbhsNrS7SKZ7PxEHBgJ5+F2mtFW2fK2cOtBh1cHYkQsbzFV7I+EoRKe6Yt0oK7A==",
+      "license": "MIT",
+      "dependencies": {
+        "p-limit": "^2.2.0"
+      },
+      "engines": {
+        "node": ">=8"
+      }
     },
     "node_modules/yn": {
       "version": "3.1.1",
@@ -18048,24 +19465,30 @@ export default nextConfig;
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "mkdir -p logs"
+    "postinstall": "mkdir -p logs",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
     "@tailwindcss/vite": "^4.2.2",
     "bcrypt": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.394.0",
     "next": "^16.2.3",
     "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",
+    "otplib": "^11.0.1",
+    "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18"
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
     "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.5.0",
@@ -20757,13 +22180,33 @@ CREATE TABLE "Setting" (
     "updatedAt" DATETIME NOT NULL
 );
 
+===== ./prisma/migrations/20260420165647_add_two_factor_fields/migration.sql =====
+-- RedefineTables
+PRAGMA defer_foreign_keys=ON;
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_User" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "email" TEXT NOT NULL,
+    "name" TEXT,
+    "password" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'user',
+    "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "twoFactorSecret" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO "new_User" ("createdAt", "email", "id", "name", "password", "role") SELECT "createdAt", "email", "id", "name", "password", "role" FROM "User";
+DROP TABLE "User";
+ALTER TABLE "new_User" RENAME TO "User";
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+PRAGMA foreign_keys=ON;
+PRAGMA defer_foreign_keys=OFF;
+
 ===== ./prisma/migrations/migration_lock.toml =====
 # Please do not edit this file manually
 # It should be added in your version-control system (i.e. Git)
 provider = "sqlite"
 ===== ./prisma/schema.prisma =====
 // prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -20773,124 +22216,149 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Пользователь
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  password  String
-  role      String    @default("user")
-  createdAt DateTime  @default(now())
-  orders    Order[]
-  cartItems CartItem[]
+  id               String    @id @default(cuid())
+  name             String?
+  email            String    @unique
+  password         String
+  role             String    @default("user")
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  orders           Order[]
+  cartItems        CartItem[]
 }
 
-// Товар – первичный ключ article (уникальный артикул)
-model Product {
-  article        String      @id
-  name           String
-  searchName     String      @default("")   // временно с default
-  description    String
-  price          Int
-  oldPrice       Int?
-  images         String
-  categoryId     String
-  category       Category    @relation(fields: [categoryId], references: [id])
-  gameSystem     String
-  scale          String
-  type           String
-  faction        String?
-  fileFormat     String
-  tags           String
-  createdAt      DateTime    @default(now())
-  featured       Boolean     @default(false)
-  popularity     Int         @default(0)
-  orderItems     OrderItem[]
-  cartItems      CartItem[]
-
-  @@index([name])
-  @@index([article])
-  @@index([searchName])   // 🆕 индекс для ускорения поиска
-}
-
-// Категория
 model Category {
-  id       String    @id @default(cuid())
-  name     String
-  slug     String    @unique
-  image    String?
-  parentId String?
-  parent   Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryToCategory")
-  products Product[]
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  image       String?
+  parentId    String?
+  parent      Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToCategory")
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 🆕 Названия динамических фильтров
+  filter1Name String?
+  filter2Name String?
+  filter3Name String?
+  filter4Name String?
+  filter5Name String?
 }
 
-// Заказ
+model Product {
+  article     String   @id
+  name        String
+  searchName  String   // для поиска (нижний регистр)
+  price       Int
+  oldPrice    Int?
+  description String   @default("")
+  images      String   @default("")
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  // 🆕 Динамические фильтры
+  filter1     String?
+  filter2     String?
+  filter3     String?
+  filter4     String?
+  filter5     String?
+
+  // 🆕 Новые поля карточки товара
+  stock       Int      @default(0)      // Количество
+  heightMax   Float?                   // Высота самой большой модели (мм)
+  baseMax     Float?                   // База самой большой модели (мм)
+  heightMin   Float?                   // Высота самой маленькой модели (мм)
+  baseMin     Float?                   // База самой маленькой модели (мм)
+  assembly    String?                  // Сборка (например "Требуется склейка")
+  contents    String?                  // Комплектация (например "5")
+  artist      String?                  // Художник
+
+  // Старые поля (оставлены для обратной совместимости)
+  gameSystem  String   @default("")
+  scale       String   @default("32mm")
+  type        String   @default("unknown")
+  faction     String?
+  fileFormat  String   @default("STL")
+  tags        String   @default("")
+
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+model CartItem {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  productArticle String
+  product        Product  @relation(fields: [productArticle], references: [article])
+  quantity       Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Order {
-  id             String      @id @default(cuid())
-  orderNumber    Int         @unique
+  id             String    @id @default(cuid())
+  orderNumber    Int       @unique
   userId         String?
-  user           User?       @relation(fields: [userId], references: [id])
+  user           User?     @relation(fields: [userId], references: [id])
   guestEmail     String?
   guestName      String?
   total          Int
-  discount       Int         @default(0)   // 🆕 сумма скидки в рублях
-  status         String      @default("processing")
+  discount       Int       @default(0)
   address        String
   phone          String?
   comment        String?
   deliveryMethod String?
   paymentMethod  String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  status         String    @default("processing")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  couponId       String?
+  coupon         Coupon?   @relation(fields: [couponId], references: [id])
   items          OrderItem[]
-  couponId       String?                   // 🆕 связь с купоном
-  coupon         Coupon?     @relation(fields: [couponId], references: [id])
 }
 
-// Товары в заказе
 model OrderItem {
-  id             String   @id @default(cuid())
-  orderId        String
-  order          Order    @relation(fields: [orderId], references: [id])
-  productArticle String
-  product        Product  @relation(fields: [productArticle], references: [article])
-  quantity       Int
+  id              String   @id @default(cuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  productArticle  String
+  product         Product  @relation(fields: [productArticle], references: [article])
+  quantity        Int
   priceAtPurchase Int
 }
 
-// Корзина
-model CartItem {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productArticle String
-  product        Product  @relation(fields: [productArticle], references: [article])
-  quantity       Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-// 🆕 Модель купона
 model Coupon {
-  id            String   @id @default(cuid())
-  code          String   @unique  // уникальный код, например "WELCOME10"
-  type          String   // "percent" или "fixed"
-  value         Int      // значение скидки (процент или сумма в рублях)
-  minOrderAmount Int?    // минимальная сумма заказа (опционально)
-  maxUses       Int?     // максимальное количество использований (null = безлимит)
-  usedCount     Int      @default(0)
-  validFrom     DateTime @default(now())
-  validUntil    DateTime? // срок действия (null = бессрочно)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  orders        Order[]  // заказы, в которых использован этот купон
+  id              String   @id @default(cuid())
+  code            String   @unique
+  type            String   // "percent" или "fixed"
+  value           Int
+  minOrderAmount  Int?
+  maxUses         Int?
+  usedCount       Int      @default(0)
+  validFrom       DateTime @default(now())
+  validUntil      DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders          Order[]
 }
 
 model Setting {
   key       String   @id
-  value     String   // храним как текст, для длинных текстов подходит
+  value     String
   updatedAt DateTime @updatedAt
 }
 ===== ./prisma/seed.ts =====
@@ -20916,7 +22384,21 @@ interface ImportProduct {
   fileFormat: string
   tags: string
   featured?: boolean
-  popularity?: number
+  // popularity?: number // ❌ удаляем, так как поле убрано из схемы
+  // 🆕 добавляем новые поля для импорта (если они есть в JSON)
+  filter1?: string
+  filter2?: string
+  filter3?: string
+  filter4?: string
+  filter5?: string
+  stock?: number
+  heightMax?: number
+  baseMax?: number
+  heightMin?: number
+  baseMin?: number
+  assembly?: string
+  contents?: string
+  artist?: string
 }
 
 const CATEGORY_SLUG_MAP: Record<string, string> = {
@@ -20976,6 +22458,7 @@ async function main() {
         name: rawName,
         slug: slug,
         image: null,
+        // 🆕 можно добавить значения по умолчанию для filter1Name... если нужно
       }
     })
     console.log(`➕ ${rawName} -> /category/${slug}`)
@@ -21013,11 +22496,31 @@ async function main() {
         data: {
           article: prod.article,
           name: prod.name,
+          searchName: prod.name.toLowerCase(), // 🆕 обязательно для поиска
           price: prod.price,
           oldPrice: prod.oldPrice || null,
           description: prod.description || '',
           images: prod.images || '',
           categoryId: category.id,
+          
+          // 🆕 Новые универсальные фильтры
+          filter1: prod.filter1 || null,
+          filter2: prod.filter2 || null,
+          filter3: prod.filter3 || null,
+          filter4: prod.filter4 || null,
+          filter5: prod.filter5 || null,
+          
+          // 🆕 Новые поля карточки товара
+          stock: prod.stock ?? 0,
+          heightMax: prod.heightMax || null,
+          baseMax: prod.baseMax || null,
+          heightMin: prod.heightMin || null,
+          baseMin: prod.baseMin || null,
+          assembly: prod.assembly || null,
+          contents: prod.contents || null,
+          artist: prod.artist || null,
+
+          // Старые поля
           gameSystem: prod.gameSystem || '',
           scale: prod.scale || '32mm',
           type: prod.type || 'unknown',
@@ -21025,7 +22528,7 @@ async function main() {
           fileFormat: prod.fileFormat || 'STL',
           tags: prod.tags || '',
           featured: prod.featured ?? false,
-          popularity: prod.popularity ?? 0,
+          // popularity: prod.popularity ?? 0, // ❌ удалено
         }
       })
       imported++
@@ -21074,36 +22577,53 @@ main()
 
 ===== ./proxy.ts =====
 // middleware.ts
-import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
+import { verifyTrustedToken, getTrustedCookieName } from "./lib/trustedDevice";
 
 export default withAuth(
-  function proxy(req) {
-    const token = req.nextauth.token
-    const path = req.nextUrl.pathname
+  function middleware(req) {
+    const token = req.nextauth.token;
+    const path = req.nextUrl.pathname;
 
-    // Защита админских маршрутов
-    if (path.startsWith("/admin") && token?.role !== "admin") {
-      return NextResponse.redirect(new URL("/", req.url))
+    if (path.startsWith("/admin")) {
+      if (token?.role !== "admin") {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+
+      // Проверяем 2FA
+      if (token?.twoFactorEnabled && !token?.twoFactorVerified) {
+        const trustedCookie = req.cookies.get(getTrustedCookieName());
+        let isTrusted = false;
+        if (trustedCookie?.value) {
+          const userId = verifyTrustedToken(trustedCookie.value);
+          isTrusted = userId === token.id;
+        }
+
+        if (!isTrusted) {
+          const url = new URL("/auth/2fa", req.url);
+          url.searchParams.set("callbackUrl", path);
+          return NextResponse.redirect(url);
+        }
+      }
     }
 
-    // Защита личного кабинета
     if (path.startsWith("/account") && !token) {
-      return NextResponse.redirect(new URL("/login", req.url))
+      return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    return NextResponse.next()
+    return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token, // по умолчанию требуется авторизация
+      authorized: ({ token }) => !!token,
     },
   }
-)
+);
 
 export const config = {
   matcher: ["/account/:path*", "/admin/:path*"],
-}
+};
 ===== ./public/file.svg =====
 <svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
 ===== ./public/globe.svg =====
@@ -21162,6 +22682,124 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+===== ./scripts/backup.js =====
+/**
+ * Скрипт для резервного копирования базы данных SQLite (dev.db)
+ * 
+ * Как работает:
+ * 1. Копирует файл базы данных в папку backups с именем, содержащим дату и время.
+ * 2. Удаляет файлы старше 30 дней (можно настроить).
+ * 
+ * Запускать ежедневно через планировщик задач (Windows Task Scheduler) или cron.
+ * 
+ * Пример команды: npm run backup
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// ================= НАСТРОЙКИ =================
+// Путь к файлу базы данных (укажи абсолютный путь)
+const DB_PATH = 'X:/server/dev.db';
+
+// Папка для хранения резервных копий
+const BACKUP_DIR = 'X:/server/backups';
+
+// Сколько дней хранить резервные копии (0 = не удалять)
+const RETENTION_DAYS = 30;
+// =============================================
+
+/**
+ * Форматирует дату в строку YYYY-MM-DD_HH-mm-ss
+ */
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+}
+
+/**
+ * Создаёт резервную копию базы данных
+ */
+function createBackup() {
+  // Проверяем, существует ли исходный файл
+  if (!fs.existsSync(DB_PATH)) {
+    console.error(`❌ Файл базы данных не найден: ${DB_PATH}`);
+    process.exit(1);
+  }
+
+  // Создаём папку для резервных копий, если её нет
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    console.log(`📁 Создана папка для резервных копий: ${BACKUP_DIR}`);
+  }
+
+  // Формируем имя файла резервной копии
+  const timestamp = formatDate(new Date());
+  const backupFileName = `dev_${timestamp}.db`;
+  const backupFilePath = path.join(BACKUP_DIR, backupFileName);
+
+  try {
+    // Копируем файл
+    fs.copyFileSync(DB_PATH, backupFilePath);
+    console.log(`✅ Резервная копия создана: ${backupFilePath}`);
+  } catch (error) {
+    console.error(`❌ Ошибка при копировании: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Удаляет резервные копии старше указанного количества дней
+ */
+function cleanupOldBackups() {
+  if (RETENTION_DAYS <= 0) {
+    console.log('ℹ️ Автоматическое удаление старых копий отключено (RETENTION_DAYS = 0)');
+    return;
+  }
+
+  const now = Date.now();
+  const maxAgeMs = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+  // Читаем все файлы из папки backups
+  const files = fs.readdirSync(BACKUP_DIR);
+  let deletedCount = 0;
+
+  files.forEach(file => {
+    // Пропускаем не .db файлы
+    if (!file.endsWith('.db')) return;
+
+    const filePath = path.join(BACKUP_DIR, file);
+    const stats = fs.statSync(filePath);
+    const fileAge = now - stats.mtimeMs;
+
+    if (fileAge > maxAgeMs) {
+      try {
+        fs.unlinkSync(filePath);
+        deletedCount++;
+        console.log(`🗑️ Удалена старая копия: ${file}`);
+      } catch (error) {
+        console.error(`⚠️ Не удалось удалить ${file}: ${error.message}`);
+      }
+    }
+  });
+
+  if (deletedCount > 0) {
+    console.log(`🧹 Удалено старых копий: ${deletedCount}`);
+  } else {
+    console.log('ℹ️ Старых копий для удаления не найдено');
+  }
+}
+
+// ========== ЗАПУСК ==========
+console.log('🚀 Запуск резервного копирования базы данных...');
+createBackup();
+cleanupOldBackups();
+console.log('✨ Готово.');
 ===== ./tailwind.config.js =====
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -21317,6 +22955,7 @@ import "next-auth"
 declare module "next-auth" {
   interface User {
     role?: string
+    twoFactorEnabled?: boolean
   }
   interface Session {
     user: {
@@ -21324,6 +22963,8 @@ declare module "next-auth" {
       email: string
       name?: string | null
       role?: string
+      twoFactorEnabled?: boolean
+      twoFactorVerified?: boolean
     }
   }
 }
@@ -21332,5 +22973,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: string
     id?: string
+    twoFactorEnabled?: boolean
+    twoFactorVerified?: boolean
   }
 }

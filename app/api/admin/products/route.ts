@@ -31,7 +31,6 @@ export async function GET(request: Request) {
     where.category = { slug: category }
   }
 
-  // Формируем объект сортировки
   let orderBy: any = {}
   switch (sortBy) {
     case 'price':
@@ -77,7 +76,19 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json()
-  const { article, name, price, oldPrice, description, images, categoryId, gameSystem, scale, type, faction, fileFormat, tags, inStock, featured } = data
+  
+  // 🆕 Деструктурируем все новые поля
+  const {
+    article, name, price, oldPrice, description, images, categoryId,
+    gameSystem, scale, type, faction, fileFormat, tags, featured,
+    filter1, filter2, filter3, filter4, filter5,
+    stock,                // Количество
+    heightMax, baseMax,   // Самая большая модель
+    heightMin, baseMin,   // Самая маленькая модель
+    assembly,             // Сборка
+    contents,             // Комплектация
+    artist                // Художник
+  } = data
 
   if (!article || !name || !price || !categoryId) {
     return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 })
@@ -98,6 +109,25 @@ export async function POST(request: Request) {
       description: description || '',
       images: Array.isArray(images) ? images.join(',') : images || '',
       categoryId,
+      
+      // 🆕 Новые универсальные фильтры
+      filter1: filter1 || null,
+      filter2: filter2 || null,
+      filter3: filter3 || null,
+      filter4: filter4 || null,
+      filter5: filter5 || null,
+      
+      // 🆕 Новые поля для карточки товара
+      stock: stock !== undefined ? parseInt(stock) : 0,
+      heightMax: heightMax ? parseFloat(heightMax) : null,
+      baseMax: baseMax ? parseFloat(baseMax) : null,
+      heightMin: heightMin ? parseFloat(heightMin) : null,
+      baseMin: baseMin ? parseFloat(baseMin) : null,
+      assembly: assembly || null,
+      contents: contents || null,
+      artist: artist || null,
+      
+      // Старые поля (оставляем для обратной совместимости)
       gameSystem: gameSystem || '',
       scale: scale || '32mm',
       type: type || 'unknown',

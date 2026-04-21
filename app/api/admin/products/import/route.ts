@@ -33,20 +33,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Файл должен содержать заголовок и хотя бы одну строку данных' }, { status: 400 })
     }
 
-    // Определяем разделитель (запятая или точка с запятой)
     const firstLine = lines[0]
     const separator = firstLine.includes(';') ? ';' : ','
     
     const headers = firstLine.split(separator).map(h => h.trim())
+    
+    // 🆕 Ожидаемые заголовки (полный список)
     const expectedHeaders = [
       'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
-      'gameSystem', 'scale', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+      'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
+      'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
+      'scale', 'assembly', 'contents', 'artist',
+      'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
     ]
     
-    const missingHeaders = expectedHeaders.filter(h => !headers.includes(h))
-    if (missingHeaders.length > 0) {
+    // Проверяем наличие обязательных колонок (минимум)
+    const requiredHeaders = ['article', 'name', 'price', 'categorySlug']
+    const missingRequired = requiredHeaders.filter(h => !headers.includes(h))
+    if (missingRequired.length > 0) {
       return NextResponse.json({ 
-        error: `В CSV отсутствуют обязательные колонки: ${missingHeaders.join(', ')}` 
+        error: `В CSV отсутствуют обязательные колонки: ${missingRequired.join(', ')}` 
       }, { status: 400 })
     }
 
@@ -98,16 +104,34 @@ export async function POST(request: Request) {
         continue
       }
 
+      // 🆕 Собираем данные с новыми полями
       const productData = {
         article: record.article.trim(),
         name: record.name.trim(),
+        searchName: record.name.trim().toLowerCase(),
         price: price,
         oldPrice: record.oldPrice ? parseInt(record.oldPrice) || null : null,
         description: record.description?.trim() || '',
-        images: record.images?.trim() || '', // ← обработка images
+        images: record.images?.trim() || '',
         categoryId: categoryId,
-        gameSystem: record.gameSystem?.trim() || '',
+        // Динамические фильтры
+        filter1: record.filter1?.trim() || null,
+        filter2: record.filter2?.trim() || null,
+        filter3: record.filter3?.trim() || null,
+        filter4: record.filter4?.trim() || null,
+        filter5: record.filter5?.trim() || null,
+        // Новые поля
+        stock: record.stock ? parseInt(record.stock) || 0 : 0,
+        heightMax: record.heightMax ? parseFloat(record.heightMax) || null : null,
+        baseMax: record.baseMax ? parseFloat(record.baseMax) || null : null,
+        heightMin: record.heightMin ? parseFloat(record.heightMin) || null : null,
+        baseMin: record.baseMin ? parseFloat(record.baseMin) || null : null,
         scale: record.scale?.trim() || '32mm',
+        assembly: record.assembly?.trim() || null,
+        contents: record.contents?.trim() || null,
+        artist: record.artist?.trim() || null,
+        // Старые поля
+        gameSystem: record.gameSystem?.trim() || '',
         type: record.type?.trim() || 'unknown',
         faction: record.faction?.trim() || null,
         fileFormat: record.fileFormat?.trim() || 'STL',
@@ -147,9 +171,6 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * Разбирает строку CSV с учётом кавычек и выбранного разделителя.
- */
 function parseCSVLine(line: string, separator: string): string[] {
   const result: string[] = []
   let current = ''

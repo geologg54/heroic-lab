@@ -1,5 +1,4 @@
 // prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,125 +8,149 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Пользователь
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  password  String
-  role      String    @default("user")
-  twoFactorEnabled  Boolean   @default(false)  
-  twoFactorSecret   String?                    
-  createdAt DateTime  @default(now())
-  orders    Order[]
-  cartItems CartItem[]
+  id               String    @id @default(cuid())
+  name             String?
+  email            String    @unique
+  password         String
+  role             String    @default("user")
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  orders           Order[]
+  cartItems        CartItem[]
+
 }
 
-// Товар – первичный ключ article (уникальный артикул)
-model Product {
-  article        String      @id
-  name           String
-  searchName     String      @default("")   // временно с default
-  description    String
-  price          Int
-  oldPrice       Int?
-  images         String
-  categoryId     String
-  category       Category    @relation(fields: [categoryId], references: [id])
-  gameSystem     String
-  scale          String
-  type           String
-  faction        String?
-  fileFormat     String
-  tags           String
-  createdAt      DateTime    @default(now())
-  featured       Boolean     @default(false)
-  popularity     Int         @default(0)
-  orderItems     OrderItem[]
-  cartItems      CartItem[]
-
-  @@index([name])
-  @@index([article])
-  @@index([searchName])   // 🆕 индекс для ускорения поиска
-}
-
-// Категория
 model Category {
-  id       String    @id @default(cuid())
-  name     String
-  slug     String    @unique
-  image    String?
-  parentId String?
-  parent   Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryToCategory")
-  products Product[]
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  image       String?
+  parentId    String?
+  parent      Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToCategory")
+  products    Product[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  // 🆕 Названия динамических фильтров
+  filter1Name String?
+  filter2Name String?
+  filter3Name String?
+  filter4Name String?
+  filter5Name String?
 }
 
-// Заказ
+model Product {
+  article     String   @id
+  name        String
+  searchName  String   // для поиска (нижний регистр)
+  price       Int
+  oldPrice    Int?
+  description String   @default("")
+  images      String   @default("")
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  // 🆕 Динамические фильтры
+  filter1     String?
+  filter2     String?
+  filter3     String?
+  filter4     String?
+  filter5     String?
+
+  // 🆕 Новые поля карточки товара
+  stock       Int      @default(0)      // Количество
+  heightMax   Float?                   // Высота самой большой модели (мм)
+  baseMax     Float?                   // База самой большой модели (мм)
+  heightMin   Float?                   // Высота самой маленькой модели (мм)
+  baseMin     Float?                   // База самой маленькой модели (мм)
+  assembly    String?                  // Сборка (например "Требуется склейка")
+  contents    String?                  // Комплектация (например "5")
+  artist      String?                  // Художник
+
+  // Старые поля (оставлены для обратной совместимости)
+  gameSystem  String   @default("")
+  scale       String   @default("32mm")
+  type        String   @default("unknown")
+  faction     String?
+  fileFormat  String   @default("STL")
+  tags        String   @default("")
+
+  featured    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+model CartItem {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  productArticle String
+  product        Product  @relation(fields: [productArticle], references: [article])
+  quantity       Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Order {
-  id             String      @id @default(cuid())
-  orderNumber    Int         @unique
+  id             String    @id @default(cuid())
+  orderNumber    Int       @unique
   userId         String?
-  user           User?       @relation(fields: [userId], references: [id])
+  user           User?     @relation(fields: [userId], references: [id])
   guestEmail     String?
   guestName      String?
   total          Int
-  discount       Int         @default(0)   // 🆕 сумма скидки в рублях
-  status         String      @default("processing")
+  discount       Int       @default(0)
   address        String
   phone          String?
   comment        String?
   deliveryMethod String?
   paymentMethod  String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  status         String    @default("processing")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  couponId       String?
+  coupon         Coupon?   @relation(fields: [couponId], references: [id])
   items          OrderItem[]
-  couponId       String?                   // 🆕 связь с купоном
-  coupon         Coupon?     @relation(fields: [couponId], references: [id])
 }
 
-// Товары в заказе
 model OrderItem {
-  id             String   @id @default(cuid())
-  orderId        String
-  order          Order    @relation(fields: [orderId], references: [id])
-  productArticle String
-  product        Product  @relation(fields: [productArticle], references: [article])
-  quantity       Int
+  id              String   @id @default(cuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  productArticle  String
+  product         Product  @relation(fields: [productArticle], references: [article])
+  quantity        Int
   priceAtPurchase Int
 }
 
-// Корзина
-model CartItem {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productArticle String
-  product        Product  @relation(fields: [productArticle], references: [article])
-  quantity       Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-// 🆕 Модель купона
 model Coupon {
-  id            String   @id @default(cuid())
-  code          String   @unique  // уникальный код, например "WELCOME10"
-  type          String   // "percent" или "fixed"
-  value         Int      // значение скидки (процент или сумма в рублях)
-  minOrderAmount Int?    // минимальная сумма заказа (опционально)
-  maxUses       Int?     // максимальное количество использований (null = безлимит)
-  usedCount     Int      @default(0)
-  validFrom     DateTime @default(now())
-  validUntil    DateTime? // срок действия (null = бессрочно)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  orders        Order[]  // заказы, в которых использован этот купон
+  id              String   @id @default(cuid())
+  code            String   @unique
+  type            String   // "percent" или "fixed"
+  value           Int
+  minOrderAmount  Int?
+  maxUses         Int?
+  usedCount       Int      @default(0)
+  validFrom       DateTime @default(now())
+  validUntil      DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders          Order[]
 }
 
 model Setting {
   key       String   @id
-  value     String   // храним как текст, для длинных текстов подходит
+  value     String
   updatedAt DateTime @updatedAt
 }

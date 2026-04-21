@@ -12,7 +12,6 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params
 
-  // Получаем все категории и ищем по slug (который теперь без пробелов)
   const categories = await getCategories()
   const category = categories.find(c => c.slug === slug)
 
@@ -20,11 +19,17 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     notFound()
   }
 
-  // Получаем товары категории
   const products = await getProductsByCategorySlug(slug)
 
-  // Подкатегории (если есть в данных)
   const subcategories = [...new Set(products.filter(p => p.subcategory).map(p => p.subcategory))]
+
+  const filterNames = {
+    filter1Name: category.filter1Name,
+    filter2Name: category.filter2Name,
+    filter3Name: category.filter3Name,
+    filter4Name: category.filter4Name,
+    filter5Name: category.filter5Name,
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -66,7 +71,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       )}
 
       <Suspense fallback={<div className="text-white text-center py-10">Загрузка товаров...</div>}>
-        <CategoryProductsWrapper products={products} />
+        <CategoryProductsWrapper products={products} filterNames={filterNames} />
       </Suspense>
     </div>
   )

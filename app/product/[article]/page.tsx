@@ -17,13 +17,11 @@ interface ProductPageProps {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { article } = await params
 
-  // Получаем товар по артикулу
   const product = await getProductByArticle(article)
   if (!product) {
     notFound()
   }
 
-  // Получаем все товары для блока "Похожие модели"
   const allProducts = await getProducts()
   const productCatSlug = typeof product.category === 'object' 
     ? product.category.slug 
@@ -36,7 +34,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     })
     .slice(0, 4)
 
-  // Хлебные крошки
   const categoryName = typeof product.category === 'object' 
     ? product.category.name 
     : product.categoryName || product.category
@@ -66,7 +63,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="text-sm line-through text-gray-500">{product.oldPrice} ₽</div>
           )}
           <p className="mt-4 text-gray-300">
-            {product.shortDesc || product.description.slice(0, 150) + '…'}
+            {product.description.slice(0, 150) + '…'}
           </p>
           <div className="mt-6 flex gap-4">
             <AddToCartButton product={product} />
@@ -82,6 +79,30 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <ProductMetadata product={product} />
       <ProductTabs product={product} />
+
+      {/* 🆕 Блок с данными для напарника — просто список всех полей */}
+      <div className="mt-8 p-6 bg-cardbg rounded-xl border border-borderLight">
+        <h2 className="text-xl font-bold text-white mb-4">Данные для карточки (фронтенд)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div><span className="text-gray-400">Артикул:</span> {product.article}</div>
+          <div><span className="text-gray-400">Название:</span> {product.name}</div>
+          <div><span className="text-gray-400">Цена:</span> {product.price} ₽</div>
+          <div><span className="text-gray-400">Старая цена:</span> {product.oldPrice ? `${product.oldPrice} ₽` : '—'}</div>
+          <div><span className="text-gray-400">Количество (stock):</span> {product.stock}</div>
+          <div><span className="text-gray-400">Высота самой большой модели (heightMax):</span> {product.heightMax ? `${product.heightMax} мм` : '—'}</div>
+          <div><span className="text-gray-400">База самой большой модели (baseMax):</span> {product.baseMax ? `${product.baseMax} мм` : '—'}</div>
+          <div><span className="text-gray-400">Высота самой маленькой модели (heightMin):</span> {product.heightMin ? `${product.heightMin} мм` : '—'}</div>
+          <div><span className="text-gray-400">База самой маленькой модели (baseMin):</span> {product.baseMin ? `${product.baseMin} мм` : '—'}</div>
+          <div><span className="text-gray-400">Масштаб (scale):</span> {product.scale}</div>
+          <div><span className="text-gray-400">Сборка (assembly):</span> {product.assembly || '—'}</div>
+          <div><span className="text-gray-400">Комплектация (contents):</span> {product.contents || '—'}</div>
+          <div><span className="text-gray-400">Художник (artist):</span> {product.artist || '—'}</div>
+          <div><span className="text-gray-400">Теги (tags):</span> {product.tags.join(', ')}</div>
+        </div>
+        <p className="text-xs text-gray-500 mt-4">
+          ⚠️ Этот блок временный — напарник может использовать эти данные для вёрстки карточки.
+        </p>
+      </div>
 
       {related.length > 0 && (
         <section className="mt-16">
