@@ -20,7 +20,21 @@ interface ImportProduct {
   fileFormat: string
   tags: string
   featured?: boolean
-  popularity?: number
+  // popularity?: number // ❌ удаляем, так как поле убрано из схемы
+  // 🆕 добавляем новые поля для импорта (если они есть в JSON)
+  filter1?: string
+  filter2?: string
+  filter3?: string
+  filter4?: string
+  filter5?: string
+  stock?: number
+  heightMax?: number
+  baseMax?: number
+  heightMin?: number
+  baseMin?: number
+  assembly?: string
+  contents?: string
+  artist?: string
 }
 
 const CATEGORY_SLUG_MAP: Record<string, string> = {
@@ -80,6 +94,7 @@ async function main() {
         name: rawName,
         slug: slug,
         image: null,
+        // 🆕 можно добавить значения по умолчанию для filter1Name... если нужно
       }
     })
     console.log(`➕ ${rawName} -> /category/${slug}`)
@@ -117,11 +132,31 @@ async function main() {
         data: {
           article: prod.article,
           name: prod.name,
+          searchName: prod.name.toLowerCase(), // 🆕 обязательно для поиска
           price: prod.price,
           oldPrice: prod.oldPrice || null,
           description: prod.description || '',
           images: prod.images || '',
           categoryId: category.id,
+          
+          // 🆕 Новые универсальные фильтры
+          filter1: prod.filter1 || null,
+          filter2: prod.filter2 || null,
+          filter3: prod.filter3 || null,
+          filter4: prod.filter4 || null,
+          filter5: prod.filter5 || null,
+          
+          // 🆕 Новые поля карточки товара
+          stock: prod.stock ?? 0,
+          heightMax: prod.heightMax || null,
+          baseMax: prod.baseMax || null,
+          heightMin: prod.heightMin || null,
+          baseMin: prod.baseMin || null,
+          assembly: prod.assembly || null,
+          contents: prod.contents || null,
+          artist: prod.artist || null,
+
+          // Старые поля
           gameSystem: prod.gameSystem || '',
           scale: prod.scale || '32mm',
           type: prod.type || 'unknown',
@@ -129,7 +164,7 @@ async function main() {
           fileFormat: prod.fileFormat || 'STL',
           tags: prod.tags || '',
           featured: prod.featured ?? false,
-          popularity: prod.popularity ?? 0,
+          // popularity: prod.popularity ?? 0, // ❌ удалено
         }
       })
       imported++

@@ -9,7 +9,19 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', slug: '', image: '', parentId: '' })
+  
+  // 🆕 Добавляем поля для названий фильтров в состояние формы
+  const [form, setForm] = useState({
+    name: '',
+    slug: '',
+    image: '',
+    parentId: '',
+    filter1Name: '',
+    filter2Name: '',
+    filter3Name: '',
+    filter4Name: '',
+    filter5Name: '',
+  })
 
   useEffect(() => {
     fetchCategories()
@@ -38,7 +50,10 @@ export default function AdminCategoriesPage() {
     if (res.ok) {
       setShowForm(false)
       setEditingId(null)
-      setForm({ name: '', slug: '', image: '', parentId: '' })
+      setForm({
+        name: '', slug: '', image: '', parentId: '',
+        filter1Name: '', filter2Name: '', filter3Name: '', filter4Name: '', filter5Name: ''
+      })
       fetchCategories()
     } else {
       const error = await res.json()
@@ -52,7 +67,13 @@ export default function AdminCategoriesPage() {
       name: cat.name,
       slug: cat.slug,
       image: cat.image || '',
-      parentId: cat.parentId || ''
+      parentId: cat.parentId || '',
+      // 🆕 Загружаем существующие названия фильтров
+      filter1Name: cat.filter1Name || '',
+      filter2Name: cat.filter2Name || '',
+      filter3Name: cat.filter3Name || '',
+      filter4Name: cat.filter4Name || '',
+      filter5Name: cat.filter5Name || '',
     })
     setShowForm(true)
   }
@@ -77,7 +98,10 @@ export default function AdminCategoriesPage() {
         <button
           onClick={() => {
             setEditingId(null)
-            setForm({ name: '', slug: '', image: '', parentId: '' })
+            setForm({
+              name: '', slug: '', image: '', parentId: '',
+              filter1Name: '', filter2Name: '', filter3Name: '', filter4Name: '', filter5Name: ''
+            })
             setShowForm(true)
           }}
           className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
@@ -86,13 +110,15 @@ export default function AdminCategoriesPage() {
         </button>
       </div>
 
+      {/* Модальное окно формы */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full my-auto">
             <h2 className="text-xl font-bold text-white mb-4">
               {editingId ? 'Редактировать категорию' : 'Новая категория'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Основные поля */}
               <input
                 type="text"
                 placeholder="Название"
@@ -126,6 +152,51 @@ export default function AdminCategoriesPage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+
+              {/* 🆕 Поля для названий динамических фильтров */}
+              <div className="border-t border-borderLight pt-4 mt-4">
+                <h3 className="text-white font-semibold mb-3">Названия фильтров для этой категории</h3>
+                <p className="text-gray-400 text-sm mb-3">Оставьте пустыми, если фильтр не нужен</p>
+                
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Фильтр 1 (например: Фракция)"
+                    value={form.filter1Name}
+                    onChange={e => setForm({ ...form, filter1Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 2 (например: Тип войск)"
+                    value={form.filter2Name}
+                    onChange={e => setForm({ ...form, filter2Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 3"
+                    value={form.filter3Name}
+                    onChange={e => setForm({ ...form, filter3Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 4"
+                    value={form.filter4Name}
+                    onChange={e => setForm({ ...form, filter4Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Фильтр 5"
+                    value={form.filter5Name}
+                    onChange={e => setForm({ ...form, filter5Name: e.target.value })}
+                    className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
+                  />
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <button type="submit" className="bg-accent px-4 py-2 rounded-lg text-white">
                   Сохранить
@@ -143,6 +214,7 @@ export default function AdminCategoriesPage() {
         </div>
       )}
 
+      {/* Таблица категорий */}
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">
@@ -150,6 +222,7 @@ export default function AdminCategoriesPage() {
               <th className="p-3">Название</th>
               <th className="p-3">Slug</th>
               <th className="p-3">Родитель</th>
+              <th className="p-3">Фильтры</th>
               <th className="p-3 text-center">Действия</th>
             </tr>
           </thead>
@@ -159,6 +232,12 @@ export default function AdminCategoriesPage() {
                 <td className="p-3">{cat.name}</td>
                 <td className="p-3">{cat.slug}</td>
                 <td className="p-3">{cat.parent?.name || '—'}</td>
+                <td className="p-3 text-sm text-gray-300">
+                  {/* Показываем, какие фильтры заданы */}
+                  {[cat.filter1Name, cat.filter2Name, cat.filter3Name, cat.filter4Name, cat.filter5Name]
+                    .filter(Boolean)
+                    .join(', ') || '—'}
+                </td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-3">
                     <button

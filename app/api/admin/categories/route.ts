@@ -24,7 +24,11 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json()
-  const { name, slug, image, parentId } = data
+  const { 
+    name, slug, image, parentId,
+    // 🆕 Принимаем названия фильтров
+    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name 
+  } = data
 
   if (!name || !slug) {
     return NextResponse.json({ error: 'Имя и slug обязательны' }, { status: 400 })
@@ -36,7 +40,10 @@ export async function POST(request: Request) {
   }
 
   const category = await prisma.category.create({
-    data: { name, slug, image, parentId }
+    data: { 
+      name, slug, image, parentId,
+      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+    }
   })
 
   return NextResponse.json(category, { status: 201 })

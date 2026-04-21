@@ -1,4 +1,4 @@
-// middleware.ts
+// proxy.ts
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import { verifyTrustedToken, getTrustedCookieName } from "./lib/trustedDevice";

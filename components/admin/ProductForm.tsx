@@ -9,12 +9,19 @@ interface Category {
   id: string
   name: string
   slug: string
+  filter1Name?: string | null
+  filter2Name?: string | null
+  filter3Name?: string | null
+  filter4Name?: string | null
+  filter5Name?: string | null
 }
 
 export const ProductForm = ({ productArticle }: { productArticle?: string }) => {
   const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  
   const [form, setForm] = useState({
     article: '',
     name: '',
@@ -29,7 +36,21 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
     faction: '',
     fileFormat: 'STL',
     tags: '',
-    featured: false
+    featured: false,
+    // 🆕 Новые поля
+    filter1: '',
+    filter2: '',
+    filter3: '',
+    filter4: '',
+    filter5: '',
+    stock: '0',
+    heightMax: '',
+    baseMax: '',
+    heightMin: '',
+    baseMin: '',
+    assembly: '',
+    contents: '',
+    artist: '',
   })
 
   useEffect(() => {
@@ -57,11 +78,29 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             faction: data.faction || '',
             fileFormat: data.fileFormat,
             tags: data.tags,
-            featured: data.featured
+            featured: data.featured,
+            filter1: data.filter1 || '',
+            filter2: data.filter2 || '',
+            filter3: data.filter3 || '',
+            filter4: data.filter4 || '',
+            filter5: data.filter5 || '',
+            stock: data.stock?.toString() || '0',
+            heightMax: data.heightMax?.toString() || '',
+            baseMax: data.baseMax?.toString() || '',
+            heightMin: data.heightMin?.toString() || '',
+            baseMin: data.baseMin?.toString() || '',
+            assembly: data.assembly || '',
+            contents: data.contents || '',
+            artist: data.artist || '',
           })
         })
     }
   }, [productArticle])
+
+  useEffect(() => {
+    const cat = categories.find(c => c.id === form.categoryId)
+    setSelectedCategory(cat || null)
+  }, [form.categoryId, categories])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target
@@ -77,6 +116,11 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
       ...form,
       price: parseInt(form.price),
       oldPrice: form.oldPrice ? parseInt(form.oldPrice) : null,
+      stock: parseInt(form.stock),
+      heightMax: form.heightMax ? parseFloat(form.heightMax) : null,
+      baseMax: form.baseMax ? parseFloat(form.baseMax) : null,
+      heightMin: form.heightMin ? parseFloat(form.heightMin) : null,
+      baseMin: form.baseMin ? parseFloat(form.baseMin) : null,
     }
 
     const url = productArticle
@@ -117,6 +161,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
+        {/* Основные поля */}
         <div>
           <label className="block text-white mb-1">Артикул*</label>
           <input
@@ -174,6 +219,69 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             ))}
           </select>
         </div>
+        
+        {/* Динамические фильтры на основе выбранной категории */}
+        {selectedCategory && (
+          <>
+            {selectedCategory.filter1Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter1Name}</label>
+                <input
+                  name="filter1"
+                  value={form.filter1}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter2Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter2Name}</label>
+                <input
+                  name="filter2"
+                  value={form.filter2}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter3Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter3Name}</label>
+                <input
+                  name="filter3"
+                  value={form.filter3}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter4Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter4Name}</label>
+                <input
+                  name="filter4"
+                  value={form.filter4}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+            {selectedCategory.filter5Name && (
+              <div>
+                <label className="block text-white mb-1">{selectedCategory.filter5Name}</label>
+                <input
+                  name="filter5"
+                  value={form.filter5}
+                  onChange={handleChange}
+                  className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Старые поля (можно оставить для совместимости) */}
         <div>
           <label className="block text-white mb-1">Система</label>
           <input
@@ -219,6 +327,94 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
         </div>
+
+        {/* 🆕 Новые поля для карточки товара */}
+        <div>
+          <label className="block text-white mb-1">Количество</label>
+          <input
+            name="stock"
+            type="number"
+            min="0"
+            value={form.stock}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Высота самой большой модели (мм)</label>
+          <input
+            name="heightMax"
+            type="number"
+            step="0.1"
+            value={form.heightMax}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">База самой большой модели (мм)</label>
+          <input
+            name="baseMax"
+            type="number"
+            step="0.1"
+            value={form.baseMax}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Высота самой маленькой модели (мм)</label>
+          <input
+            name="heightMin"
+            type="number"
+            step="0.1"
+            value={form.heightMin}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">База самой маленькой модели (мм)</label>
+          <input
+            name="baseMin"
+            type="number"
+            step="0.1"
+            value={form.baseMin}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Сборка</label>
+          <input
+            name="assembly"
+            value={form.assembly}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Комплектация (число моделей)</label>
+          <input
+            name="contents"
+            type="number"
+            min="0"
+            value={form.contents}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Художник</label>
+          <input
+            name="artist"
+            value={form.artist}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+
+        {/* Общие поля */}
         <div>
           <label className="block text-white mb-1">Теги (через запятую)</label>
           <input
@@ -247,7 +443,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
         </div>
-                <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6">
           <label className="flex items-center gap-2 text-white">
             <input
               type="checkbox"
