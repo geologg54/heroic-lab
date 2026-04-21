@@ -4,14 +4,37 @@ import { useCart } from '@/hooks/useCart'
 import Link from 'next/link'
 import Image from 'next/image'
 import CartItem from '@/components/cart/CartItem'
+import { useEffect, useState } from 'react'
+
+// Массив комплиментов
+const compliments = [
+  'Выбор, достойный прославленного вождя',
+  'Гоблины перешептываются: «Какой проницательный покупатель! Отличный выбор!»',
+  'Даже истинный ценитель признал бы, что вы выбрали лучшие миниатюры. Браво!',
+  '*Тени шепчут одобрительно* — вы выбрали лучшие миниатюры',
+  '[Проверка проницательности] — критический успех! Вы выбрали идеальные миниатюры',
+  'Вы распознали истинные сокровища среди множества вариантов. Отличный выбор!',
+  'Отличный выбор! Эти миниатюры ждут эпичных сражений',
+  'Ваше чувство вкуса невозможно утаить',
+  'Капитан, вы подобрали безупречную команду миниатюр',
+  'Мудрость вождя и глаз стратега — вы подобрали идеальный отряд',
+  'Тени древних героев одобряют ваш выбор',
+  'Вы тонко чувствуете детали, это будет мудрым приобретением',
+]
 
 export default function CartPage() {
   const { items, totalPrice, clearCart } = useCart()
+  const [compliment, setCompliment] = useState('')
+
+  useEffect(() => {
+    // Выбираем случайный комплимент при монтировании
+    const randomIndex = Math.floor(Math.random() * compliments.length)
+    setCompliment(compliments[randomIndex])
+  }, [])
 
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        {/* Кастомный блок пустой корзины с адаптивным размером картинки */}
         <div className="flex flex-col items-center py-20 px-4">
           <div className="relative w-32 h-32 md:w-64 md:h-64 mb-4">
             <Image
@@ -22,7 +45,7 @@ export default function CartPage() {
             />
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Корзина пуста</h2>
-          <p className="text-gray-400 mb-6">Наполните её миниатюрами, достойными вашего приключения!</p>
+          <p className="text-gray-400 mb-6">Добавьте товары из каталога</p>
         </div>
         
         <div className="mt-6">
@@ -30,7 +53,7 @@ export default function CartPage() {
             href="/catalog"
             className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
           >
-            перейти в каталог
+            Перейти в каталог
           </Link>
         </div>
       </div>
@@ -39,7 +62,10 @@ export default function CartPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Корзина</h1>
+      {/* Случайный комплимент вместо заголовка */}
+      <h1 className="text-3xl font-bold text-white mb-2">{compliment}</h1>
+      <p className="text-gray-400 text-lg mb-6">Речь о вашей корзине:</p>
+
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
           {items.map(item => <CartItem key={item.product.article} item={item} />)}

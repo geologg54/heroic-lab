@@ -28,3 +28,9 @@ Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or pa
 [2026-04-20T15:11:06.849Z] Ошибка отправки письма на ivan.pust2@gmail.com (тема: Ваш заказ №100005 принят)
 Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776697738-w8T6MG0RBW20
 
+[2026-04-21T10:48:03.032Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100006 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776768485-5mPuMC7SDSw0
+
+[2026-04-21T10:48:03.044Z] Ошибка отправки письма на ventalpt@gmail.com (тема: Ваш заказ №100006 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776768485-5mPeBu8Qs0U0
+
