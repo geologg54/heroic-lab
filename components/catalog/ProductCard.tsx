@@ -9,7 +9,9 @@ import type { Product } from '@/types'
 export const ProductCard = ({ product }: { product: Product }) => {
   const { addToCart } = useCart()
   const hasImage = product.image && product.image.trim() !== ''
-  const heightMm = product.scale?.replace(/[^0-9]/g, '') || '?'
+
+  // Определяем, что показывать в качестве высоты
+  const heightDisplay = product.heightMax ? `${product.heightMax} мм` : '—'
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -39,7 +41,7 @@ export const ProductCard = ({ product }: { product: Product }) => {
 
         {/* Название товара */}
         <div className="pt-6 pb-6 pl-4 pr-4">
-          <h3 className="text-white font-extrabold text-[24px] leading-tight tracking-tight line-clamp-2">
+          <h3 className="text-white font-extrabold leading-tight tracking-tight line-clamp-2 text-[clamp(1rem,1.5vw,1.8rem)]">
             {product.name}
           </h3>
         </div>
@@ -51,23 +53,22 @@ export const ProductCard = ({ product }: { product: Product }) => {
               <img
                 src="/sizeicon.png"
                 alt="Высота модели"
-                width={22}
-                height={22}
-                className="w-[22px] h-[22px]"
+                className="w-[clamp(18px,3vw,24px)] h-[clamp(18px,3vw,24px)]"
               />
-              <span className="text-white font-normal text-[22px] leading-none">
-                {heightMm} мм
+              {/* Высота модели — теперь берется из heightMax и имеет тот же размер шрифта, что и цена */}
+              <span className="text-white font-normal leading-none text-[clamp(1rem,1.5vw,1.75rem)]">
+                {heightDisplay}
               </span>
             </div>
             <div>
-              <span className="text-white font-normal text-[22px] leading-none">
+              <span className="text-white font-normal leading-none text-[clamp(1rem,1.5vw,1.75rem)]">
                 {product.price} ₽
               </span>
             </div>
           </div>
           <button
             onClick={handleAddToCart}
-            className="w-[70px] rounded-[15px] border border-white/0 bg-transparent hover:bg-white transition-colors duration-200 flex items-center justify-center py-3 group/btn"
+            className="w-[clamp(60px,12vw,90px)] rounded-[15px] border border-white/0 bg-transparent hover:bg-white transition-colors duration-200 flex items-center justify-center py-3 group/btn"
           >
             <img
               src="/cardicon.png"
