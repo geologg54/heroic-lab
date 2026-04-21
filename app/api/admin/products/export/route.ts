@@ -31,8 +31,7 @@ export async function GET(request: Request) {
     'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
     'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
     'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
-    'scale', 'assembly', 'contents', 'artist',
-    'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+    'scale', 'assembly', 'contents', 'artist', 'tags', 'images'
   ]
 
   const rows = products.map(p => [
@@ -56,13 +55,8 @@ export async function GET(request: Request) {
     p.assembly || '',
     p.contents || '',
     p.artist || '',
-    p.gameSystem || '',
-    p.type || '',
-    p.faction || '',
-    p.fileFormat || '',
     `"${p.tags.replace(/"/g, '""')}"`,
-    `"${p.images.replace(/"/g, '""')}"`,
-    p.featured ? 'true' : 'false'
+    `"${p.images.replace(/"/g, '""')}"`
   ])
 
   const separator = ';'

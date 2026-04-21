@@ -17,14 +17,13 @@ export async function GET(request: Request) {
   
   const articlesParam = searchParams.get('articles')
 
-  // 🆕 Множественные фильтры — получаем все значения для каждого ключа
   const filter1 = searchParams.getAll('filter1')
   const filter2 = searchParams.getAll('filter2')
   const filter3 = searchParams.getAll('filter3')
   const filter4 = searchParams.getAll('filter4')
   const filter5 = searchParams.getAll('filter5')
   const tags = searchParams.getAll('tags')
-  const scales = searchParams.getAll('scale') // масштаб тоже может быть множественным
+  const scales = searchParams.getAll('scale')
 
   const where: any = {}
 
@@ -46,56 +45,19 @@ export async function GET(request: Request) {
     where.searchName = { contains: search.toLowerCase() }
   }
   
-  // 🆕 Для каждого множественного фильтра добавляем условие "содержит любое из"
-  if (filter1.length > 0) {
-    where.OR = where.OR || []
-    filter1.forEach(val => {
-      where.OR.push({ filter1: { contains: val } })
-    })
+  const orConditions: any[] = []
+  
+  if (filter1.length > 0) filter1.forEach(val => orConditions.push({ filter1: { contains: val } }))
+  if (filter2.length > 0) filter2.forEach(val => orConditions.push({ filter2: { contains: val } }))
+  if (filter3.length > 0) filter3.forEach(val => orConditions.push({ filter3: { contains: val } }))
+  if (filter4.length > 0) filter4.forEach(val => orConditions.push({ filter4: { contains: val } }))
+  if (filter5.length > 0) filter5.forEach(val => orConditions.push({ filter5: { contains: val } }))
+  if (tags.length > 0) tags.forEach(val => orConditions.push({ tags: { contains: val } }))
+  if (scales.length > 0) scales.forEach(val => orConditions.push({ scale: { contains: val } }))
+  
+  if (orConditions.length > 0) {
+    where.OR = orConditions
   }
-  if (filter2.length > 0) {
-    where.OR = where.OR || []
-    filter2.forEach(val => {
-      where.OR.push({ filter2: { contains: val } })
-    })
-  }
-  if (filter3.length > 0) {
-    where.OR = where.OR || []
-    filter3.forEach(val => {
-      where.OR.push({ filter3: { contains: val } })
-    })
-  }
-  if (filter4.length > 0) {
-    where.OR = where.OR || []
-    filter4.forEach(val => {
-      where.OR.push({ filter4: { contains: val } })
-    })
-  }
-  if (filter5.length > 0) {
-    where.OR = where.OR || []
-    filter5.forEach(val => {
-      where.OR.push({ filter5: { contains: val } })
-    })
-  }
-  if (tags.length > 0) {
-    where.OR = where.OR || []
-    tags.forEach(val => {
-      where.OR.push({ tags: { contains: val } })
-    })
-  }
-  if (scales.length > 0) {
-    where.OR = where.OR || []
-    scales.forEach(val => {
-      where.OR.push({ scale: { contains: val } })
-    })
-  }
-
-  // Если есть несколько групп условий, нужно чтобы они применялись через AND
-  // Но Prisma не умеет комбинировать несколько OR автоматически, поэтому
-  // если мы добавили несколько OR-массивов, нужно их объединить через AND
-  // Для простоты пока оставим как есть — каждый фильтр добавляет свои условия в общий OR.
-  // Это значит, что товар будет найден, если соответствует хотя бы одному из выбранных значений в любом фильтре.
-  // Если нужно строгое "И" между разными фильтрами, логику нужно усложнить.
 
   let orderBy: any = {}
   switch (sort) {
