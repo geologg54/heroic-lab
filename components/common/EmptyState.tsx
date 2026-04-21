@@ -8,11 +8,20 @@ interface EmptyStateProps {
   actionLink?: string
   actionText?: string
   image?: string
-  imageClassName?: string // 🆕 дополнительные классы для контейнера картинки
+  imageClassName?: string
+  className?: string // 🆕 возможность переопределить стили контейнера
 }
 
-export const EmptyState = ({ title, message, actionLink, actionText, image, imageClassName }: EmptyStateProps) => (
-  <div className="text-center py-20 px-4">
+export const EmptyState = ({ 
+  title, 
+  message, 
+  actionLink, 
+  actionText, 
+  image, 
+  imageClassName,
+  className = '' 
+}: EmptyStateProps) => (
+  <div className={`text-center px-4 ${className}`}>
     {image ? (
       <div className={`relative mx-auto mb-4 ${imageClassName || 'w-32 h-32'}`}>
         <Image 

@@ -44,12 +44,13 @@ export default function FavoritesPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-white mb-8">Избранное</h1>
       {favoriteProducts.length === 0 ? (
-        <div className="text-center py-4 md:py-5">
+        <div className="text-center">
           <EmptyState
             title="Нет избранных моделей"
-            message="Добавьте товары в избранное, нажав на сердечко"
+            message="Нажмите на сердечко на странице товара"
             image="/no-favor.png"
             imageClassName="w-64 h-64"
+            className="py-10 md:py-20"
           />
           <div className="mt-6">
             <Link
