@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Product } from '@/types'
-import { SlidersHorizontal, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 
 export interface FilterState {
@@ -32,8 +32,19 @@ interface FilterPanelProps {
     filter4Name?: string | null
     filter5Name?: string | null
   }
-  // 🆕 Список всех категорий (не зависит от товаров)
   allCategories?: string[]
+  // Полные списки опций (кроме тегов) – они не меняются при фильтрации
+  allFilterOptions?: {
+    categories: string[]
+    filter1: string[]
+    filter2: string[]
+    filter3: string[]
+    filter4: string[]
+    filter5: string[]
+    scales: string[]
+  }
+  // Динамический список тегов, который приходит из CatalogContent
+  availableTags?: string[]
 }
 
 export const FilterPanel = ({ 
@@ -42,7 +53,9 @@ export const FilterPanel = ({
   hidePriceSlider = false, 
   hideMobileButton = false,
   filterNames = {},
-  allCategories = []
+  allCategories = [],
+  allFilterOptions,
+  availableTags = [],
 }: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
@@ -72,23 +85,38 @@ export const FilterPanel = ({
     scales: false,
   })
 
+  // Состояние для пагинации тегов
+  const [tagsPage, setTagsPage] = useState(1)
+  const tagsPerPage = 10
+
   const prevFiltersRef = useRef<FilterState>(filters)
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  // Собираем уникальные значения для фильтров из товаров
-  const filterOptions = {
-    // Категории берём из пропса, если он передан, иначе из товаров
-    categories: allCategories.length > 0 
-      ? allCategories 
-      : [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
-    filter1: [...new Set(products.flatMap(p => (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter2: [...new Set(products.flatMap(p => (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter3: [...new Set(products.flatMap(p => (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter4: [...new Set(products.flatMap(p => (p.filter4 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter5: [...new Set(products.flatMap(p => (p.filter5 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    tags: [...new Set(products.flatMap(p => p.tags))],
-    scales: [...new Set(products.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))],
+  // Определяем, какие опции использовать для каждой секции
+  // Для категорий, filter1-5, scales используем allFilterOptions (если передан)
+  // Для тегов используем availableTags
+  const getSectionOptions = (sectionKey: string): string[] => {
+    if (sectionKey === 'tags') {
+      return availableTags
+    }
+    if (allFilterOptions) {
+      return (allFilterOptions as any)[sectionKey] || []
+    }
+    // fallback (если allFilterOptions не передан) – вычисляем из products
+    if (sectionKey === 'categories') {
+      return allCategories.length > 0 
+        ? allCategories 
+        : [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))]
+    }
+    if (sectionKey.startsWith('filter')) {
+      const num = sectionKey.replace('filter', '')
+      return [...new Set(products.flatMap(p => (p[`filter${num}` as keyof Product] as string || '').split(',').map(s => s.trim()).filter(Boolean)))]
+    }
+    if (sectionKey === 'scales') {
+      return [...new Set(products.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))]
+    }
+    return []
   }
 
   const toggleSection = (section: string) => {
@@ -97,7 +125,7 @@ export const FilterPanel = ({
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
     setFilters(prev => {
-      const current = prev[key] as string[] // теперь гарантированно массив
+      const current = prev[key] as string[]
       return {
         ...prev,
         [key]: current.includes(value) ? current.filter(v => v !== value) : [...current, value]
@@ -121,6 +149,7 @@ export const FilterPanel = ({
       fileFormats: [],
     })
     setPriceMax(3500)
+    setTagsPage(1) // сбрасываем страницу тегов
   }
 
   const applyFilters = useCallback(() => {
@@ -194,6 +223,8 @@ export const FilterPanel = ({
     const priceChanged = prevPriceMaxRef.current !== priceMax
     if (filtersChanged || priceChanged) {
       applyFilters()
+      // При изменении фильтров сбрасываем страницу тегов на первую
+      setTagsPage(1)
     }
     prevFiltersRef.current = filters
     prevPriceMaxRef.current = priceMax
@@ -210,9 +241,10 @@ export const FilterPanel = ({
     { key: 'scales', title: 'Масштаб' },
   ].filter(section => {
     if (section.key === 'categories' || section.key === 'tags' || section.key === 'scales') return true
-    return section.title && filterOptions[section.key as keyof typeof filterOptions]?.length > 0
+    return section.title && getSectionOptions(section.key).length > 0
   })
 
+  // Компонент для отображения секции с чекбоксами
   const FilterSection = ({ title, sectionKey, options, selected }: { 
     title: string; 
     sectionKey: string; 
@@ -220,6 +252,14 @@ export const FilterPanel = ({
     selected: string[] 
   }) => {
     const isExpanded = expandedSections[sectionKey]
+    const isTagsSection = sectionKey === 'tags'
+    
+    // Пагинация для тегов
+    const totalPages = Math.ceil(options.length / tagsPerPage)
+    const startIndex = (tagsPage - 1) * tagsPerPage
+    const endIndex = startIndex + tagsPerPage
+    const visibleOptions = isTagsSection ? options.slice(startIndex, endIndex) : options
+
     return (
       <div className="pb-3">
         <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
@@ -228,7 +268,7 @@ export const FilterPanel = ({
         </button>
         {isExpanded && (
           <div className="mt-2 space-y-1">
-            {options.map(opt => (
+            {visibleOptions.map(opt => (
               <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
                 <input 
                   type="checkbox" 
@@ -237,6 +277,26 @@ export const FilterPanel = ({
                 /> {opt}
               </label>
             ))}
+            {/* Пагинация для тегов */}
+            {isTagsSection && totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => setTagsPage(p => Math.max(1, p - 1))}
+                  disabled={tagsPage === 1}
+                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs text-gray-400">{tagsPage} / {totalPages}</span>
+                <button
+                  onClick={() => setTagsPage(p => Math.min(totalPages, p + 1))}
+                  disabled={tagsPage === totalPages}
+                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -259,7 +319,7 @@ export const FilterPanel = ({
               key={section.key}
               title={section.title}
               sectionKey={section.key}
-              options={filterOptions[section.key as keyof typeof filterOptions] || []}
+              options={getSectionOptions(section.key)}
               selected={filters[section.key as keyof FilterState] as string[]}
             />
           ))}
@@ -295,7 +355,7 @@ export const FilterPanel = ({
                   key={section.key}
                   title={section.title}
                   sectionKey={section.key}
-                  options={filterOptions[section.key as keyof typeof filterOptions] || []}
+                  options={getSectionOptions(section.key)}
                   selected={filters[section.key as keyof FilterState] as string[]}
                 />
               ))}
