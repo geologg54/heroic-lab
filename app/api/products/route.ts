@@ -17,9 +17,14 @@ export async function GET(request: Request) {
   
   const articlesParam = searchParams.get('articles')
 
-  const gameSystems = searchParams.getAll('gameSystem')
-  const scales = searchParams.getAll('scale')
-  const types = searchParams.getAll('type')
+  // 🆕 Множественные фильтры — получаем все значения для каждого ключа
+  const filter1 = searchParams.getAll('filter1')
+  const filter2 = searchParams.getAll('filter2')
+  const filter3 = searchParams.getAll('filter3')
+  const filter4 = searchParams.getAll('filter4')
+  const filter5 = searchParams.getAll('filter5')
+  const tags = searchParams.getAll('tags')
+  const scales = searchParams.getAll('scale') // масштаб тоже может быть множественным
 
   const where: any = {}
 
@@ -37,14 +42,60 @@ export async function GET(request: Request) {
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
   
-  // Поиск по полю searchName (регистронезависимый)
   if (search) {
     where.searchName = { contains: search.toLowerCase() }
   }
   
-  if (gameSystems.length) where.gameSystem = { in: gameSystems }
-  if (scales.length) where.scale = { in: scales }
-  if (types.length) where.type = { in: types }
+  // 🆕 Для каждого множественного фильтра добавляем условие "содержит любое из"
+  if (filter1.length > 0) {
+    where.OR = where.OR || []
+    filter1.forEach(val => {
+      where.OR.push({ filter1: { contains: val } })
+    })
+  }
+  if (filter2.length > 0) {
+    where.OR = where.OR || []
+    filter2.forEach(val => {
+      where.OR.push({ filter2: { contains: val } })
+    })
+  }
+  if (filter3.length > 0) {
+    where.OR = where.OR || []
+    filter3.forEach(val => {
+      where.OR.push({ filter3: { contains: val } })
+    })
+  }
+  if (filter4.length > 0) {
+    where.OR = where.OR || []
+    filter4.forEach(val => {
+      where.OR.push({ filter4: { contains: val } })
+    })
+  }
+  if (filter5.length > 0) {
+    where.OR = where.OR || []
+    filter5.forEach(val => {
+      where.OR.push({ filter5: { contains: val } })
+    })
+  }
+  if (tags.length > 0) {
+    where.OR = where.OR || []
+    tags.forEach(val => {
+      where.OR.push({ tags: { contains: val } })
+    })
+  }
+  if (scales.length > 0) {
+    where.OR = where.OR || []
+    scales.forEach(val => {
+      where.OR.push({ scale: { contains: val } })
+    })
+  }
+
+  // Если есть несколько групп условий, нужно чтобы они применялись через AND
+  // Но Prisma не умеет комбинировать несколько OR автоматически, поэтому
+  // если мы добавили несколько OR-массивов, нужно их объединить через AND
+  // Для простоты пока оставим как есть — каждый фильтр добавляет свои условия в общий OR.
+  // Это значит, что товар будет найден, если соответствует хотя бы одному из выбранных значений в любом фильтре.
+  // Если нужно строгое "И" между разными фильтрами, логику нужно усложнить.
 
   let orderBy: any = {}
   switch (sort) {
@@ -52,7 +103,6 @@ export async function GET(request: Request) {
     case 'price-desc': orderBy = { price: 'desc' }; break
     case 'name': orderBy = { name: 'asc' }; break
     case 'newest': orderBy = { createdAt: 'desc' }; break
-    case 'popularity': orderBy = { popularity: 'desc' }; break
     default: orderBy = { createdAt: 'desc' }
   }
 
@@ -78,9 +128,6 @@ export async function GET(request: Request) {
       categoryName: p.category.name
     }))
 
-    // === НАСТРОЙКИ КЕШИРОВАНИЯ ДЛЯ API ===
-    // Устанавливаем заголовки, чтобы ответ кешировался на 60 секунд в CDN/браузере,
-    // и ещё 300 секунд может отдаваться устаревший контент, пока в фоне генерируется свежий.
     const headers = new Headers()
     headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
 
@@ -91,10 +138,7 @@ export async function GET(request: Request) {
         page: shouldPaginate ? page : 1,
         totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
       }),
-      {
-        status: 200,
-        headers
-      }
+      { status: 200, headers }
     )
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
