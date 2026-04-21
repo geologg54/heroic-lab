@@ -1,111 +1,122 @@
 // components/product/ProductGallery.tsx
 'use client'
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-export default function ProductGallery({ images }: { images: string[] }) {
-  const [main, setMain] = useState(images[0])
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [showLeftArrow, setShowLeftArrow] = useState(false)
-  const [showRightArrow, setShowRightArrow] = useState(false)
+interface ProductGalleryProps {
+  images: string[]
+}
 
-  const checkScrollButtons = () => {
-    if (!scrollRef.current) return
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
-    setShowLeftArrow(scrollLeft > 0)
-    setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 5)
-  }
+export default function ProductGallery({ images }: ProductGalleryProps) {
+  const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
-    const container = scrollRef.current
-    if (!container) return
-    checkScrollButtons()
-    container.addEventListener('scroll', checkScrollButtons)
-    window.addEventListener('resize', checkScrollButtons)
-    return () => {
-      container.removeEventListener('scroll', checkScrollButtons)
-      window.removeEventListener('resize', checkScrollButtons)
-    }
+    setCurrentIndex(0)
   }, [images])
 
-  const scroll = (direction: 'left' | 'right') => {
-    if (!scrollRef.current) return
-    const scrollAmount = 200
-    const newScrollLeft = scrollRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount)
-    scrollRef.current.scrollTo({ left: newScrollLeft, behavior: 'smooth' })
-    setTimeout(checkScrollButtons, 200)
+  if (!images || images.length === 0) {
+    return (
+      <div className="relative w-full aspect-square bg-transparent rounded-xl flex items-center justify-center text-gray-400">
+        Нет изображения
+      </div>
+    )
+  }
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+  }
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+  }
+
+  const getImageIndex = (offset: number): number => {
+    if (images.length === 0) return 0
+    let idx = (currentIndex + offset) % images.length
+    if (idx < 0) idx += images.length
+    return idx
+  }
+
+  const slots = [-2, -1, 0, 1, 2]
+
+  const getSlotWidth = (offset: number): string => {
+    const absOffset = Math.abs(offset)
+    if (absOffset === 0) return '30%'
+    if (absOffset === 1) return '14.5%'
+    return '8%'
+  }
+
+  const handleSlotClick = (clickedOffset: number) => {
+    if (clickedOffset === 0) return
+    if (clickedOffset < 0) {
+      const steps = Math.abs(clickedOffset)
+      let newIndex = currentIndex
+      for (let i = 0; i < steps; i++) {
+        newIndex = newIndex === 0 ? images.length - 1 : newIndex - 1
+      }
+      setCurrentIndex(newIndex)
+    } else {
+      const steps = clickedOffset
+      let newIndex = currentIndex
+      for (let i = 0; i < steps; i++) {
+        newIndex = newIndex === images.length - 1 ? 0 : newIndex + 1
+      }
+      setCurrentIndex(newIndex)
+    }
   }
 
   return (
-    <div className="space-y-3 w-full max-w-full overflow-hidden">
-      {/* Главное изображение с защитой от выхода */}
-      <div className="relative w-full aspect-square bg-[#0a1220] rounded-xl overflow-hidden border border-borderLight">
-        <Image
-          src={main}
-          alt="Главное фото"
-          fill
-          className="object-contain p-4"
-          sizes="(max-width: 768px) 100vw, 600px"
-          priority
-        />
+    <div className="relative w-full">
+      <div className="relative w-full flex justify-center items-center gap-0">
+        {slots.map((offset, idx) => {
+          const imageIndex = getImageIndex(offset)
+          const imageSrc = images[imageIndex]
+          const widthPercent = getSlotWidth(offset)
+          const isCenter = offset === 0
+
+          return (
+            <div
+              key={idx}
+              className="relative flex-shrink-0 cursor-pointer transition-all duration-300 ease-in-out group"
+              style={{ width: widthPercent }}
+              onClick={() => handleSlotClick(offset)}
+            >
+              <div className="relative w-full pb-[100%] bg-transparent overflow-hidden">
+                <Image
+                  src={imageSrc}
+                  alt={`Изображение ${imageIndex + 1}`}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  sizes={`(max-width: 768px) 100vw, ${widthPercent}`}
+                  priority={isCenter}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Блок миниатюр с кнопками */}
-      <div className="relative w-full max-w-full">
-        {/* Кнопка влево (только десктоп) */}
-        {showLeftArrow && (
+      {images.length > 1 && (
+        <>
           <button
-            onClick={() => scroll('left')}
-            className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-accent text-white rounded-full p-1 transition"
-            aria-label="Прокрутить влево"
+            onClick={goToPrevious}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-accent text-white rounded-full p-2 transition"
+            aria-label="Предыдущее изображение"
+            style={{ left: 'calc(8% + 2px)' }}
           >
             <ChevronLeft size={24} />
           </button>
-        )}
-
-        {/* Горизонтальный скролл для миниатюр (работает на тач-устройствах) */}
-        <div
-          ref={scrollRef}
-          className="overflow-x-auto scrollbar-hide"
-          style={{
-            WebkitOverflowScrolling: 'touch', // плавная прокрутка на iOS
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-          }}
-        >
-          <div className="flex gap-2 min-w-max">
-            {images.map((img) => (
-              <button
-                key={img}
-                onClick={() => setMain(img)}
-                className={`relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition ${
-                  main === img ? 'border-accent' : 'border-transparent hover:border-gray-500'
-                }`}
-              >
-                <Image
-                  src={img}
-                  alt=""
-                  fill
-                  className="object-contain bg-black/20"
-                  sizes="80px"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Кнопка вправо */}
-        {showRightArrow && (
           <button
-            onClick={() => scroll('right')}
-            className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-accent text-white rounded-full p-1 transition"
-            aria-label="Прокрутить вправо"
+            onClick={goToNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-accent text-white rounded-full p-2 transition"
+            aria-label="Следующее изображение"
+            style={{ right: 'calc(8% + 2px)' }}
           >
             <ChevronRight size={24} />
           </button>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
