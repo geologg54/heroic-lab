@@ -45,8 +45,9 @@ export default function FavoritesPage() {
       <h1 className="text-3xl font-bold text-white mb-8">Избранное</h1>
       {favoriteProducts.length === 0 ? (
         <EmptyState
-          title="Нет избранных моделей"
-          message="Добавьте товары в избранное, нажав на сердечко"
+          title="Добавьте товары в избранное"
+          message="На странице товара нажмите на сердечко"
+          image="/no-favor.png"
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
