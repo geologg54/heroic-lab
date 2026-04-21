@@ -11,14 +11,13 @@ import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 import Pagination from '@/components/catalog/Pagination'
 import type { Product } from '@/types'
-import { X } from 'lucide-react'
 
 interface CatalogContentProps {
   initialProducts: Product[]
   initialTotal: number
   initialPage: number
   totalPages: number
-  categories: string[]
+  categories: string[] // ← обязательно
 }
 
 export default function CatalogContent({
@@ -26,6 +25,7 @@ export default function CatalogContent({
   initialTotal,
   initialPage,
   totalPages: initialTotalPages,
+  categories,
 }: CatalogContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -36,40 +36,25 @@ export default function CatalogContent({
   const [totalPages, setTotalPages] = useState(initialTotalPages)
   const [loading, setLoading] = useState(false)
 
+  // Актуальные фильтры
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     categories: [],
-    subcategories: [],
+    filter1: [],
+    filter2: [],
+    filter3: [],
+    filter4: [],
+    filter5: [],
+    tags: [],
+    scales: [],
     gameSystems: [],
     factions: [],
     types: [],
-    scales: [],
     fileFormats: [],
-    tags: []
   })
+
   const MAX_PRICE = 3500
   const [priceMax, setPriceMax] = useState(MAX_PRICE)
-  const [tempPrice, setTempPrice] = useState(MAX_PRICE)
   const [sortBy, setSortBy] = useState('newest')
-
-  // Для мобильных модальных окон
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isSortOpen, setIsSortOpen] = useState(false)
-
-  // Локальное состояние для секций фильтров в мобильной модалке
-  const [mobileFilterExpanded, setMobileFilterExpanded] = useState<Record<string, boolean>>({
-    categories: false,
-    subcategories: false,
-    gameSystems: false,
-    factions: false,
-    types: false,
-    scales: false,
-    fileFormats: false,
-    tags: false,
-  })
-
-  const toggleMobileSection = (section: string) => {
-    setMobileFilterExpanded(prev => ({ ...prev, [section]: !prev[section] }))
-  }
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
@@ -79,18 +64,19 @@ export default function CatalogContent({
     if (sortBy !== 'newest') params.set('sort', sortBy)
     if (priceMax < MAX_PRICE) params.set('maxPrice', priceMax.toString())
 
+    // Категории
     if (activeFilters.categories.length) {
       params.set('category', activeFilters.categories[0])
     }
-    if (activeFilters.gameSystems.length) {
-      activeFilters.gameSystems.forEach(s => params.append('gameSystem', s))
-    }
-    if (activeFilters.scales.length) {
-      activeFilters.scales.forEach(s => params.append('scale', s))
-    }
-    if (activeFilters.types.length) {
-      activeFilters.types.forEach(t => params.append('type', t))
-    }
+
+    // Динамические фильтры
+    activeFilters.filter1.forEach(v => params.append('filter1', v))
+    activeFilters.filter2.forEach(v => params.append('filter2', v))
+    activeFilters.filter3.forEach(v => params.append('filter3', v))
+    activeFilters.filter4.forEach(v => params.append('filter4', v))
+    activeFilters.filter5.forEach(v => params.append('filter5', v))
+    activeFilters.tags.forEach(v => params.append('tags', v))
+    activeFilters.scales.forEach(v => params.append('scale', v))
 
     const res = await fetch(`/api/products?${params.toString()}`)
     const data = await res.json()
@@ -124,38 +110,31 @@ export default function CatalogContent({
   const handleClearAllFilters = () => {
     setActiveFilters({
       categories: [],
-      subcategories: [],
+      filter1: [],
+      filter2: [],
+      filter3: [],
+      filter4: [],
+      filter5: [],
+      tags: [],
+      scales: [],
       gameSystems: [],
       factions: [],
       types: [],
-      scales: [],
       fileFormats: [],
-      tags: []
     })
     setPriceMax(MAX_PRICE)
-    setTempPrice(MAX_PRICE)
     setPage(1)
   }
 
   const handleRemoveFilter = (key: keyof FilterState, value: string) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [key]: (prev[key] as string[]).filter(v => v !== value)
-    }))
+    setActiveFilters(prev => {
+      const arr = prev[key] as string[]
+      return {
+        ...prev,
+        [key]: arr.filter(v => v !== value)
+      }
+    })
     setPage(1)
-  }
-
-  const handlePriceChange = (value: number) => {
-    setTempPrice(value)
-  }
-
-  const handlePriceCommit = () => {
-    setPriceMax(tempPrice)
-  }
-
-  const applySortAndClose = () => {
-    setPriceMax(tempPrice)
-    setIsSortOpen(false)
   }
 
   return (
@@ -170,10 +149,11 @@ export default function CatalogContent({
             <div className="w-[15vw] flex-shrink-0">
               <aside className="fixed left-[2vw] top-[120px] w-[13vw] z-20 pr-4">
                 <div className="max-h-[calc(100vh-140px)] overflow-y-auto">
-                  <FilterPanel 
-                    products={products} 
-                    onFilter={handleFilterChange} 
+                  <FilterPanel
+                    products={products}
+                    onFilter={handleFilterChange}
                     hidePriceSlider={true}
+                    allCategories={categories}
                   />
                 </div>
               </aside>
@@ -215,16 +195,14 @@ export default function CatalogContent({
                     <SortDropdown onSort={handleSortChange} />
                   </div>
                   <div className="mt-6">
-                    <h3 className="text-white font-normal text-sm mb-2">Цена до: {tempPrice} ₽</h3>
+                    <h3 className="text-white font-normal text-sm mb-2">Цена до: {priceMax} ₽</h3>
                     <input
                       type="range"
                       min={0}
                       max={MAX_PRICE}
                       step={10}
-                      value={tempPrice}
-                      onChange={(e) => handlePriceChange(Number(e.target.value))}
-                      onMouseUp={handlePriceCommit}
-                      onKeyUp={(e) => e.key === 'Enter' && handlePriceCommit()}
+                      value={priceMax}
+                      onChange={(e) => setPriceMax(Number(e.target.value))}
                       className="w-full accent-white"
                       style={{ colorScheme: 'light' }}
                     />
@@ -241,46 +219,58 @@ export default function CatalogContent({
 
       {/* Мобильная версия */}
       <div className="lg:hidden">
-        {/* Фиксированная панель под шапкой */}
-       <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
-        <div className="grid grid-cols-3 items-center">
-          <div className="justify-self-start relative">
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              className="text-white font-medium border border-white rounded-full px-4 py-1"
-            >
-              Фильтры
-            </button>
-            {/* Индикатор количества активных фильтров */}
-            {(() => {
-              const activeCount = Object.values(activeFilters).reduce((sum, arr) => sum + arr.length, 0);
-              return activeCount > 0 ? (
-                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {activeCount}
-                </span>
-              ) : null;
-            })()}
+        <div className="pt-2">
+          <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
+        </div>
+
+        {/* Верхняя панель с фильтрами и сортировкой */}
+        <div className="sticky top-14 z-30 bg-darkbg pt-3 pb-2 px-4 border-b border-borderLight">
+          <div className="flex items-center justify-between">
+            <FilterPanel
+              products={products}
+              onFilter={handleFilterChange}
+              hidePriceSlider={true}
+              allCategories={categories}
+              // На мобилке кнопка "Фильтры" будет показана автоматически
+            />
+            <div className="flex items-center gap-2">
+              <SortDropdown onSort={handleSortChange} />
+            </div>
           </div>
-          <button
-            onClick={() => setIsSortOpen(true)}
-            className="justify-self-center text-white font-medium border border-white rounded-full px-4 py-1"
-          >
-            Порядок
-          </button>
-          <div className="justify-self-end text-white font-semibold">
+          <div className="mt-2 flex items-center justify-between">
+            <ActiveFilters
+              filters={activeFilters}
+              onRemove={handleRemoveFilter}
+              onClearAll={handleClearAllFilters}
+            />
+            <div className="text-white text-sm">
+              Цена до:{' '}
+              <input
+                type="range"
+                min={0}
+                max={MAX_PRICE}
+                step={10}
+                value={priceMax}
+                onChange={(e) => setPriceMax(Number(e.target.value))}
+                className="w-32 accent-white inline-block ml-2"
+                style={{ colorScheme: 'light' }}
+              />
+              <span className="ml-2">{priceMax} ₽</span>
+            </div>
+          </div>
+          <div className="text-right text-white text-sm mt-1">
             Товаров: {total}
           </div>
         </div>
-      </div>
 
         {/* Сетка товаров */}
-        <div className="pt-28">
+        <div className="px-2">
           {loading ? (
             <div className="text-center py-20 text-white">Загрузка...</div>
           ) : products.length === 0 ? (
             <div className="text-center py-20 text-gray-400">Товары не найдены</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {products.map(product => (
                 <ProductCard key={product.article} product={product} />
               ))}
@@ -296,89 +286,6 @@ export default function CatalogContent({
             </div>
           )}
         </div>
-
-        {/* Модальное окно фильтров */}
-        {isFilterOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 overflow-auto">
-            <div className="bg-darkbg min-h-screen p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Фильтры</h2>
-                <button onClick={() => setIsFilterOpen(false)} className="text-white">
-                  <X size={24} />
-                </button>
-              </div>
-             
-              <FilterContent
-                products={products}
-                filters={activeFilters}
-                setFilters={(newFilters) => {
-                  setActiveFilters(newFilters);
-                  setPage(1);
-                }}
-                priceMax={priceMax}
-                setPriceMax={setPriceMax}
-                expandedSections={mobileFilterExpanded}
-                toggleSection={toggleMobileSection}
-                toggleFilter={(key, value) => {
-                  setActiveFilters(prev => ({
-                    ...prev,
-                    [key]: prev[key].includes(value) ? prev[key].filter(v => v !== value) : [...prev[key], value]
-                  }))
-                }}
-                resetFilters={handleClearAllFilters}
-                hidePriceSlider={true}
-                showActiveFilters={true}
-                onRemoveFilter={handleRemoveFilter}
-                onClearAllFilters={handleClearAllFilters}
-              />
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="mt-6 w-full bg-white text-darkbg py-3 rounded-lg font-semibold"
-              >
-                Применить
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Модальное окно сортировки и цены */}
-        {isSortOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 overflow-auto">
-            <div className="bg-darkbg min-h-screen p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Сортировка и цена</h2>
-                <button onClick={() => setIsSortOpen(false)} className="text-white">
-                  <X size={24} />
-                </button>
-              </div>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-white font-normal text-sm mb-2">Упорядочить:</h3>
-                  <SortDropdown onSort={handleSortChange} />
-                </div>
-                <div>
-                  <h3 className="text-white font-normal text-sm mb-2">Цена до: {tempPrice} ₽</h3>
-                  <input
-                    type="range"
-                    min={0}
-                    max={MAX_PRICE}
-                    step={10}
-                    value={tempPrice}
-                    onChange={(e) => handlePriceChange(Number(e.target.value))}
-                    className="w-full accent-white"
-                    style={{ colorScheme: 'light' }}
-                  />
-                </div>
-              </div>
-              <button
-                onClick={applySortAndClose}
-                className="mt-6 w-full bg-white text-darkbg py-3 rounded-lg font-semibold"
-              >
-                Применить
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

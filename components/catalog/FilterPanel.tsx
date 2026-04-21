@@ -14,7 +14,6 @@ export interface FilterState {
   filter5: string[]
   tags: string[]
   scales: string[]
-  // старые поля для обратной совместимости (не показываем, но храним)
   gameSystems: string[]
   factions: string[]
   types: string[]
@@ -33,6 +32,8 @@ interface FilterPanelProps {
     filter4Name?: string | null
     filter5Name?: string | null
   }
+  // 🆕 Список всех категорий (не зависит от товаров)
+  allCategories?: string[]
 }
 
 export const FilterPanel = ({ 
@@ -40,7 +41,8 @@ export const FilterPanel = ({
   onFilter, 
   hidePriceSlider = false, 
   hideMobileButton = false,
-  filterNames = {}
+  filterNames = {},
+  allCategories = []
 }: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
@@ -74,9 +76,12 @@ export const FilterPanel = ({
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  // Собираем уникальные значения, разбивая строки по запятой
+  // Собираем уникальные значения для фильтров из товаров
   const filterOptions = {
-    categories: [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
+    // Категории берём из пропса, если он передан, иначе из товаров
+    categories: allCategories.length > 0 
+      ? allCategories 
+      : [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
     filter1: [...new Set(products.flatMap(p => (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean)))],
     filter2: [...new Set(products.flatMap(p => (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean)))],
     filter3: [...new Set(products.flatMap(p => (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean)))],

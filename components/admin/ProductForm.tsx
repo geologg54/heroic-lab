@@ -30,14 +30,8 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
     description: '',
     images: '',
     categoryId: '',
-    gameSystem: '',
     scale: '32mm',
-    type: '',
-    faction: '',
-    fileFormat: 'STL',
     tags: '',
-    featured: false,
-    // 🆕 Новые поля
     filter1: '',
     filter2: '',
     filter3: '',
@@ -72,13 +66,8 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             description: data.description,
             images: data.images,
             categoryId: data.categoryId,
-            gameSystem: data.gameSystem,
             scale: data.scale,
-            type: data.type,
-            faction: data.faction || '',
-            fileFormat: data.fileFormat,
             tags: data.tags,
-            featured: data.featured,
             filter1: data.filter1 || '',
             filter2: data.filter2 || '',
             filter3: data.filter3 || '',
@@ -220,7 +209,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           </select>
         </div>
         
-        {/* Динамические фильтры на основе выбранной категории */}
+        {/* Динамические фильтры */}
         {selectedCategory && (
           <>
             {selectedCategory.filter1Name && (
@@ -281,54 +270,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           </>
         )}
 
-        {/* Старые поля (можно оставить для совместимости) */}
-        <div>
-          <label className="block text-white mb-1">Система</label>
-          <input
-            name="gameSystem"
-            value={form.gameSystem}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Масштаб</label>
-          <input
-            name="scale"
-            value={form.scale}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Тип</label>
-          <input
-            name="type"
-            value={form.type}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Фракция</label>
-          <input
-            name="faction"
-            value={form.faction}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Формат файла</label>
-          <input
-            name="fileFormat"
-            value={form.fileFormat}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-
-        {/* 🆕 Новые поля для карточки товара */}
+        {/* Поля карточки */}
         <div>
           <label className="block text-white mb-1">Количество</label>
           <input
@@ -397,8 +339,6 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           <label className="block text-white mb-1">Комплектация (число моделей)</label>
           <input
             name="contents"
-            type="number"
-            min="0"
             value={form.contents}
             onChange={handleChange}
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
@@ -409,6 +349,15 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           <input
             name="artist"
             value={form.artist}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Масштаб</label>
+          <input
+            name="scale"
+            value={form.scale}
             onChange={handleChange}
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
@@ -442,17 +391,6 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             onChange={handleChange}
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
-        </div>
-        <div className="flex items-center gap-6">
-          <label className="flex items-center gap-2 text-white">
-            <input
-              type="checkbox"
-              name="featured"
-              checked={form.featured}
-              onChange={e => setForm({ ...form, featured: e.target.checked })}
-            />
-            Рекомендуемый
-          </label>
         </div>
       </div>
     </form>

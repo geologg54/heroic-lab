@@ -205,6 +205,7 @@ import { useEffect, useState } from 'react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { EmptyState } from '@/components/common/EmptyState'
+import Link from 'next/link'
 import type { Product } from '@/types'
 
 export default function FavoritesPage() {
@@ -221,7 +222,6 @@ export default function FavoritesPage() {
       }
 
       try {
-        // 🆕 Запрашиваем только товары с нужными артикулами
         const articlesParam = favorites.join(',')
         const res = await fetch(`/api/products?articles=${encodeURIComponent(articlesParam)}&limit=100`)
         const data = await res.json()
@@ -245,10 +245,23 @@ export default function FavoritesPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-white mb-8">Избранное</h1>
       {favoriteProducts.length === 0 ? (
-        <EmptyState
-          title="Нет избранных моделей"
-          message="Добавьте товары в избранное, нажав на сердечко"
-        />
+        <div className="text-center">
+          <EmptyState
+            title="Нет избранных моделей"
+            message="Нажмите на сердечко на странице товара"
+            image="/no-favor.png"
+            imageClassName="w-64 h-64"
+            className="py-10 md:py-20"
+          />
+          <div className="mt-6">
+            <Link
+              href="/catalog"
+              className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
+            >
+              к товарам
+            </Link>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {favoriteProducts.map(p => (
@@ -2485,7 +2498,7 @@ const renderSortIndicator = (column: string) => {
 
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
-          <thead className="border-b border-borderLight">
+         <thead className="border-b border-borderLight">
   <tr className="text-gray-400">
     <th className="p-3 w-10">
       <input
@@ -2503,7 +2516,7 @@ const renderSortIndicator = (column: string) => {
     </th>
     <th 
       className="p-3 cursor-pointer hover:text-white transition"
-      onClick={() => handleSort('name')}  // сортировка по названию
+      onClick={() => handleSort('name')}
     >
       Название
     </th>
@@ -2522,42 +2535,42 @@ const renderSortIndicator = (column: string) => {
     <th className="p-3 text-center">Действия</th>
   </tr>
 </thead>
-          <tbody>
-            {products.map(p => (
-              <tr key={p.article} className="border-t border-borderLight">
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedArticles.has(p.article)}
-                    onChange={() => toggleSelectOne(p.article)}
-                    className="w-4 h-4 accent-accent"
-                  />
-                </td>
-                <td className="p-3">{p.article}</td>
-                <td className="p-3">{p.name}</td>
-                <td className="p-3">{p.price} ₽</td>
-                <td className="p-3">{p.category?.name || '—'}</td>
-                <td className="p-3">
-                  <div className="flex items-center justify-center gap-3">
-                    <Link
-                      href={`/admin/products/${p.article}`}
-                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                      title="Редактировать"
-                    >
-                      <Edit size={20} className="text-accent" />
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(p.article)}
-                      className="p-2 rounded-lg hover:bg-red-900/20 transition-colors"
-                      title="Удалить"
-                    >
-                      <Trash2 size={20} className="text-red-400" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+<tbody>
+  {products.map(p => (
+    <tr key={p.article} className="border-t border-borderLight">
+      <td className="p-3">
+        <input
+          type="checkbox"
+          checked={selectedArticles.has(p.article)}
+          onChange={() => toggleSelectOne(p.article)}
+          className="w-4 h-4 accent-accent"
+        />
+      </td>
+      <td className="p-3">{p.article}</td>
+      <td className="p-3">{p.name}</td>
+      <td className="p-3">{p.price} ₽</td>
+      <td className="p-3">{p.category?.name || '—'}</td>
+      <td className="p-3">
+        <div className="flex items-center justify-center gap-3">
+          <Link
+            href={`/admin/products/${p.article}`}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            title="Редактировать"
+          >
+            <Edit size={20} className="text-accent" />
+          </Link>
+          <button
+            onClick={() => handleDelete(p.article)}
+            className="p-2 rounded-lg hover:bg-red-900/20 transition-colors"
+            title="Удалить"
+          >
+            <Trash2 size={20} className="text-red-400" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
         </table>
       </div>
 
@@ -3685,8 +3698,7 @@ export async function GET(request: Request) {
     'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
     'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
     'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
-    'scale', 'assembly', 'contents', 'artist',
-    'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+    'scale', 'assembly', 'contents', 'artist', 'tags', 'images'
   ]
 
   const rows = products.map(p => [
@@ -3710,13 +3722,8 @@ export async function GET(request: Request) {
     p.assembly || '',
     p.contents || '',
     p.artist || '',
-    p.gameSystem || '',
-    p.type || '',
-    p.faction || '',
-    p.fileFormat || '',
     `"${p.tags.replace(/"/g, '""')}"`,
-    `"${p.images.replace(/"/g, '""')}"`,
-    p.featured ? 'true' : 'false'
+    `"${p.images.replace(/"/g, '""')}"`
   ])
 
   const separator = ';'
@@ -3776,16 +3783,13 @@ export async function POST(request: Request) {
     
     const headers = firstLine.split(separator).map(h => h.trim())
     
-    // 🆕 Ожидаемые заголовки (полный список)
     const expectedHeaders = [
       'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
       'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
       'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
-      'scale', 'assembly', 'contents', 'artist',
-      'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+      'scale', 'assembly', 'contents', 'artist', 'tags', 'images'
     ]
     
-    // Проверяем наличие обязательных колонок (минимум)
     const requiredHeaders = ['article', 'name', 'price', 'categorySlug']
     const missingRequired = requiredHeaders.filter(h => !headers.includes(h))
     if (missingRequired.length > 0) {
@@ -3816,7 +3820,6 @@ export async function POST(request: Request) {
         record[header] = values[index]
       })
 
-      // Валидация
       if (!record.article) {
         results.errors.push(`Строка ${i + 1}: отсутствует артикул`)
         continue
@@ -3842,7 +3845,6 @@ export async function POST(request: Request) {
         continue
       }
 
-      // 🆕 Собираем данные с новыми полями
       const productData = {
         article: record.article.trim(),
         name: record.name.trim(),
@@ -3852,13 +3854,11 @@ export async function POST(request: Request) {
         description: record.description?.trim() || '',
         images: record.images?.trim() || '',
         categoryId: categoryId,
-        // Динамические фильтры
         filter1: record.filter1?.trim() || null,
         filter2: record.filter2?.trim() || null,
         filter3: record.filter3?.trim() || null,
         filter4: record.filter4?.trim() || null,
         filter5: record.filter5?.trim() || null,
-        // Новые поля
         stock: record.stock ? parseInt(record.stock) || 0 : 0,
         heightMax: record.heightMax ? parseFloat(record.heightMax) || null : null,
         baseMax: record.baseMax ? parseFloat(record.baseMax) || null : null,
@@ -3868,13 +3868,7 @@ export async function POST(request: Request) {
         assembly: record.assembly?.trim() || null,
         contents: record.contents?.trim() || null,
         artist: record.artist?.trim() || null,
-        // Старые поля
-        gameSystem: record.gameSystem?.trim() || '',
-        type: record.type?.trim() || 'unknown',
-        faction: record.faction?.trim() || null,
-        fileFormat: record.fileFormat?.trim() || 'STL',
         tags: record.tags?.trim() || '',
-        featured: record.featured?.toLowerCase() === 'true',
       }
 
       try {
@@ -3954,7 +3948,6 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || ''
   const category = searchParams.get('category') || undefined
 
-  // Параметры сортировки
   const sortBy = searchParams.get('sortBy') || 'createdAt'
   const order = searchParams.get('order') || 'desc'
 
@@ -4015,17 +4008,11 @@ export async function POST(request: Request) {
 
   const data = await request.json()
   
-  // 🆕 Деструктурируем все новые поля
   const {
     article, name, price, oldPrice, description, images, categoryId,
-    gameSystem, scale, type, faction, fileFormat, tags, featured,
     filter1, filter2, filter3, filter4, filter5,
-    stock,                // Количество
-    heightMax, baseMax,   // Самая большая модель
-    heightMin, baseMin,   // Самая маленькая модель
-    assembly,             // Сборка
-    contents,             // Комплектация
-    artist                // Художник
+    stock, heightMax, baseMax, heightMin, baseMin,
+    assembly, contents, artist, scale, tags
   } = data
 
   if (!article || !name || !price || !categoryId) {
@@ -4047,15 +4034,11 @@ export async function POST(request: Request) {
       description: description || '',
       images: Array.isArray(images) ? images.join(',') : images || '',
       categoryId,
-      
-      // 🆕 Новые универсальные фильтры
       filter1: filter1 || null,
       filter2: filter2 || null,
       filter3: filter3 || null,
       filter4: filter4 || null,
       filter5: filter5 || null,
-      
-      // 🆕 Новые поля для карточки товара
       stock: stock !== undefined ? parseInt(stock) : 0,
       heightMax: heightMax ? parseFloat(heightMax) : null,
       baseMax: baseMax ? parseFloat(baseMax) : null,
@@ -4064,15 +4047,8 @@ export async function POST(request: Request) {
       assembly: assembly || null,
       contents: contents || null,
       artist: artist || null,
-      
-      // Старые поля (оставляем для обратной совместимости)
-      gameSystem: gameSystem || '',
       scale: scale || '32mm',
-      type: type || 'unknown',
-      faction: faction || null,
-      fileFormat: fileFormat || 'STL',
       tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-      featured: featured ?? false
     },
     include: { category: true }
   })
@@ -4898,9 +4874,13 @@ export async function GET(request: Request) {
   
   const articlesParam = searchParams.get('articles')
 
-  const gameSystems = searchParams.getAll('gameSystem')
+  const filter1 = searchParams.getAll('filter1')
+  const filter2 = searchParams.getAll('filter2')
+  const filter3 = searchParams.getAll('filter3')
+  const filter4 = searchParams.getAll('filter4')
+  const filter5 = searchParams.getAll('filter5')
+  const tags = searchParams.getAll('tags')
   const scales = searchParams.getAll('scale')
-  const types = searchParams.getAll('type')
 
   const where: any = {}
 
@@ -4918,14 +4898,23 @@ export async function GET(request: Request) {
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
   
-  // Поиск по полю searchName (регистронезависимый)
   if (search) {
     where.searchName = { contains: search.toLowerCase() }
   }
   
-  if (gameSystems.length) where.gameSystem = { in: gameSystems }
-  if (scales.length) where.scale = { in: scales }
-  if (types.length) where.type = { in: types }
+  const orConditions: any[] = []
+  
+  if (filter1.length > 0) filter1.forEach(val => orConditions.push({ filter1: { contains: val } }))
+  if (filter2.length > 0) filter2.forEach(val => orConditions.push({ filter2: { contains: val } }))
+  if (filter3.length > 0) filter3.forEach(val => orConditions.push({ filter3: { contains: val } }))
+  if (filter4.length > 0) filter4.forEach(val => orConditions.push({ filter4: { contains: val } }))
+  if (filter5.length > 0) filter5.forEach(val => orConditions.push({ filter5: { contains: val } }))
+  if (tags.length > 0) tags.forEach(val => orConditions.push({ tags: { contains: val } }))
+  if (scales.length > 0) scales.forEach(val => orConditions.push({ scale: { contains: val } }))
+  
+  if (orConditions.length > 0) {
+    where.OR = orConditions
+  }
 
   let orderBy: any = {}
   switch (sort) {
@@ -4933,7 +4922,6 @@ export async function GET(request: Request) {
     case 'price-desc': orderBy = { price: 'desc' }; break
     case 'name': orderBy = { name: 'asc' }; break
     case 'newest': orderBy = { createdAt: 'desc' }; break
-    case 'popularity': orderBy = { popularity: 'desc' }; break
     default: orderBy = { createdAt: 'desc' }
   }
 
@@ -4959,9 +4947,6 @@ export async function GET(request: Request) {
       categoryName: p.category.name
     }))
 
-    // === НАСТРОЙКИ КЕШИРОВАНИЯ ДЛЯ API ===
-    // Устанавливаем заголовки, чтобы ответ кешировался на 60 секунд в CDN/браузере,
-    // и ещё 300 секунд может отдаваться устаревший контент, пока в фоне генерируется свежий.
     const headers = new Headers()
     headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
 
@@ -4972,10 +4957,7 @@ export async function GET(request: Request) {
         page: shouldPaginate ? page : 1,
         totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
       }),
-      {
-        status: 200,
-        headers
-      }
+      { status: 200, headers }
     )
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
@@ -5305,22 +5287,74 @@ export default function TwoFactorPage() {
   )
 }
 ===== ./app/cart/page.tsx =====
+// app/cart/page.tsx
 'use client'
 import { useCart } from '@/hooks/useCart'
 import Link from 'next/link'
+import Image from 'next/image'
 import CartItem from '@/components/cart/CartItem'
-import { EmptyState } from '@/components/common/EmptyState'
+import { useEffect, useState } from 'react'
+
+// Массив комплиментов
+const compliments = [
+  'Выбор, достойный прославленного вождя',
+  'Гоблины перешептываются: «Какой проницательный покупатель! Отличный выбор!»',
+  'Даже истинный ценитель признал бы, что вы выбрали лучшие миниатюры. Браво!',
+  '*Тени шепчут одобрительно* — вы выбрали лучшие миниатюры',
+  '[Проверка проницательности] — критический успех! Вы выбрали идеальные миниатюры',
+  'Вы распознали истинные сокровища среди множества вариантов. Отличный выбор!',
+  'Отличный выбор! Эти миниатюры ждут эпичных сражений',
+  'Ваше чувство вкуса невозможно утаить',
+  'Капитан, вы подобрали безупречную команду миниатюр',
+  'Мудрость вождя и глаз стратега — вы подобрали идеальный отряд',
+  'Тени древних героев одобряют ваш выбор',
+  'Вы тонко чувствуете детали, это будет мудрым приобретением',
+]
 
 export default function CartPage() {
   const { items, totalPrice, clearCart } = useCart()
+  const [compliment, setCompliment] = useState('')
+
+  useEffect(() => {
+    // Выбираем случайный комплимент при монтировании
+    const randomIndex = Math.floor(Math.random() * compliments.length)
+    setCompliment(compliments[randomIndex])
+  }, [])
 
   if (items.length === 0) {
-    return <EmptyState title="Корзина пуста" message="Добавьте товары из каталога" actionLink="/catalog" actionText="Перейти в каталог" />
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <div className="flex flex-col items-center py-20 px-4">
+          <div className="relative w-32 h-32 md:w-64 md:h-64 mb-4">
+            <Image
+              src="/card-empty.png"
+              alt="Корзина пуста"
+              fill
+              className="object-contain"
+            />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Корзина пуста</h2>
+          <p className="text-gray-400 mb-6">Добавьте товары из каталога</p>
+        </div>
+        
+        <div className="mt-6">
+          <Link
+            href="/catalog"
+            className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
+          >
+            Перейти в каталог
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Корзина</h1>
+      {/* Случайный комплимент вместо заголовка */}
+      <h1 className="text-3xl font-bold text-white mb-2">{compliment}</h1>
+      <p className="text-gray-400 text-lg mb-6">Речь о вашей корзине:</p>
+
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
           {items.map(item => <CartItem key={item.product.article} item={item} />)}
@@ -5333,7 +5367,7 @@ export default function CartPage() {
             <span className="font-bold">{totalPrice} ₽</span>
           </div>
           <Link href="/checkout" className="block w-full border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white text-center py-3 rounded-lg font-semibold transition-colors duration-300">
-          Оформить заказ
+            Оформить заказ
           </Link>
         </div>
       </div>
@@ -5514,10 +5548,12 @@ export default function CatalogContent({
               <aside className="fixed left-[2vw] top-[120px] w-[13vw] z-20 pr-4">
                 <div className="max-h-[calc(100vh-140px)] overflow-y-auto">
                   <FilterPanel 
-                    products={products} 
-                    onFilter={handleFilterChange} 
-                    hidePriceSlider={true}
-                  />
+  products={products} 
+  onFilter={handleFilterChange} 
+  hidePriceSlider={true}
+  allCategories={categories}   // 🆕 передаём все категории
+/>
+
                 </div>
               </aside>
             </div>
@@ -6232,6 +6268,133 @@ export default async function DeliveryPage() {
     </div>
   )
 }
+===== ./app/faq/page.tsx =====
+// app/faq/page.tsx
+'use client'
+
+import { useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { ChevronDown } from 'lucide-react'
+
+// Данные для вопросов и ответов
+const faqItems = [
+  {
+    question: 'Миниатюра не сломается?',
+    answer: 'Миниатюры предназначены для настольных игр, и для этого они достаточно прочные. Мы сами играем своими миниатюрами, и знаем, о чем говорим.\n\nЕсли вы дадите их маленькому ребенку и он будет бить их друг об друга, то модельки могут не выдержать.\n\nЧтобы упаковать миниатюру, мы используем несколько защитных слоев, поэтому они доедут до вас в целости.'
+  },
+  {
+    question: 'Что значит масштаб 32мм?',
+    answer: 'Масштаб 32 мм означает, что при таком масштабировании фигурка человека среднего роста будет в высоту 32 мм. Поэтому, например, гоблин в масштабе 32 мм будет в высоту 28 мм.'
+  },
+  {
+    question: 'Из чего делаются миниатюры?',
+    answer: 'Миниатюры печатаются на 3D-принтере из фотополимерной смолы. По умолчанию мы используем Anycubic waterwash 2.0, но вы можете выбрать другую. Для этого нажмите «Выбрать материал» на странице товара.'
+  },
+  {
+    question: 'Что по сборке и покраске?',
+    answer: 'Некоторые миниатюры требуют сборки. Вы найдете информацию об этом в разделе «Другие характеристики» на странице товара.\n\nРекомендуем приклеить модели к подставкам для устойчивости. Отлично подходит цианакрилатный клей — самая популярная разновидность суперклея. У него есть небольшой минус: он мгновенно схватывается и потом непросто разделить модель.\nМожно использовать каучуковый (с активатором). Но с ним больше возни.\n\nПеред покраской рекомендуем сперва наносить грунт.'
+  },
+  {
+    question: 'Я не нашел нужную миниатюру',
+    answer: 'У нас есть библиотека моделей, которые пока не вошли в каталог. Мы можем их изготовить, но цена и сроки будут определяться индивидуально.',
+    hasButton: true,
+    buttonText: 'тайная библиотека',
+    buttonLink: '/secret-library' // Страница будет создана позже
+  },
+  {
+    question: 'Почему у чумных гончих большие яйца?',
+    answer: 'Мы не знаем. Честно.'
+  }
+]
+
+export default function FAQPage() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+
+  const toggleQuestion = (index: number) => {
+    setOpenIndex(openIndex === index ? null : index)
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      {/* Заголовок по левому краю */}
+      <h1 className="text-3xl font-bold text-white mb-6">Частые вопросы</h1>
+
+      {/* Картинка на всю ширину контейнера */}
+      <div className="relative w-full max-w-3xl mx-auto mb-10">
+        <Image
+          src="/questions.png"
+          alt="Частые вопросы"
+          width={1200}
+          height={800}
+          className="w-full h-auto object-contain"
+          priority
+        />
+      </div>
+
+      {/* Список вопросов-ответов */}
+      <div className="space-y-4">
+        {faqItems.map((item, index) => {
+          const isOpen = openIndex === index
+          return (
+            <div
+              key={index}
+              className={`rounded-xl transition-all duration-300 ${
+                isOpen
+                  ? 'bg-white text-darkbg'
+                  : 'bg-transparent text-white'
+              }`}
+            >
+              {/* Заголовок вопроса (всегда кликабельный) */}
+              <button
+                onClick={() => toggleQuestion(index)}
+                className={`w-full flex justify-between items-center p-4 text-left font-semibold ${
+                  isOpen ? 'text-darkbg' : 'text-white'
+                }`}
+              >
+                <span>{item.question}</span>
+                <ChevronDown
+                  size={20}
+                  className={`transition-transform duration-300 ${
+                    isOpen ? 'rotate-180' : ''
+                  } ${isOpen ? 'text-darkbg' : 'text-white'}`}
+                />
+              </button>
+
+              {/* Раскрывающийся контент */}
+              <div
+                className={`overflow-hidden transition-all duration-300 ${
+                  isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className={`px-4 pb-4 ${isOpen ? 'text-darkbg' : ''}`}>
+                  {/* Разбиваем ответ на абзацы */}
+                  {item.answer.split('\n\n').map((paragraph, idx) => (
+                    <p key={idx} className="mb-3 last:mb-0">
+                      {paragraph}
+                    </p>
+                  ))}
+                  
+                  {/* Кнопка, если есть */}
+                  {item.hasButton && (
+                    <div className="mt-4">
+                      <Link
+                        href={item.buttonLink || '/'}
+                        className="inline-block bg-darkbg text-white px-6 py-2 rounded-lg font-medium hover:bg-opacity-80 transition"
+                      >
+                        {item.buttonText}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 ===== ./app/forgot-password/page.tsx =====
 // app/forgot-password/page.tsx
 'use client'
@@ -6616,123 +6779,32 @@ export default async function ProductPage({ params }: ProductPageProps) {
     { label: product.name },
   ]
 
-  // Флаг одиночной модели
-  const isSingleModel = product.stock === 1
-
   return (
     <div className="container mx-auto px-4 py-8">
       <Breadcrumbs items={breadcrumbItems} />
 
       <div className="grid md:grid-cols-2 gap-10 mt-6">
-        <ProductGallery images={product.images.split(',')} />
-
+        <ProductGallery images={product.images} />
         <div>
           <h1 className="text-3xl font-bold text-white">{product.name}</h1>
-
-          {/* Артикул */}
-          <div className="text-gray-400 mt-1">Артикул: {product.article}</div>
-
-          {/* Цена и акция */}
-          <div className="mt-4">
-            {product.oldPrice && product.oldPrice > 0 ? (
-              <div className="flex items-center gap-3">
-                <span className="text-2xl line-through text-gray-500">{product.oldPrice} ₽</span>
-                <span className="text-3xl font-bold text-amber-400">{product.price} ₽</span>
-                <span className="bg-red-600 text-white px-2 py-1 rounded text-sm font-semibold">🔥 АКЦИЯ</span>
-              </div>
-            ) : (
-              <div className="text-3xl font-bold text-amber-400">{product.price} ₽</div>
-            )}
+          {/* Чипсы – оставляем только масштаб, можно добавить теги при желании */}
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <span className="chip">{product.scale}</span>
+            {product.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="chip">{tag}</span>
+            ))}
           </div>
-
-          {/* Наличие */}
-          <div className="mt-2 text-gray-300">
-            В наличии: <span className="text-white font-semibold">{product.stock || 0} шт.</span>
-          </div>
-
-          {/* Краткое описание */}
+          <div className="mt-4 text-3xl font-bold text-amber-400">{product.price} ₽</div>
+          {product.oldPrice && (
+            <div className="text-sm line-through text-gray-500">{product.oldPrice} ₽</div>
+          )}
           <p className="mt-4 text-gray-300">
-            {product.shortDesc || product.description.slice(0, 150) + '…'}
+            {product.description.slice(0, 150) + '…'}
           </p>
-
           <div className="mt-6 flex gap-4">
             <AddToCartButton product={product} />
             <FavoritesButton productId={product.article} />
           </div>
-
-          {/* Характеристики */}
-          <div className="mt-8 p-4 bg-cardbg rounded-lg border border-borderLight">
-            <h2 className="text-xl font-semibold text-white mb-4">Характеристики</h2>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <dt className="text-gray-400">Масштаб</dt>
-              <dd className="text-white">{product.scale}</dd>
-
-              {product.assembly && (
-                <>
-                  <dt className="text-gray-400">Сборка</dt>
-                  <dd className="text-white">{product.assembly}</dd>
-                </>
-              )}
-
-              {product.artist && (
-                <>
-                  <dt className="text-gray-400">Художник</dt>
-                  <dd className="text-white">{product.artist}</dd>
-                </>
-              )}
-
-              {/* Большая модель */}
-              {product.heightMax && (
-                <>
-                  <dt className="text-gray-400">Высота (макс.)</dt>
-                  <dd className="text-white">{product.heightMax} мм</dd>
-                </>
-              )}
-              {product.baseMax && (
-                <>
-                  <dt className="text-gray-400">База (макс.)</dt>
-                  <dd className="text-white">{product.baseMax} мм</dd>
-                </>
-              )}
-
-              {/* Маленькая модель — показываем только если не одиночная */}
-              {!isSingleModel && (
-                <>
-                  {product.heightMin && (
-                    <>
-                      <dt className="text-gray-400">Высота (мин.)</dt>
-                      <dd className="text-white">{product.heightMin} мм</dd>
-                    </>
-                  )}
-                  {product.baseMin && (
-                    <>
-                      <dt className="text-gray-400">База (мин.)</dt>
-                      <dd className="text-white">{product.baseMin} мм</dd>
-                    </>
-                  )}
-                </>
-              )}
-            </dl>
-          </div>
-
-          {/* Комплектация */}
-          {product.contents && (
-            <div className="mt-4 p-4 bg-cardbg rounded-lg border border-borderLight">
-              <h2 className="text-xl font-semibold text-white mb-2">Комплектация</h2>
-              <p className="text-gray-300">{product.contents} моделей</p>
-              <p className="text-gray-300">{product.contents} подставок/баз</p>
-            </div>
-          )}
-
-          {/* Теги */}
-          {product.tags && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {product.tags.split(',').map(tag => (
-                <span key={tag} className="chip">{tag.trim()}</span>
-              ))}
-            </div>
-          )}
-
           <div className="mt-6 p-4 bg-cardbg rounded-lg border border-borderLight">
             <p className="text-sm text-cyan-300">
               🚚 Доставка по всей России. Срок изготовления: 2-3 дня.
@@ -6743,6 +6815,30 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <ProductMetadata product={product} />
       <ProductTabs product={product} />
+
+      {/* Блок с данными для напарника */}
+      <div className="mt-8 p-6 bg-cardbg rounded-xl border border-borderLight">
+        <h2 className="text-xl font-bold text-white mb-4">Данные для карточки (фронтенд)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div><span className="text-gray-400">Артикул:</span> {product.article}</div>
+          <div><span className="text-gray-400">Название:</span> {product.name}</div>
+          <div><span className="text-gray-400">Цена:</span> {product.price} ₽</div>
+          <div><span className="text-gray-400">Старая цена:</span> {product.oldPrice ? `${product.oldPrice} ₽` : '—'}</div>
+          <div><span className="text-gray-400">Количество (stock):</span> {product.stock}</div>
+          <div><span className="text-gray-400">Высота самой большой модели (heightMax):</span> {product.heightMax ? `${product.heightMax} мм` : '—'}</div>
+          <div><span className="text-gray-400">База самой большой модели (baseMax):</span> {product.baseMax ? `${product.baseMax} мм` : '—'}</div>
+          <div><span className="text-gray-400">Высота самой маленькой модели (heightMin):</span> {product.heightMin ? `${product.heightMin} мм` : '—'}</div>
+          <div><span className="text-gray-400">База самой маленькой модели (baseMin):</span> {product.baseMin ? `${product.baseMin} мм` : '—'}</div>
+          <div><span className="text-gray-400">Масштаб (scale):</span> {product.scale}</div>
+          <div><span className="text-gray-400">Сборка (assembly):</span> {product.assembly || '—'}</div>
+          <div><span className="text-gray-400">Комплектация (contents):</span> {product.contents || '—'}</div>
+          <div><span className="text-gray-400">Художник (artist):</span> {product.artist || '—'}</div>
+          <div><span className="text-gray-400">Теги (tags):</span> {product.tags.join(', ')}</div>
+        </div>
+        <p className="text-xs text-gray-500 mt-4">
+          ⚠️ Этот блок временный — напарник может использовать эти данные для вёрстки карточки.
+        </p>
+      </div>
 
       {related.length > 0 && (
         <section className="mt-16">
@@ -7317,14 +7413,8 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
     description: '',
     images: '',
     categoryId: '',
-    gameSystem: '',
     scale: '32mm',
-    type: '',
-    faction: '',
-    fileFormat: 'STL',
     tags: '',
-    featured: false,
-    // 🆕 Новые поля
     filter1: '',
     filter2: '',
     filter3: '',
@@ -7359,13 +7449,8 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             description: data.description,
             images: data.images,
             categoryId: data.categoryId,
-            gameSystem: data.gameSystem,
             scale: data.scale,
-            type: data.type,
-            faction: data.faction || '',
-            fileFormat: data.fileFormat,
             tags: data.tags,
-            featured: data.featured,
             filter1: data.filter1 || '',
             filter2: data.filter2 || '',
             filter3: data.filter3 || '',
@@ -7507,7 +7592,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           </select>
         </div>
         
-        {/* Динамические фильтры на основе выбранной категории */}
+        {/* Динамические фильтры */}
         {selectedCategory && (
           <>
             {selectedCategory.filter1Name && (
@@ -7568,54 +7653,7 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           </>
         )}
 
-        {/* Старые поля (можно оставить для совместимости) */}
-        <div>
-          <label className="block text-white mb-1">Система</label>
-          <input
-            name="gameSystem"
-            value={form.gameSystem}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Масштаб</label>
-          <input
-            name="scale"
-            value={form.scale}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Тип</label>
-          <input
-            name="type"
-            value={form.type}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Фракция</label>
-          <input
-            name="faction"
-            value={form.faction}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-white mb-1">Формат файла</label>
-          <input
-            name="fileFormat"
-            value={form.fileFormat}
-            onChange={handleChange}
-            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
-          />
-        </div>
-
-        {/* 🆕 Новые поля для карточки товара */}
+        {/* Поля карточки */}
         <div>
           <label className="block text-white mb-1">Количество</label>
           <input
@@ -7684,8 +7722,6 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           <label className="block text-white mb-1">Комплектация (число моделей)</label>
           <input
             name="contents"
-            type="number"
-            min="0"
             value={form.contents}
             onChange={handleChange}
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
@@ -7696,6 +7732,15 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
           <input
             name="artist"
             value={form.artist}
+            onChange={handleChange}
+            className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-white mb-1">Масштаб</label>
+          <input
+            name="scale"
+            value={form.scale}
             onChange={handleChange}
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
@@ -7729,17 +7774,6 @@ export const ProductForm = ({ productArticle }: { productArticle?: string }) => 
             onChange={handleChange}
             className="w-full p-2 rounded bg-cardbg border border-borderLight text-white"
           />
-        </div>
-        <div className="flex items-center gap-6">
-          <label className="flex items-center gap-2 text-white">
-            <input
-              type="checkbox"
-              name="featured"
-              checked={form.featured}
-              onChange={e => setForm({ ...form, featured: e.target.checked })}
-            />
-            Рекомендуемый
-          </label>
         </div>
       </div>
     </form>
@@ -8126,12 +8160,11 @@ export interface FilterState {
   filter4: string[]
   filter5: string[]
   tags: string[]
-  // для обратной совместимости оставим старые, но не будем их показывать
-  gameSystems?: string[]
-  factions?: string[]
-  types?: string[]
-  scales?: string[]
-  fileFormats?: string[]
+  scales: string[]
+  gameSystems: string[]
+  factions: string[]
+  types: string[]
+  fileFormats: string[]
 }
 
 interface FilterPanelProps {
@@ -8139,7 +8172,6 @@ interface FilterPanelProps {
   onFilter: (filtered: Product[], activeFilters: FilterState) => void
   hidePriceSlider?: boolean
   hideMobileButton?: boolean
-  // 🆕 Настройки фильтров из категории
   filterNames?: {
     filter1Name?: string | null
     filter2Name?: string | null
@@ -8147,6 +8179,8 @@ interface FilterPanelProps {
     filter4Name?: string | null
     filter5Name?: string | null
   }
+  // 🆕 Список всех категорий (не зависит от товаров)
+  allCategories?: string[]
 }
 
 export const FilterPanel = ({ 
@@ -8154,7 +8188,8 @@ export const FilterPanel = ({
   onFilter, 
   hidePriceSlider = false, 
   hideMobileButton = false,
-  filterNames = {}
+  filterNames = {},
+  allCategories = []
 }: FilterPanelProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
@@ -8165,13 +8200,13 @@ export const FilterPanel = ({
     filter4: [],
     filter5: [],
     tags: [],
+    scales: [],
     gameSystems: [],
     factions: [],
     types: [],
-    scales: [],
     fileFormats: [],
   })
-  const [priceMax, setPriceMax] = useState(2000)
+  const [priceMax, setPriceMax] = useState(3500)
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     categories: false,
@@ -8181,21 +8216,26 @@ export const FilterPanel = ({
     filter4: false,
     filter5: false,
     tags: false,
+    scales: false,
   })
 
   const prevFiltersRef = useRef<FilterState>(filters)
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  // 🆕 Собираем уникальные значения для каждого фильтра из товаров
+  // Собираем уникальные значения для фильтров из товаров
   const filterOptions = {
-    categories: [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
-    filter1: [...new Set(products.map(p => p.filter1).filter(Boolean))],
-    filter2: [...new Set(products.map(p => p.filter2).filter(Boolean))],
-    filter3: [...new Set(products.map(p => p.filter3).filter(Boolean))],
-    filter4: [...new Set(products.map(p => p.filter4).filter(Boolean))],
-    filter5: [...new Set(products.map(p => p.filter5).filter(Boolean))],
+    // Категории берём из пропса, если он передан, иначе из товаров
+    categories: allCategories.length > 0 
+      ? allCategories 
+      : [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))],
+    filter1: [...new Set(products.flatMap(p => (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter2: [...new Set(products.flatMap(p => (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter3: [...new Set(products.flatMap(p => (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter4: [...new Set(products.flatMap(p => (p.filter4 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter5: [...new Set(products.flatMap(p => (p.filter5 || '').split(',').map(s => s.trim()).filter(Boolean)))],
     tags: [...new Set(products.flatMap(p => p.tags))],
+    scales: [...new Set(products.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))],
   }
 
   const toggleSection = (section: string) => {
@@ -8203,10 +8243,13 @@ export const FilterPanel = ({
   }
 
   const toggleFilter = (key: keyof FilterState, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: prev[key].includes(value) ? prev[key].filter(v => v !== value) : [...prev[key], value]
-    }))
+    setFilters(prev => {
+      const current = prev[key] as string[] // теперь гарантированно массив
+      return {
+        ...prev,
+        [key]: current.includes(value) ? current.filter(v => v !== value) : [...current, value]
+      }
+    })
   }
 
   const resetFilters = () => {
@@ -8218,13 +8261,13 @@ export const FilterPanel = ({
       filter4: [],
       filter5: [],
       tags: [],
+      scales: [],
       gameSystems: [],
       factions: [],
       types: [],
-      scales: [],
       fileFormats: [],
     })
-    setPriceMax(2000)
+    setPriceMax(3500)
   }
 
   const applyFilters = useCallback(() => {
@@ -8236,17 +8279,55 @@ export const FilterPanel = ({
         return filters.categories.includes(catSlug)
       })
     }
-    if (filters.filter1.length) filtered = filtered.filter(p => p.filter1 && filters.filter1.includes(p.filter1))
-    if (filters.filter2.length) filtered = filtered.filter(p => p.filter2 && filters.filter2.includes(p.filter2))
-    if (filters.filter3.length) filtered = filtered.filter(p => p.filter3 && filters.filter3.includes(p.filter3))
-    if (filters.filter4.length) filtered = filtered.filter(p => p.filter4 && filters.filter4.includes(p.filter4))
-    if (filters.filter5.length) filtered = filtered.filter(p => p.filter5 && filters.filter5.includes(p.filter5))
-    if (filters.tags.length) {
-      filtered = filtered.filter(p => p.tags.some(t => filters.tags.includes(t)))
+
+    const hasAny = (productValues: string[], selected: string[]) => {
+      return selected.some(sel => productValues.includes(sel))
     }
-    // Старые фильтры пока не применяем, чтобы не мешать
+
+    if (filters.filter1.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter1 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter1)
+      })
+    }
+    if (filters.filter2.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter2 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter2)
+      })
+    }
+    if (filters.filter3.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter3 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter3)
+      })
+    }
+    if (filters.filter4.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter4 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter4)
+      })
+    }
+    if (filters.filter5.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.filter5 || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.filter5)
+      })
+    }
+
+    if (filters.tags.length) {
+      filtered = filtered.filter(p => hasAny(p.tags, filters.tags))
+    }
+
+    if (filters.scales.length) {
+      filtered = filtered.filter(p => {
+        const vals = (p.scale || '').split(',').map(s => s.trim())
+        return hasAny(vals, filters.scales)
+      })
+    }
 
     filtered = filtered.filter(p => p.price <= priceMax)
+
     onFilter(filtered, filters)
   }, [products, filters, priceMax, onFilter])
 
@@ -8265,7 +8346,6 @@ export const FilterPanel = ({
     prevPriceMaxRef.current = priceMax
   }, [filters, priceMax, applyFilters])
 
-  // Определяем, какие секции показывать (если название задано и есть хотя бы одно значение)
   const sections = [
     { key: 'categories', title: 'Категория' },
     { key: 'filter1', title: filterNames.filter1Name || '' },
@@ -8274,8 +8354,9 @@ export const FilterPanel = ({
     { key: 'filter4', title: filterNames.filter4Name || '' },
     { key: 'filter5', title: filterNames.filter5Name || '' },
     { key: 'tags', title: 'Теги' },
+    { key: 'scales', title: 'Масштаб' },
   ].filter(section => {
-    if (section.key === 'categories' || section.key === 'tags') return true
+    if (section.key === 'categories' || section.key === 'tags' || section.key === 'scales') return true
     return section.title && filterOptions[section.key as keyof typeof filterOptions]?.length > 0
   })
 
@@ -8326,7 +8407,7 @@ export const FilterPanel = ({
               title={section.title}
               sectionKey={section.key}
               options={filterOptions[section.key as keyof typeof filterOptions] || []}
-              selected={filters[section.key as keyof FilterState] as string[] || []}
+              selected={filters[section.key as keyof FilterState] as string[]}
             />
           ))}
           {!hidePriceSlider && (
@@ -8334,7 +8415,7 @@ export const FilterPanel = ({
               <div className="flex justify-between items-center">
                 <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
               </div>
-              <input type="range" min={0} max={2000} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+              <input type="range" min={0} max={3500} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
             </div>
           )}
           {hasActiveFilters && (
@@ -8349,7 +8430,7 @@ export const FilterPanel = ({
           <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
         </div>
       </div>
-      {/* Мобильная модалка (аналогично) */}
+      {/* Мобильная модалка */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 p-4 overflow-auto">
           <div className="bg-cardbg p-6 rounded-xl max-w-md mx-auto relative">
@@ -8362,7 +8443,7 @@ export const FilterPanel = ({
                   title={section.title}
                   sectionKey={section.key}
                   options={filterOptions[section.key as keyof typeof filterOptions] || []}
-                  selected={filters[section.key as keyof FilterState] as string[] || []}
+                  selected={filters[section.key as keyof FilterState] as string[]}
                 />
               ))}
               {!hidePriceSlider && (
@@ -8370,7 +8451,7 @@ export const FilterPanel = ({
                   <div className="flex justify-between items-center">
                     <span className="text-white font-semibold">Цена: до {priceMax} ₽</span>
                   </div>
-                  <input type="range" min={0} max={2000} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
+                  <input type="range" min={0} max={3500} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
                 </div>
               )}
               <button onClick={() => setIsOpen(false)} className="mt-6 w-full bg-accent py-2 rounded-lg">Применить</button>
@@ -8663,20 +8744,47 @@ export const CTASection = ({ title, text, buttonText, onButtonClick }: CTASectio
 ===== ./components/common/EmptyState.tsx =====
 // components/common/EmptyState.tsx
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface EmptyStateProps {
   title: string
   message: string
   actionLink?: string
   actionText?: string
+  image?: string
+  imageClassName?: string
+  className?: string // 🆕 возможность переопределить стили контейнера
 }
 
-export const EmptyState = ({ title, message, actionLink, actionText }: EmptyStateProps) => (
-  <div className="text-center py-20 px-4">
-    <div className="text-6xl mb-4">🛒</div>
+export const EmptyState = ({ 
+  title, 
+  message, 
+  actionLink, 
+  actionText, 
+  image, 
+  imageClassName,
+  className = '' 
+}: EmptyStateProps) => (
+  <div className={`text-center px-4 ${className}`}>
+    {image ? (
+      <div className={`relative mx-auto mb-4 ${imageClassName || 'w-32 h-32'}`}>
+        <Image 
+          src={image} 
+          alt={title} 
+          fill
+          className="object-contain"
+        />
+      </div>
+    ) : (
+      <div className="text-6xl mb-4">🛒</div>
+    )}
     <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>
     <p className="text-gray-400 mb-6">{message}</p>
-    {actionLink && actionText && <Link href={actionLink} className="text-accent hover:underline">{actionText}</Link>}
+    {actionLink && actionText && (
+      <Link href={actionLink} className="text-accent hover:underline">
+        {actionText}
+      </Link>
+    )}
   </div>
 )
 ===== ./components/common/FavoritesButton.tsx =====
@@ -8805,27 +8913,27 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="bg-darkbg border-t border-[#1e3a5f] py-8 mt-12">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="bg-darkbg py-8 mt-12">
+      <div className="container mx-auto px-6 lg:px-12">
+        {/* Сетка с 4 колонками, равномерно распределёнными */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           <div>
             <h3 className="text-white font-bold mb-4">Героическая лаборатория</h3>
             <p className="text-sm text-gray-400">Миниатюры и аксессуары для настольных игр</p>
           </div>
           <div>
-            <h4 className="font-semibold text-white mb-3">Каталог</h4>
+            <h4 className="font-semibold text-white mb-3">Новичкам</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/catalog">Все модели</Link></li>
-              <li><Link href="/category/space-marines">Космодесант</Link></li>
-              <li><Link href="/category/trench-crusade">Trench Crusade</Link></li>
+              <li><Link href="/faq" className="hover:text-white transition">Частые вопросы</Link></li>
+              <li><Link href="/custom" className="hover:text-white transition">Особые заказы</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold text-white mb-3">Информация</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/about">О нас</Link></li>
-              <li><Link href="/delivery">Доставка</Link></li>
-              <li><Link href="/privacy">Политика конфиденциальности</Link></li>
+              <li><Link href="/about" className="hover:text-white transition">О нас</Link></li>
+              <li><Link href="/delivery" className="hover:text-white transition">Доставка</Link></li>
+              <li><Link href="/privacy" className="hover:text-white transition">Политика конфиденциальности</Link></li>
             </ul>
           </div>
           <div>
@@ -8833,10 +8941,22 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li>Email: lab@heroic.ru</li>
               <li>Telegram: @heroic_lab</li>
+              <li>
+                <a 
+                  href="https://vk.com/heroiclab" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition"
+                >
+                  Сообщество VK
+                </a>
+              </li>
             </ul>
           </div>
         </div>
-        <div className="text-center text-xs text-gray-500 mt-8 pt-4 border-t border-[#1e3a5f]">
+        
+        {/* Копирайт по центру, без полоски */}
+        <div className="text-center text-xs text-gray-500 mt-12 pt-4">
           Героическая лаборатория миниатюр©
         </div>
       </div>
@@ -9112,34 +9232,27 @@ import { Product } from '@/types'
 export const ProductMetadata = ({ product }: { product: Product }) => (
   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 p-4 bg-cardbg rounded-xl border border-borderLight">
     <div>
-      <div className="text-gray-400 text-sm">Система</div>
-      <div className="text-white font-medium">{product.gameSystem}</div>
-    </div>
-    <div>
-      <div className="text-gray-400 text-sm">Фракция</div>
-      <div className="text-white font-medium">{product.faction || '—'}</div>
-    </div>
-    <div>
       <div className="text-gray-400 text-sm">Масштаб</div>
       <div className="text-white font-medium">{product.scale}</div>
     </div>
-    <div>
-      <div className="text-gray-400 text-sm">Тип</div>
-      <div className="text-white font-medium">{product.type}</div>
-    </div>
-    <div>
-      <div className="text-gray-400 text-sm">Формат</div>
-      <div className="text-white font-medium">{product.fileFormat}</div>
-    </div>
-    <div>
-      <div className="text-gray-400 text-sm">Файлов в комплекте</div>
-      <div className="text-white font-medium">1-5 STL</div>
-    </div>
-    {/* Поле "Скачиваний" удалено */}
-    <div>
-      <div className="text-gray-400 text-sm">Поддержка</div>
-      <div className="text-white font-medium">Есть</div>
-    </div>
+    {product.assembly && (
+      <div>
+        <div className="text-gray-400 text-sm">Сборка</div>
+        <div className="text-white font-medium">{product.assembly}</div>
+      </div>
+    )}
+    {product.artist && (
+      <div>
+        <div className="text-gray-400 text-sm">Художник</div>
+        <div className="text-white font-medium">{product.artist}</div>
+      </div>
+    )}
+    {product.contents && (
+      <div>
+        <div className="text-gray-400 text-sm">Комплектация</div>
+        <div className="text-white font-medium">{product.contents} шт.</div>
+      </div>
+    )}
   </div>
 )
 ===== ./components/product/ProductTabs.tsx =====
@@ -9966,19 +10079,21 @@ export async function getProducts(): Promise<Product[]> {
       subcategory: null,
       description: p.description,
       shortDesc: null,
-      fileFormat: p.fileFormat,
+      filter1: p.filter1,
+      filter2: p.filter2,
+      filter3: p.filter3,
+      filter4: p.filter4,
+      filter5: p.filter5,
+      stock: p.stock,
+      heightMax: p.heightMax,
+      baseMax: p.baseMax,
+      heightMin: p.heightMin,
+      baseMin: p.baseMin,
+      assembly: p.assembly,
+      contents: p.contents,
+      artist: p.artist,
       scale: p.scale,
-      type: p.type,
-      faction: p.faction,
-      gameSystem: p.gameSystem,
       tags,
-      inStock: p.inStock,
-      downloadsCount: p.downloadsCount,
-      isDigital: true,
-      popularity: p.popularity,
-      featured: p.featured,
-      new: false,
-      dateAdded: p.createdAt?.toISOString() || null,
       createdAt: p.createdAt?.toISOString() || null,
     } as Product
   })
@@ -10011,19 +10126,21 @@ export async function getProductByArticle(article: string): Promise<Product | nu
     subcategory: null,
     description: product.description,
     shortDesc: null,
-    fileFormat: product.fileFormat,
+    filter1: product.filter1,
+    filter2: product.filter2,
+    filter3: product.filter3,
+    filter4: product.filter4,
+    filter5: product.filter5,
+    stock: product.stock,
+    heightMax: product.heightMax,
+    baseMax: product.baseMax,
+    heightMin: product.heightMin,
+    baseMin: product.baseMin,
+    assembly: product.assembly,
+    contents: product.contents,
+    artist: product.artist,
     scale: product.scale,
-    type: product.type,
-    faction: product.faction,
-    gameSystem: product.gameSystem,
     tags,
-    inStock: product.inStock,
-    downloadsCount: product.downloadsCount,
-    isDigital: true,
-    popularity: product.popularity,
-    featured: product.featured,
-    new: false,
-    dateAdded: product.createdAt?.toISOString() || null,
     createdAt: product.createdAt?.toISOString() || null,
   } as Product
 }
@@ -10055,19 +10172,21 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
       subcategory: null,
       description: p.description,
       shortDesc: null,
-      fileFormat: p.fileFormat,
+      filter1: p.filter1,
+      filter2: p.filter2,
+      filter3: p.filter3,
+      filter4: p.filter4,
+      filter5: p.filter5,
+      stock: p.stock,
+      heightMax: p.heightMax,
+      baseMax: p.baseMax,
+      heightMin: p.heightMin,
+      baseMin: p.baseMin,
+      assembly: p.assembly,
+      contents: p.contents,
+      artist: p.artist,
       scale: p.scale,
-      type: p.type,
-      faction: p.faction,
-      gameSystem: p.gameSystem,
       tags,
-      inStock: p.inStock,
-      downloadsCount: p.downloadsCount,
-      isDigital: true,
-      popularity: p.popularity,
-      featured: p.featured,
-      new: false,
-      dateAdded: p.createdAt?.toISOString() || null,
       createdAt: p.createdAt?.toISOString() || null,
     } as Product
   })
@@ -10562,6 +10681,12 @@ Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or pa
 [2026-04-20T15:11:06.849Z] Ошибка отправки письма на ivan.pust2@gmail.com (тема: Ваш заказ №100005 принят)
 Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776697738-w8T6MG0RBW20
 
+[2026-04-21T10:48:03.032Z] Ошибка отправки письма на admin@example.com (тема: Новый заказ №100006 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776768485-5mPuMC7SDSw0
+
+[2026-04-21T10:48:03.044Z] Ошибка отправки письма на ventalpt@gmail.com (тема: Ваш заказ №100006 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776768485-5mPeBu8Qs0U0
+
 
 ===== ./logs/info.log =====
 [2026-04-19T17:52:31.224Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
@@ -10612,6 +10737,27 @@ Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or pa
 {
   "ip": "::1"
 }
+-----------------------------------
+[2026-04-21T07:38:22.731Z] Успешный вход: Ventalpt@gmail.com
+{
+  "ip": "::1"
+}
+-----------------------------------
+[2026-04-21T14:18:25.376Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:21:19.567Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:22:51.896Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:27:06.969Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:29:15.588Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:31:26.097Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:33:49.868Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
+-----------------------------------
+[2026-04-21T14:34:54.594Z] Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0
 -----------------------------------
 
 ===== ./logs/warn.log =====
@@ -22224,11 +22370,12 @@ model User {
   role             String    @default("user")
   twoFactorEnabled Boolean   @default(false)
   twoFactorSecret  String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
 
   orders           Order[]
   cartItems        CartItem[]
+
 }
 
 model Category {
@@ -22240,8 +22387,8 @@ model Category {
   parent      Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryToCategory")
   products    Product[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
 
   // 🆕 Названия динамических фильтров
   filter1Name String?
@@ -22254,7 +22401,7 @@ model Category {
 model Product {
   article     String   @id
   name        String
-  searchName  String   // для поиска (нижний регистр)
+  searchName  String
   price       Int
   oldPrice    Int?
   description String   @default("")
@@ -22262,32 +22409,27 @@ model Product {
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id])
 
-  // 🆕 Динамические фильтры
+  // Динамические фильтры
   filter1     String?
   filter2     String?
   filter3     String?
   filter4     String?
   filter5     String?
 
-  // 🆕 Новые поля карточки товара
-  stock       Int      @default(0)      // Количество
-  heightMax   Float?                   // Высота самой большой модели (мм)
-  baseMax     Float?                   // База самой большой модели (мм)
-  heightMin   Float?                   // Высота самой маленькой модели (мм)
-  baseMin     Float?                   // База самой маленькой модели (мм)
-  assembly    String?                  // Сборка (например "Требуется склейка")
-  contents    String?                  // Комплектация (например "5")
-  artist      String?                  // Художник
+  // Поля карточки
+  stock       Int      @default(0)
+  heightMax   Float?
+  baseMax     Float?
+  heightMin   Float?
+  baseMin     Float?
+  assembly    String?
+  contents    String?
+  artist      String?
 
-  // Старые поля (оставлены для обратной совместимости)
-  gameSystem  String   @default("")
+  // Оставляем scale и tags, они нужны
   scale       String   @default("32mm")
-  type        String   @default("unknown")
-  faction     String?
-  fileFormat  String   @default("STL")
   tags        String   @default("")
 
-  featured    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -22377,15 +22519,8 @@ interface ImportProduct {
   description: string
   images: string
   category: string
-  gameSystem: string
   scale: string
-  type: string
-  faction?: string | null
-  fileFormat: string
   tags: string
-  featured?: boolean
-  // popularity?: number // ❌ удаляем, так как поле убрано из схемы
-  // 🆕 добавляем новые поля для импорта (если они есть в JSON)
   filter1?: string
   filter2?: string
   filter3?: string
@@ -22458,7 +22593,6 @@ async function main() {
         name: rawName,
         slug: slug,
         image: null,
-        // 🆕 можно добавить значения по умолчанию для filter1Name... если нужно
       }
     })
     console.log(`➕ ${rawName} -> /category/${slug}`)
@@ -22496,21 +22630,17 @@ async function main() {
         data: {
           article: prod.article,
           name: prod.name,
-          searchName: prod.name.toLowerCase(), // 🆕 обязательно для поиска
+          searchName: prod.name.toLowerCase(),
           price: prod.price,
           oldPrice: prod.oldPrice || null,
           description: prod.description || '',
           images: prod.images || '',
           categoryId: category.id,
-          
-          // 🆕 Новые универсальные фильтры
           filter1: prod.filter1 || null,
           filter2: prod.filter2 || null,
           filter3: prod.filter3 || null,
           filter4: prod.filter4 || null,
           filter5: prod.filter5 || null,
-          
-          // 🆕 Новые поля карточки товара
           stock: prod.stock ?? 0,
           heightMax: prod.heightMax || null,
           baseMax: prod.baseMax || null,
@@ -22519,16 +22649,8 @@ async function main() {
           assembly: prod.assembly || null,
           contents: prod.contents || null,
           artist: prod.artist || null,
-
-          // Старые поля
-          gameSystem: prod.gameSystem || '',
           scale: prod.scale || '32mm',
-          type: prod.type || 'unknown',
-          faction: prod.faction || null,
-          fileFormat: prod.fileFormat || 'STL',
           tags: prod.tags || '',
-          featured: prod.featured ?? false,
-          // popularity: prod.popularity ?? 0, // ❌ удалено
         }
       })
       imported++
@@ -22576,7 +22698,7 @@ main()
 ===== ./project_code.txt =====
 
 ===== ./proxy.ts =====
-// middleware.ts
+// proxy.ts
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import { verifyTrustedToken, getTrustedCookieName } from "./lib/trustedDevice";
@@ -22918,17 +23040,25 @@ export interface Product {
   subcategory?: string | null
   description: string
   shortDesc?: string | null
-  fileFormat: string
+
+  filter1?: string | null
+  filter2?: string | null
+  filter3?: string | null
+  filter4?: string | null
+  filter5?: string | null
+
+  stock: number
+  heightMax?: number | null
+  baseMax?: number | null
+  heightMin?: number | null
+  baseMin?: number | null
+  assembly?: string | null
+  contents?: string | null
+  artist?: string | null
+
   scale: string
-  type: string
-  faction?: string | null
-  gameSystem: string
   tags: string[]
-  // inStock удалено
-  popularity?: number | null
-  featured?: boolean
-  new?: boolean
-  dateAdded?: Date | string | null
+
   createdAt?: Date | string | null
 }
 
@@ -22942,6 +23072,12 @@ export interface Category {
   parent?: Category | null
   children?: Category[]
   products?: Product[]
+
+  filter1Name?: string | null
+  filter2Name?: string | null
+  filter3Name?: string | null
+  filter4Name?: string | null
+  filter5Name?: string | null
 }
 
 export interface CartItem {

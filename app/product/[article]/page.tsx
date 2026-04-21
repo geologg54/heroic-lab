@@ -53,10 +53,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <ProductGallery images={product.images} />
         <div>
           <h1 className="text-3xl font-bold text-white">{product.name}</h1>
+          {/* Чипсы – оставляем только масштаб, можно добавить теги при желании */}
           <div className="flex gap-2 mt-2 flex-wrap">
-            <span className="chip">{product.gameSystem}</span>
             <span className="chip">{product.scale}</span>
-            <span className="chip">{product.type}</span>
+            {product.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="chip">{tag}</span>
+            ))}
           </div>
           <div className="mt-4 text-3xl font-bold text-amber-400">{product.price} ₽</div>
           {product.oldPrice && (
@@ -80,7 +82,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <ProductMetadata product={product} />
       <ProductTabs product={product} />
 
-      {/* 🆕 Блок с данными для напарника — просто список всех полей */}
+      {/* Блок с данными для напарника */}
       <div className="mt-8 p-6 bg-cardbg rounded-xl border border-borderLight">
         <h2 className="text-xl font-bold text-white mb-4">Данные для карточки (фронтенд)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">

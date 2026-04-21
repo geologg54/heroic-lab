@@ -16,7 +16,6 @@ export async function GET(request: Request) {
   const search = searchParams.get('search') || ''
   const category = searchParams.get('category') || undefined
 
-  // Параметры сортировки
   const sortBy = searchParams.get('sortBy') || 'createdAt'
   const order = searchParams.get('order') || 'desc'
 
@@ -77,17 +76,11 @@ export async function POST(request: Request) {
 
   const data = await request.json()
   
-  // 🆕 Деструктурируем все новые поля
   const {
     article, name, price, oldPrice, description, images, categoryId,
-    gameSystem, scale, type, faction, fileFormat, tags, featured,
     filter1, filter2, filter3, filter4, filter5,
-    stock,                // Количество
-    heightMax, baseMax,   // Самая большая модель
-    heightMin, baseMin,   // Самая маленькая модель
-    assembly,             // Сборка
-    contents,             // Комплектация
-    artist                // Художник
+    stock, heightMax, baseMax, heightMin, baseMin,
+    assembly, contents, artist, scale, tags
   } = data
 
   if (!article || !name || !price || !categoryId) {
@@ -109,15 +102,11 @@ export async function POST(request: Request) {
       description: description || '',
       images: Array.isArray(images) ? images.join(',') : images || '',
       categoryId,
-      
-      // 🆕 Новые универсальные фильтры
       filter1: filter1 || null,
       filter2: filter2 || null,
       filter3: filter3 || null,
       filter4: filter4 || null,
       filter5: filter5 || null,
-      
-      // 🆕 Новые поля для карточки товара
       stock: stock !== undefined ? parseInt(stock) : 0,
       heightMax: heightMax ? parseFloat(heightMax) : null,
       baseMax: baseMax ? parseFloat(baseMax) : null,
@@ -126,15 +115,8 @@ export async function POST(request: Request) {
       assembly: assembly || null,
       contents: contents || null,
       artist: artist || null,
-      
-      // Старые поля (оставляем для обратной совместимости)
-      gameSystem: gameSystem || '',
       scale: scale || '32mm',
-      type: type || 'unknown',
-      faction: faction || null,
-      fileFormat: fileFormat || 'STL',
       tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-      featured: featured ?? false
     },
     include: { category: true }
   })

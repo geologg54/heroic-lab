@@ -38,16 +38,13 @@ export async function POST(request: Request) {
     
     const headers = firstLine.split(separator).map(h => h.trim())
     
-    // 🆕 Ожидаемые заголовки (полный список)
     const expectedHeaders = [
       'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
       'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
       'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
-      'scale', 'assembly', 'contents', 'artist',
-      'gameSystem', 'type', 'faction', 'fileFormat', 'tags', 'images', 'featured'
+      'scale', 'assembly', 'contents', 'artist', 'tags', 'images'
     ]
     
-    // Проверяем наличие обязательных колонок (минимум)
     const requiredHeaders = ['article', 'name', 'price', 'categorySlug']
     const missingRequired = requiredHeaders.filter(h => !headers.includes(h))
     if (missingRequired.length > 0) {
@@ -78,7 +75,6 @@ export async function POST(request: Request) {
         record[header] = values[index]
       })
 
-      // Валидация
       if (!record.article) {
         results.errors.push(`Строка ${i + 1}: отсутствует артикул`)
         continue
@@ -104,7 +100,6 @@ export async function POST(request: Request) {
         continue
       }
 
-      // 🆕 Собираем данные с новыми полями
       const productData = {
         article: record.article.trim(),
         name: record.name.trim(),
@@ -114,13 +109,11 @@ export async function POST(request: Request) {
         description: record.description?.trim() || '',
         images: record.images?.trim() || '',
         categoryId: categoryId,
-        // Динамические фильтры
         filter1: record.filter1?.trim() || null,
         filter2: record.filter2?.trim() || null,
         filter3: record.filter3?.trim() || null,
         filter4: record.filter4?.trim() || null,
         filter5: record.filter5?.trim() || null,
-        // Новые поля
         stock: record.stock ? parseInt(record.stock) || 0 : 0,
         heightMax: record.heightMax ? parseFloat(record.heightMax) || null : null,
         baseMax: record.baseMax ? parseFloat(record.baseMax) || null : null,
@@ -130,13 +123,7 @@ export async function POST(request: Request) {
         assembly: record.assembly?.trim() || null,
         contents: record.contents?.trim() || null,
         artist: record.artist?.trim() || null,
-        // Старые поля
-        gameSystem: record.gameSystem?.trim() || '',
-        type: record.type?.trim() || 'unknown',
-        faction: record.faction?.trim() || null,
-        fileFormat: record.fileFormat?.trim() || 'STL',
         tags: record.tags?.trim() || '',
-        featured: record.featured?.toLowerCase() === 'true',
       }
 
       try {

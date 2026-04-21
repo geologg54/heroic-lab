@@ -41,7 +41,6 @@ export async function getProducts(): Promise<Product[]> {
       subcategory: null,
       description: p.description,
       shortDesc: null,
-      // Новые поля
       filter1: p.filter1,
       filter2: p.filter2,
       filter3: p.filter3,
@@ -55,14 +54,8 @@ export async function getProducts(): Promise<Product[]> {
       assembly: p.assembly,
       contents: p.contents,
       artist: p.artist,
-      // Старые поля (можно оставить для совместимости)
       scale: p.scale,
-      type: p.type,
-      faction: p.faction,
-      gameSystem: p.gameSystem,
-      fileFormat: p.fileFormat,
       tags,
-      featured: p.featured,
       createdAt: p.createdAt?.toISOString() || null,
     } as Product
   })
@@ -109,12 +102,7 @@ export async function getProductByArticle(article: string): Promise<Product | nu
     contents: product.contents,
     artist: product.artist,
     scale: product.scale,
-    type: product.type,
-    faction: product.faction,
-    gameSystem: product.gameSystem,
-    fileFormat: product.fileFormat,
     tags,
-    featured: product.featured,
     createdAt: product.createdAt?.toISOString() || null,
   } as Product
 }
@@ -160,12 +148,7 @@ export async function getProductsByCategorySlug(slug: string): Promise<Product[]
       contents: p.contents,
       artist: p.artist,
       scale: p.scale,
-      type: p.type,
-      faction: p.faction,
-      gameSystem: p.gameSystem,
-      fileFormat: p.fileFormat,
       tags,
-      featured: p.featured,
       createdAt: p.createdAt?.toISOString() || null,
     } as Product
   })
