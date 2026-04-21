@@ -17,7 +17,30 @@ interface CatalogContentProps {
   initialTotal: number
   initialPage: number
   totalPages: number
-  categories: string[] // ← обязательно
+  categories: string[]
+  // Новый пропс – полный список опций для фильтров (кроме тегов)
+  allFilterOptions: {
+    categories: string[]
+    filter1: string[]
+    filter2: string[]
+    filter3: string[]
+    filter4: string[]
+    filter5: string[]
+    scales: string[]
+  }
+}
+
+// Тип для availableFilters (те, что приходят с API – используются только для тегов)
+interface AvailableFilters {
+  tags: string[]
+  // остальные поля нам не нужны, но оставим для совместимости
+  categories?: string[]
+  filter1?: string[]
+  filter2?: string[]
+  filter3?: string[]
+  filter4?: string[]
+  filter5?: string[]
+  scales?: string[]
 }
 
 export default function CatalogContent({
@@ -26,6 +49,7 @@ export default function CatalogContent({
   initialPage,
   totalPages: initialTotalPages,
   categories,
+  allFilterOptions, // <-- новый пропс
 }: CatalogContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -35,6 +59,9 @@ export default function CatalogContent({
   const [page, setPage] = useState(initialPage)
   const [totalPages, setTotalPages] = useState(initialTotalPages)
   const [loading, setLoading] = useState(false)
+
+  // Состояние для динамических тегов (получаем из API)
+  const [availableTags, setAvailableTags] = useState<string[]>([])
 
   // Актуальные фильтры
   const [activeFilters, setActiveFilters] = useState<FilterState>({
@@ -64,12 +91,10 @@ export default function CatalogContent({
     if (sortBy !== 'newest') params.set('sort', sortBy)
     if (priceMax < MAX_PRICE) params.set('maxPrice', priceMax.toString())
 
-    // Категории
     if (activeFilters.categories.length) {
       params.set('category', activeFilters.categories[0])
     }
 
-    // Динамические фильтры
     activeFilters.filter1.forEach(v => params.append('filter1', v))
     activeFilters.filter2.forEach(v => params.append('filter2', v))
     activeFilters.filter3.forEach(v => params.append('filter3', v))
@@ -83,6 +108,14 @@ export default function CatalogContent({
     setProducts(data.products)
     setTotal(data.total)
     setTotalPages(data.totalPages)
+    
+    // Сохраняем только доступные теги из ответа API
+    if (data.availableFilters?.tags) {
+      setAvailableTags(data.availableFilters.tags)
+    } else {
+      setAvailableTags([])
+    }
+    
     setLoading(false)
 
     router.push(`/catalog?${params.toString()}`, { scroll: false })
@@ -154,6 +187,10 @@ export default function CatalogContent({
                     onFilter={handleFilterChange}
                     hidePriceSlider={true}
                     allCategories={categories}
+                    // Передаём полные списки опций (кроме тегов)
+                    allFilterOptions={allFilterOptions}
+                    // Передаём динамические теги
+                    availableTags={availableTags}
                   />
                 </div>
               </aside>
@@ -223,7 +260,6 @@ export default function CatalogContent({
           <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
         </div>
 
-        {/* Верхняя панель с фильтрами и сортировкой */}
         <div className="sticky top-14 z-30 bg-darkbg pt-3 pb-2 px-4 border-b border-borderLight">
           <div className="flex items-center justify-between">
             <FilterPanel
@@ -231,7 +267,8 @@ export default function CatalogContent({
               onFilter={handleFilterChange}
               hidePriceSlider={true}
               allCategories={categories}
-              // На мобилке кнопка "Фильтры" будет показана автоматически
+              allFilterOptions={allFilterOptions}
+              availableTags={availableTags}
             />
             <div className="flex items-center gap-2">
               <SortDropdown onSort={handleSortChange} />
@@ -263,7 +300,6 @@ export default function CatalogContent({
           </div>
         </div>
 
-        {/* Сетка товаров */}
         <div className="px-2">
           {loading ? (
             <div className="text-center py-20 text-white">Загрузка...</div>

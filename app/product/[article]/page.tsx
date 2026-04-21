@@ -8,7 +8,7 @@ import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { StickyBuyBar } from '@/components/product/StickyBuyBar'
 import Image from 'next/image'
-import Link from 'next/link'
+import Link from 'next/link' // <-- Добавлен импорт Link
 
 interface ProductPageProps {
   params: Promise<{ article: string }>
@@ -56,7 +56,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <Breadcrumbs items={breadcrumbItems} />
         </div>
 
-        {/* Фоновое свечение позади галереи (твои настройки) */}
+        {/* Фоновое свечение позади галереи */}
         <div className="absolute top-20 left-0 w-full h-[calc(100%-5rem)] pointer-events-none z-0">
           <div 
             className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[40%] aspect-square rounded-full opacity-50"
@@ -74,14 +74,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
           />
         </div>
 
-        {/* Галерея с относительным позиционированием для z-index */}
+        {/* Галерея */}
         <div className="relative z-10">
           <ProductGallery images={product.images} />
         </div>
 
         {/* Основная сетка с фиксированными боковыми блоками */}
         <div className="relative mt-8 z-10">
-          {/* Фиксированный левый блок (Теги) */}
+          {/* Фиксированный левый блок (Теги) – ТЕПЕРЬ С ССЫЛКАМИ */}
           <div 
             className="fixed z-30 hidden lg:block"
             style={{ 
@@ -95,12 +95,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <h3 className="text-white font-semibold mb-3 text-lg text-right">Теги</h3>
               <div className="flex flex-wrap gap-2 justify-end">
                 {product.tags.map((tag, idx) => (
-                  <button
+                  <Link
                     key={idx}
+                    href={`/catalog?tags=${encodeURIComponent(tag)}`}
                     className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg transition-colors text-sm"
                   >
                     {tag}
-                  </button>
+                  </Link>
                 ))}
               </div>
             </div>

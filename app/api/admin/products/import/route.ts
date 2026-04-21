@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    // Загружаем все существующие категории для быстрого доступа
     const categories = await prisma.category.findMany()
     const categoryMap = new Map(categories.map(c => [c.slug, c.id]))
 
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
         record[header] = values[index]
       })
 
+      // Проверяем обязательные поля
       if (!record.article) {
         results.errors.push(`Строка ${i + 1}: отсутствует артикул`)
         continue
@@ -94,12 +96,28 @@ export async function POST(request: Request) {
         results.errors.push(`Строка ${i + 1}: не указан slug категории`)
         continue
       }
-      const categoryId = categoryMap.get(categorySlug)
+
+      // Ищем категорию по slug. Если нет – создаём новую.
+      let categoryId = categoryMap.get(categorySlug)
       if (!categoryId) {
-        results.errors.push(`Строка ${i + 1}: категория со slug "${categorySlug}" не найдена`)
-        continue
+        try {
+          // Создаём категорию с именем, равным slug (потом можно переименовать в админке)
+          const newCategory = await prisma.category.create({
+            data: {
+              name: categorySlug, // временное имя
+              slug: categorySlug,
+            }
+          })
+          categoryId = newCategory.id
+          categoryMap.set(categorySlug, categoryId)
+          logger.info(`Создана новая категория: ${categorySlug}`)
+        } catch (err) {
+          results.errors.push(`Строка ${i + 1}: не удалось создать категорию "${categorySlug}"`)
+          continue
+        }
       }
 
+      // Подготавливаем данные товара
       const productData = {
         article: record.article.trim(),
         name: record.name.trim(),
@@ -127,14 +145,17 @@ export async function POST(request: Request) {
       }
 
       try {
+        // Пытаемся найти товар по артикулу
         const existing = await prisma.product.findUnique({ where: { article: productData.article } })
         if (existing) {
+          // Обновляем существующий товар
           await prisma.product.update({
             where: { article: productData.article },
             data: productData
           })
           results.updated++
         } else {
+          // Создаём новый товар
           await prisma.product.create({ data: productData })
           results.created++
         }
@@ -158,6 +179,7 @@ export async function POST(request: Request) {
   }
 }
 
+// Вспомогательная функция для парсинга CSV (остаётся без изменений)
 function parseCSVLine(line: string, separator: string): string[] {
   const result: string[] = []
   let current = ''

@@ -71,15 +71,33 @@ export async function GET(request: Request) {
   try {
     const shouldPaginate = !articlesParam
     
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: { category: true },
-        orderBy,
-        ...(shouldPaginate ? { skip, take: limit } : {})
-      }),
-      prisma.product.count({ where })
-    ])
+    // Сначала получаем ВСЕ товары, удовлетворяющие фильтрам (без пагинации)
+    // Это нужно для подсчёта availableFilters
+    const allFilteredProducts = await prisma.product.findMany({
+      where,
+      include: { category: true },
+      orderBy,
+      // Без skip и take – получаем все
+    })
+
+    // Вычисляем доступные значения фильтров на основе всех отфильтрованных товаров
+    const availableFilters = {
+      categories: [...new Set(allFilteredProducts.map(p => p.category.slug))],
+      filter1: [...new Set(allFilteredProducts.flatMap(p => (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+      filter2: [...new Set(allFilteredProducts.flatMap(p => (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+      filter3: [...new Set(allFilteredProducts.flatMap(p => (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+      filter4: [...new Set(allFilteredProducts.flatMap(p => (p.filter4 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+      filter5: [...new Set(allFilteredProducts.flatMap(p => (p.filter5 || '').split(',').map(s => s.trim()).filter(Boolean)))],
+      tags: [...new Set(allFilteredProducts.flatMap(p => p.tags.split(',').map(t => t.trim()).filter(Boolean)))],
+      scales: [...new Set(allFilteredProducts.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    }
+
+    // Теперь получаем товары с пагинацией (если нужно)
+    const products = shouldPaginate
+      ? allFilteredProducts.slice(skip, skip + limit)
+      : allFilteredProducts
+
+    const total = allFilteredProducts.length
 
     const formattedProducts = products.map(p => ({
       ...p,
@@ -98,7 +116,8 @@ export async function GET(request: Request) {
         products: formattedProducts,
         total,
         page: shouldPaginate ? page : 1,
-        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        availableFilters, // <-- НОВОЕ: добавляем в ответ
       }),
       { status: 200, headers }
     )
