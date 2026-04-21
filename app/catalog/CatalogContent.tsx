@@ -11,6 +11,7 @@ import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 import Pagination from '@/components/catalog/Pagination'
 import type { Product } from '@/types'
+import { X } from 'lucide-react'
 
 interface CatalogContentProps {
   initialProducts: Product[]
@@ -18,7 +19,6 @@ interface CatalogContentProps {
   initialPage: number
   totalPages: number
   categories: string[]
-  // Новый пропс – полный список опций для фильтров (кроме тегов)
   allFilterOptions: {
     categories: string[]
     filter1: string[]
@@ -30,26 +30,13 @@ interface CatalogContentProps {
   }
 }
 
-// Тип для availableFilters (те, что приходят с API – используются только для тегов)
-interface AvailableFilters {
-  tags: string[]
-  // остальные поля нам не нужны, но оставим для совместимости
-  categories?: string[]
-  filter1?: string[]
-  filter2?: string[]
-  filter3?: string[]
-  filter4?: string[]
-  filter5?: string[]
-  scales?: string[]
-}
-
 export default function CatalogContent({
   initialProducts,
   initialTotal,
   initialPage,
   totalPages: initialTotalPages,
   categories,
-  allFilterOptions, // <-- новый пропс
+  allFilterOptions,
 }: CatalogContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -60,10 +47,8 @@ export default function CatalogContent({
   const [totalPages, setTotalPages] = useState(initialTotalPages)
   const [loading, setLoading] = useState(false)
 
-  // Состояние для динамических тегов (получаем из API)
   const [availableTags, setAvailableTags] = useState<string[]>([])
 
-  // Актуальные фильтры
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     categories: [],
     filter1: [],
@@ -81,7 +66,11 @@ export default function CatalogContent({
 
   const MAX_PRICE = 3500
   const [priceMax, setPriceMax] = useState(MAX_PRICE)
+  const [tempPrice, setTempPrice] = useState(MAX_PRICE)
   const [sortBy, setSortBy] = useState('newest')
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isSortOpen, setIsSortOpen] = useState(false)
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
@@ -108,14 +97,13 @@ export default function CatalogContent({
     setProducts(data.products)
     setTotal(data.total)
     setTotalPages(data.totalPages)
-    
-    // Сохраняем только доступные теги из ответа API
+
     if (data.availableFilters?.tags) {
       setAvailableTags(data.availableFilters.tags)
     } else {
       setAvailableTags([])
     }
-    
+
     setLoading(false)
 
     router.push(`/catalog?${params.toString()}`, { scroll: false })
@@ -156,6 +144,7 @@ export default function CatalogContent({
       fileFormats: [],
     })
     setPriceMax(MAX_PRICE)
+    setTempPrice(MAX_PRICE)
     setPage(1)
   }
 
@@ -169,6 +158,29 @@ export default function CatalogContent({
     })
     setPage(1)
   }
+
+  const handlePriceChange = (value: number) => {
+    setTempPrice(value)
+  }
+
+  const handlePriceCommit = () => {
+    setPriceMax(tempPrice)
+  }
+
+  const applySortAndClose = () => {
+    setPriceMax(tempPrice)
+    setIsSortOpen(false)
+  }
+
+  const activeFiltersCount =
+    activeFilters.categories.length +
+    activeFilters.filter1.length +
+    activeFilters.filter2.length +
+    activeFilters.filter3.length +
+    activeFilters.filter4.length +
+    activeFilters.filter5.length +
+    activeFilters.tags.length +
+    activeFilters.scales.length
 
   return (
     <div className="overflow-x-hidden">
@@ -187,9 +199,7 @@ export default function CatalogContent({
                     onFilter={handleFilterChange}
                     hidePriceSlider={true}
                     allCategories={categories}
-                    // Передаём полные списки опций (кроме тегов)
                     allFilterOptions={allFilterOptions}
-                    // Передаём динамические теги
                     availableTags={availableTags}
                   />
                 </div>
@@ -232,14 +242,16 @@ export default function CatalogContent({
                     <SortDropdown onSort={handleSortChange} />
                   </div>
                   <div className="mt-6">
-                    <h3 className="text-white font-normal text-sm mb-2">Цена до: {priceMax} ₽</h3>
+                    <h3 className="text-white font-normal text-sm mb-2">Цена до: {tempPrice} ₽</h3>
                     <input
                       type="range"
                       min={0}
                       max={MAX_PRICE}
                       step={10}
-                      value={priceMax}
-                      onChange={(e) => setPriceMax(Number(e.target.value))}
+                      value={tempPrice}
+                      onChange={(e) => handlePriceChange(Number(e.target.value))}
+                      onMouseUp={handlePriceCommit}
+                      onKeyUp={(e) => e.key === 'Enter' && handlePriceCommit()}
                       className="w-full accent-white"
                       style={{ colorScheme: 'light' }}
                     />
@@ -256,57 +268,42 @@ export default function CatalogContent({
 
       {/* Мобильная версия */}
       <div className="lg:hidden">
-        <div className="pt-2">
-          <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
-        </div>
+        <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
+          <div className="grid grid-cols-3 items-center">
+            <div className="justify-self-start relative">
+              <button
+                onClick={() => setIsFilterOpen(true)}
+                className="text-white font-medium border-[1.5px] border-white rounded-full px-5 py-1.5 text-sm"
+              >
+                Фильтры
+              </button>
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </div>
 
-        <div className="sticky top-14 z-30 bg-darkbg pt-3 pb-2 px-4 border-b border-borderLight">
-          <div className="flex items-center justify-between">
-            <FilterPanel
-              products={products}
-              onFilter={handleFilterChange}
-              hidePriceSlider={true}
-              allCategories={categories}
-              allFilterOptions={allFilterOptions}
-              availableTags={availableTags}
-            />
-            <div className="flex items-center gap-2">
-              <SortDropdown onSort={handleSortChange} />
+            <button
+              onClick={() => setIsSortOpen(true)}
+              className="justify-self-center text-white font-medium border-[1.5px] border-white rounded-full px-5 py-1.5 text-sm"
+            >
+              Порядок
+            </button>
+
+            <div className="justify-self-end text-white font-semibold text-sm">
+              Товаров: {total}
             </div>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <ActiveFilters
-              filters={activeFilters}
-              onRemove={handleRemoveFilter}
-              onClearAll={handleClearAllFilters}
-            />
-            <div className="text-white text-sm">
-              Цена до:{' '}
-              <input
-                type="range"
-                min={0}
-                max={MAX_PRICE}
-                step={10}
-                value={priceMax}
-                onChange={(e) => setPriceMax(Number(e.target.value))}
-                className="w-32 accent-white inline-block ml-2"
-                style={{ colorScheme: 'light' }}
-              />
-              <span className="ml-2">{priceMax} ₽</span>
-            </div>
-          </div>
-          <div className="text-right text-white text-sm mt-1">
-            Товаров: {total}
           </div>
         </div>
 
-        <div className="px-2">
+        <div className="pt-24">
           {loading ? (
             <div className="text-center py-20 text-white">Загрузка...</div>
           ) : products.length === 0 ? (
             <div className="text-center py-20 text-gray-400">Товары не найдены</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-2">
               {products.map(product => (
                 <ProductCard key={product.article} product={product} />
               ))}
@@ -322,6 +319,77 @@ export default function CatalogContent({
             </div>
           )}
         </div>
+
+        {/* Модальное окно фильтров */}
+        {isFilterOpen && (
+          <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto">
+            <div className="bg-darkbg min-h-screen p-4">
+              <div className="flex justify-end items-center mb-4">
+                <button onClick={() => setIsFilterOpen(false)} className="text-white">
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Принудительно показываем FilterPanel на мобилке */}
+              <div className="block">
+                <FilterPanel
+                  products={products}
+                  onFilter={handleFilterChange}
+                  hidePriceSlider={true}
+                  allCategories={categories}
+                  allFilterOptions={allFilterOptions}
+                  availableTags={availableTags}
+                />
+              </div>
+
+              <button
+                onClick={() => setIsFilterOpen(false)}
+                className="mt-6 w-full bg-white text-darkbg py-3 rounded-lg font-semibold"
+              >
+                Применить
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Модальное окно сортировки и цены */}
+        {isSortOpen && (
+          <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto">
+            <div className="bg-darkbg min-h-screen p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Сортировка и цена</h2>
+                <button onClick={() => setIsSortOpen(false)} className="text-white">
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-white font-normal text-sm mb-2">Выберите:</h3>
+                  <SortDropdown onSort={handleSortChange} />
+                </div>
+                <div>
+                  <h3 className="text-white font-normal text-sm mb-2">Цена до: {tempPrice} ₽</h3>
+                  <input
+                    type="range"
+                    min={0}
+                    max={MAX_PRICE}
+                    step={10}
+                    value={tempPrice}
+                    onChange={(e) => handlePriceChange(Number(e.target.value))}
+                    className="w-full accent-white"
+                    style={{ colorScheme: 'light' }}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={applySortAndClose}
+                className="mt-6 w-full bg-white text-darkbg py-3 rounded-lg font-semibold"
+              >
+                Применить
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
