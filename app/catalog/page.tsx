@@ -1,41 +1,42 @@
 // app/catalog/page.tsx
-import { fetchAllProducts } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import CatalogContent from './CatalogContent'
 
-export const revalidate = 60
-export const dynamic = 'force-static'
+// Отключаем кеширование на уровне Next.js, чтобы всегда получать свежие данные о категориях
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
 
 export default async function CatalogPage() {
-  const allProducts = await fetchAllProducts()
-  
+  // Получаем все категории из БД для построения фильтров
   const categoriesFromDb = await prisma.category.findMany({
     select: { id: true, name: true, slug: true }
   })
-  
+
   const categoryNames: Record<string, string> = {}
   categoriesFromDb.forEach(cat => {
     categoryNames[cat.slug] = cat.name
   })
-  
+
   const categories = Object.keys(categoryNames)
 
+  // Начальные опции фильтров — пустые, они будут заполнены на клиенте после первого запроса
   const allFilterOptions = {
     categories: categories,
-    filter1: [...new Set(allProducts.flatMap(p => (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter2: [...new Set(allProducts.flatMap(p => (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter3: [...new Set(allProducts.flatMap(p => (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter4: [...new Set(allProducts.flatMap(p => (p.filter4 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    filter5: [...new Set(allProducts.flatMap(p => (p.filter5 || '').split(',').map(s => s.trim()).filter(Boolean)))],
-    scales: [...new Set(allProducts.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))],
+    filter1: [],
+    filter2: [],
+    filter3: [],
+    filter4: [],
+    filter5: [],
+    scales: [],
   }
 
   return (
     <CatalogContent
-      initialProducts={allProducts.slice(0, 12)}
-      initialTotal={allProducts.length}
+      // Передаём пустые начальные данные — товары загрузятся на клиенте
+      initialProducts={[]}
+      initialTotal={0}
       initialPage={1}
-      totalPages={Math.ceil(allProducts.length / 12)}
+      totalPages={0}
       categories={categories}
       allFilterOptions={allFilterOptions}
       categoryNames={categoryNames}

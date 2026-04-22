@@ -81,6 +81,7 @@ model Product {
 
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  @@index([searchName])
 }
 
 model CartItem {

@@ -1,45 +1,63 @@
 // app/page.tsx
-'use client'
-
-import { useState, useEffect } from 'react'
 import { HeroBanner } from '@/components/common/HeroBanner'
 import { CategoryCard } from '@/components/catalog/CategoryCard'
 import { CTASection } from '@/components/common/CTASection'
 import { CollectionBlock } from '@/components/common/CollectionBlock'
-import { fetchAllCategories, fetchAllProducts } from '@/lib/api'
-import type { Category, Product } from '../types'
+import { prisma } from '@/lib/prisma'
+import type { Category, Product } from '@/types'
 
-export default function HomePage() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
-  const [trenchProducts, setTrenchProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+// Вспомогательная функция форматирования товара
+function formatProduct(p: any): Product {
+  const images = p.images ? p.images.split(',') : []
+  const tags = p.tags ? p.tags.split(',') : []
+  return {
+    article: p.article,
+    name: p.name,
+    price: p.price,
+    oldPrice: p.oldPrice,
+    image: images[0] || '',
+    images,
+    category: p.category,
+    categorySlug: p.category.slug,
+    categoryName: p.category.name,
+    subcategory: null,
+    description: p.description,
+    shortDesc: null,
+    filter1: p.filter1,
+    filter2: p.filter2,
+    filter3: p.filter3,
+    filter4: p.filter4,
+    filter5: p.filter5,
+    stock: p.stock,
+    heightMax: p.heightMax,
+    baseMax: p.baseMax,
+    heightMin: p.heightMin,
+    baseMin: p.baseMin,
+    assembly: p.assembly,
+    contents: p.contents,
+    artist: p.artist,
+    scale: p.scale,
+    tags,
+    createdAt: p.createdAt?.toISOString() || null,
+  } as Product
+}
 
-  useEffect(() => {
-    Promise.all([fetchAllCategories(), fetchAllProducts()])
-      .then(([cats, prods]) => {
-        setCategories(cats)
-        setFeaturedProducts(prods.slice(0, 4))
-        
-        const trench = prods.filter(p => {
-          if (typeof p.category === 'object' && p.category !== null) {
-            return p.category.slug === 'trench-crusade'
-          }
-          return p.categorySlug === 'trench-crusade'
-        }).slice(0, 3)
-        
-        setTrenchProducts(trench)
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error('Ошибка загрузки данных:', err)
-        setLoading(false)
-      })
-  }, [])
+export default async function HomePage() {
+  // Загружаем категории и все товары напрямую из БД
+  const [categories, allProducts] = await Promise.all([
+    prisma.category.findMany(),
+    prisma.product.findMany({
+      include: { category: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ])
 
-  if (loading) {
-    return <div className="text-white text-center py-20">Загрузка...</div>
-  }
+  const products: Product[] = allProducts.map(formatProduct)
+
+  // Товары для коллекции Trench Crusade
+  const trenchProducts = products
+    .filter(p => p.categorySlug === 'trench-crusade')
+    .slice(0, 3)
 
   return (
     <div>
@@ -50,8 +68,8 @@ export default function HomePage() {
         ctaLink="/catalog"
         backgroundImage="/hero-bg.jpg"
       />
-      
-      {/* Блок с баннерами вселенных – без заголовка, на всю ширину */}
+
+      {/* Блок с баннерами вселенных */}
       <section className="bg-darkbg py-12 px-4 md:px-6">
         <div className="flex flex-col md:flex-row gap-6">
           {categories.map((cat: any) => (
@@ -61,7 +79,7 @@ export default function HomePage() {
           ))}
         </div>
       </section>
-      
+
       <section className="container mx-auto px-4 py-12">
         <CollectionBlock
           title="Коллекция «Траншейный кошмар»"
@@ -70,7 +88,7 @@ export default function HomePage() {
           products={trenchProducts}
         />
       </section>
-      
+
       <CTASection
         title="Подпишитесь на рассылку"
         text="Получайте новинки и скидки на 3D-модели"
