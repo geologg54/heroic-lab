@@ -7,7 +7,7 @@ import { FavoritesButton } from '@/components/common/FavoritesButton'
 import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { StickyBuyBar } from '@/components/product/StickyBuyBar'
-import ProductSidebar from '@/components/product/ProductSidebar' // <-- новый компонент
+import ProductSidebar from '@/components/product/ProductSidebar'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -42,23 +42,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const breadcrumbItems = [
     { label: 'Главная', href: '/' },
     { label: 'Каталог', href: '/catalog' },
-    { label: categoryName, href: `/category/${productCatSlug}` },
+    { label: categoryName, href: `/catalog?category=${productCatSlug}` },
     { label: product.name },
   ]
 
-  // Определяем, показывать ли блок с минимальной высотой (только если stock > 1)
   const showMinHeight = product.stock > 1 && product.heightMin != null
 
   return (
     <div className="w-full bg-darkbg">
-      {/* Широкий контейнер 75% */}
       <div className="w-[75%] mx-auto relative">
-        {/* Хлебные крошки */}
         <div className="h-20 flex items-center relative z-20">
           <Breadcrumbs items={breadcrumbItems} />
         </div>
 
-        {/* Фоновое свечение позади галереи */}
         <div className="absolute top-20 left-0 w-full h-[calc(100%-5rem)] pointer-events-none z-0">
           <div 
             className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[40%] aspect-square rounded-full opacity-50"
@@ -76,14 +72,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
           />
         </div>
 
-        {/* Галерея */}
         <div className="relative z-10">
           <ProductGallery images={product.images} />
         </div>
 
-        {/* Основная сетка с фиксированными боковыми блоками */}
         <div className="relative mt-8 z-10">
-          {/* Фиксированный левый блок (Теги) */}
+          {/* Левый блок – Теги (ссылки) */}
           <div 
             className="fixed z-30 hidden lg:block"
             style={{ 
@@ -109,7 +103,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
 
-          {/* Фиксированный правый блок (Цена и ссылки) – заменён на ProductSidebar */}
+          {/* Правый блок – ProductSidebar */}
           <div 
             className="fixed z-30 hidden lg:block"
             style={{ 
@@ -122,7 +116,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <ProductSidebar product={product} />
           </div>
 
-          {/* Сетка с плейсхолдерами для сохранения ширины */}
           <div className="grid grid-cols-[1fr_45vw_1fr] gap-0">
             <div className="pr-8 hidden lg:block" />
             
@@ -185,7 +178,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 )}
               </div>
 
-              {/* Другие характеристики */}
+              {/* Характеристики, описание, комплектация и т.д. – без изменений */}
               <div className="mt-10">
                 <h2 className="text-xl font-semibold text-white pb-3 mb-4">Другие характеристики</h2>
                 <ul className="space-y-3 text-gray-300 text-lg">
@@ -204,7 +197,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </ul>
               </div>
 
-              {/* Описание */}
               <div className="mt-10">
                 <h2 className="text-xl font-semibold text-white pb-3 mb-4">Описание</h2>
                 <div className="prose prose-invert text-gray-300 max-w-none text-lg">
@@ -214,7 +206,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </div>
               </div>
 
-              {/* Комплектация */}
               {product.contents && (
                 <div className="mt-10">
                   <h2 className="text-xl font-semibold text-white pb-3 mb-4">Комплектация</h2>
@@ -222,7 +213,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </div>
               )}
 
-              {/* Совет */}
               <div className="mt-10">
                 <h2 className="text-xl font-semibold text-white pb-3 mb-4">Совет</h2>
                 <p className="text-gray-300 text-lg">
