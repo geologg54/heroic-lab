@@ -48,6 +48,18 @@ interface FilterPanelProps {
   forceOpen?: boolean
 }
 
+// Функция для умной сортировки: числа по возрастанию, строки по алфавиту
+const smartSort = (a: string, b: string): number => {
+  // Проверяем, являются ли обе строки числами
+  const aNum = Number(a)
+  const bNum = Number(b)
+  if (!isNaN(aNum) && !isNaN(bNum)) {
+    return aNum - bNum
+  }
+  // Если одна число, другая нет - число идёт раньше? Обычно строки сортируются по алфавиту
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+}
+
 export const FilterPanel = forwardRef<any, FilterPanelProps>(({ 
   products, 
   onFilter, 
@@ -89,6 +101,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     scales: false,
   })
 
+  // Состояние пагинации для тегов (не сбрасываем при каждом изменении фильтров)
   const [tagsPage, setTagsPage] = useState(1)
   const tagsPerPage = 10
 
@@ -113,19 +126,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     if (allFilterOptions) {
       return (allFilterOptions as any)[sectionKey] || []
     }
-    // fallback
-    if (sectionKey === 'categories') {
-      return allCategories.length > 0 
-        ? allCategories 
-        : [...new Set(products.map(p => typeof p.category === 'object' ? p.category.slug : p.categorySlug))]
-    }
-    if (sectionKey.startsWith('filter')) {
-      const num = sectionKey.replace('filter', '')
-      return [...new Set(products.flatMap(p => (p[`filter${num}` as keyof Product] as string || '').split(',').map(s => s.trim()).filter(Boolean)))]
-    }
-    if (sectionKey === 'scales') {
-      return [...new Set(products.flatMap(p => (p.scale || '').split(',').map(s => s.trim()).filter(Boolean)))]
-    }
+    // fallback (не используется, так как передаём allFilterOptions)
     return []
   }
 
@@ -141,6 +142,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
         [key]: current.includes(value) ? current.filter(v => v !== value) : [...current, value]
       }
     })
+    // Не сбрасываем страницу тегов при toggle
   }
 
   const resetFilters = () => {
@@ -159,7 +161,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
       fileFormats: [],
     })
     setPriceMax(3500)
-    setTagsPage(1)
+    setTagsPage(1) // сбрасываем страницу тегов только при полном сбросе
   }
 
   useImperativeHandle(ref, () => ({
@@ -237,7 +239,11 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     const priceChanged = prevPriceMaxRef.current !== priceMax
     if (filtersChanged || priceChanged) {
       applyFilters()
-      setTagsPage(1)
+      // Не сбрасываем tagsPage при изменении фильтров, кроме случаев когда изменилась категория?
+      // Если категория изменилась, набор тегов меняется, поэтому можно сбросить страницу
+      if (prevFiltersRef.current.categories !== filters.categories) {
+        setTagsPage(1)
+      }
     }
     prevFiltersRef.current = filters
     prevPriceMaxRef.current = priceMax
@@ -269,10 +275,13 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     const isExpanded = expandedSections[sectionKey]
     const isTagsSection = sectionKey === 'tags'
     
-    const totalPages = Math.ceil(options.length / tagsPerPage)
+    // Сортируем опции
+    const sortedOptions = [...options].sort(smartSort)
+    
+    const totalPages = Math.ceil(sortedOptions.length / tagsPerPage)
     const startIndex = (tagsPage - 1) * tagsPerPage
     const endIndex = startIndex + tagsPerPage
-    const visibleOptions = isTagsSection ? options.slice(startIndex, endIndex) : options
+    const visibleOptions = isTagsSection ? sortedOptions.slice(startIndex, endIndex) : sortedOptions
 
     const getDisplayName = (value: string) => {
       if (sectionKey === 'categories' && categoryNames[value]) {
