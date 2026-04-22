@@ -37,12 +37,24 @@ export default function CatalogContent({
   initialPage,
   totalPages: initialTotalPages,
   categories,
-  allFilterOptions,
+  allFilterOptions: initialFilterOptions,
   categoryNames,
 }: CatalogContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // ---------- Состояния ----------
+  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [total, setTotal] = useState(initialTotal)
+  const [page, setPage] = useState(initialPage)
+  const [totalPages, setTotalPages] = useState(initialTotalPages)
+  const [loading, setLoading] = useState(false)
+
+  // Опции фильтров, которые приходят с сервера
+  const [availableFilterOptions, setAvailableFilterOptions] = useState(initialFilterOptions)
+  const [availableTags, setAvailableTags] = useState<string[]>([])
+
+  // Инициализация активных фильтров из URL
   const getInitialFilters = (): FilterState => {
     const params = new URLSearchParams(searchParams.toString())
     return {
@@ -61,26 +73,15 @@ export default function CatalogContent({
     }
   }
 
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [total, setTotal] = useState(initialTotal)
-  const [page, setPage] = useState(initialPage)
-  const [totalPages, setTotalPages] = useState(initialTotalPages)
-  const [loading, setLoading] = useState(false)
-
-  const [availableTags, setAvailableTags] = useState<string[]>([])
   const [activeFilters, setActiveFilters] = useState<FilterState>(getInitialFilters())
-
-  const MAX_PRICE = 3500
-  const [priceMax, setPriceMax] = useState(MAX_PRICE)
-  const [tempPrice, setTempPrice] = useState(MAX_PRICE)
   const [sortBy, setSortBy] = useState('newest')
+  const [priceMax, setPriceMax] = useState(3500)
+  const [tempPrice, setTempPrice] = useState(3500)
 
+  // Для мобильных модалок
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isSortOpen, setIsSortOpen] = useState(false)
-
   const [tempFilters, setTempFilters] = useState<FilterState>(activeFilters)
-  
-  // Состояние раскрытия секций в мобильной модалке
   const [mobileExpandedSections, setMobileExpandedSections] = useState<Record<string, boolean>>({
     categories: false,
     filter1: false,
@@ -94,13 +95,15 @@ export default function CatalogContent({
 
   const filterPanelRef = useRef<{ resetFilters: () => void }>(null)
 
+  // ---------- Загрузка товаров с сервера ----------
   const fetchProducts = useCallback(async () => {
     setLoading(true)
+
     const params = new URLSearchParams()
     params.set('page', page.toString())
     params.set('limit', '12')
     if (sortBy !== 'newest') params.set('sort', sortBy)
-    if (priceMax < MAX_PRICE) params.set('maxPrice', priceMax.toString())
+    if (priceMax < 3500) params.set('maxPrice', priceMax.toString())
 
     if (activeFilters.categories.length) {
       params.set('category', activeFilters.categories[0])
@@ -116,11 +119,21 @@ export default function CatalogContent({
 
     const res = await fetch(`/api/products?${params.toString()}`)
     const data = await res.json()
+
     setProducts(data.products)
     setTotal(data.total)
     setTotalPages(data.totalPages)
 
     if (data.availableFilters) {
+      setAvailableFilterOptions({
+        categories: data.availableFilters.categories || [],
+        filter1: data.availableFilters.filter1 || [],
+        filter2: data.availableFilters.filter2 || [],
+        filter3: data.availableFilters.filter3 || [],
+        filter4: data.availableFilters.filter4 || [],
+        filter5: data.availableFilters.filter5 || [],
+        scales: data.availableFilters.scales || [],
+      })
       setAvailableTags(data.availableFilters.tags || [])
     }
 
@@ -132,6 +145,7 @@ export default function CatalogContent({
     fetchProducts()
   }, [fetchProducts])
 
+  // ---------- Обработчики ----------
   const handleFilterChange = (filtered: Product[], filters: FilterState) => {
     setActiveFilters(filters)
     setPage(1)
@@ -162,8 +176,8 @@ export default function CatalogContent({
       types: [],
       fileFormats: [],
     })
-    setPriceMax(MAX_PRICE)
-    setTempPrice(MAX_PRICE)
+    setPriceMax(3500)
+    setTempPrice(3500)
     setPage(1)
   }
 
@@ -180,29 +194,6 @@ export default function CatalogContent({
 
   const handlePriceChange = (value: number) => setTempPrice(value)
   const handlePriceCommit = () => setPriceMax(tempPrice)
-  const applySortAndClose = () => {
-    setPriceMax(tempPrice)
-    setIsSortOpen(false)
-  }
-
-  const openMobileFilter = () => {
-    setTempFilters({ ...activeFilters })
-    setIsFilterOpen(true)
-  }
-
-  const applyMobileFilters = () => {
-    setActiveFilters(tempFilters)
-    setPage(1)
-    setIsFilterOpen(false)
-  }
-
-  const closeMobileFilter = () => {
-    setIsFilterOpen(false)
-  }
-
-  const toggleMobileSection = (section: string) => {
-    setMobileExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
-  }
 
   const activeFiltersCount =
     activeFilters.categories.length +
@@ -214,7 +205,30 @@ export default function CatalogContent({
     activeFilters.tags.length +
     activeFilters.scales.length
 
-  // Компонент секции фильтра для мобильной модалки
+  // ---------- Мобильные функции ----------
+  const openMobileFilter = () => {
+    setTempFilters({ ...activeFilters })
+    setIsFilterOpen(true)
+  }
+
+  const applyMobileFilters = () => {
+    setActiveFilters(tempFilters)
+    setPage(1)
+    setIsFilterOpen(false)
+  }
+
+  const closeMobileFilter = () => setIsFilterOpen(false)
+
+  const toggleMobileSection = (section: string) => {
+    setMobileExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
+
+  const applySortAndClose = () => {
+    setPriceMax(tempPrice)
+    setIsSortOpen(false)
+  }
+
+  // Компонент для мобильной секции фильтра
   const MobileFilterSection = ({
     title,
     sectionKey,
@@ -289,9 +303,10 @@ export default function CatalogContent({
     )
   }
 
+  // ---------- Рендер ----------
   return (
     <div className="overflow-x-hidden">
-      {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
+      {/* ========== ДЕСКТОПНАЯ ВЕРСИЯ ========== */}
       <div className="hidden lg:block">
         <div className="max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[2vw]">
           <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
@@ -306,7 +321,7 @@ export default function CatalogContent({
                     onFilter={handleFilterChange}
                     hidePriceSlider={true}
                     allCategories={categories}
-                    allFilterOptions={allFilterOptions}
+                    allFilterOptions={availableFilterOptions}
                     availableTags={availableTags}
                     categoryNames={categoryNames}
                     activeFilters={activeFilters}
@@ -356,7 +371,7 @@ export default function CatalogContent({
                     <input
                       type="range"
                       min={0}
-                      max={MAX_PRICE}
+                      max={3500}
                       step={10}
                       value={tempPrice}
                       onChange={(e) => handlePriceChange(Number(e.target.value))}
@@ -376,8 +391,9 @@ export default function CatalogContent({
         </div>
       </div>
 
-      {/* МОБИЛЬНАЯ ВЕРСИЯ */}
+      {/* ========== МОБИЛЬНАЯ ВЕРСИЯ ========== */}
       <div className="lg:hidden">
+        {/* Фиксированная панель с кнопками */}
         <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
           <div className="grid grid-cols-3 items-center">
             <div className="justify-self-start relative">
@@ -442,6 +458,7 @@ export default function CatalogContent({
               </div>
 
               <div className="space-y-4">
+                {/* Категории */}
                 <MobileFilterSection
                   title="Категория"
                   sectionKey="categories"
@@ -457,8 +474,9 @@ export default function CatalogContent({
                   }}
                 />
 
+                {/* Динамические фильтры */}
                 {(['filter1', 'filter2', 'filter3', 'filter4', 'filter5'] as const).map((key) => {
-                  const options = allFilterOptions[key] || []
+                  const options = availableFilterOptions[key] || []
                   if (options.length === 0) return null
                   const titles: Record<string, string> = {
                     filter1: 'Фракция',
@@ -486,6 +504,7 @@ export default function CatalogContent({
                   )
                 })}
 
+                {/* Теги */}
                 <MobileFilterSection
                   title="Теги"
                   sectionKey="tags"
@@ -502,11 +521,12 @@ export default function CatalogContent({
                   paginated={true}
                 />
 
-                {allFilterOptions.scales.length >= 2 && (
+                {/* Масштабы */}
+                {availableFilterOptions.scales.length >= 2 && (
                   <MobileFilterSection
                     title="Масштаб"
                     sectionKey="scales"
-                    options={allFilterOptions.scales.map(scale => ({ value: scale, label: scale }))}
+                    options={availableFilterOptions.scales.map(scale => ({ value: scale, label: scale }))}
                     selected={tempFilters.scales}
                     onToggle={(value) => {
                       setTempFilters(prev => ({
@@ -573,7 +593,7 @@ export default function CatalogContent({
                   <input
                     type="range"
                     min={0}
-                    max={MAX_PRICE}
+                    max={3500}
                     step={10}
                     value={tempPrice}
                     onChange={(e) => handlePriceChange(Number(e.target.value))}
