@@ -28,7 +28,7 @@ interface CatalogContentProps {
     filter5: string[]
     scales: string[]
   }
-  categoryNames: Record<string, string> // <-- имена категорий из БД
+  categoryNames: Record<string, string>
 }
 
 export default function CatalogContent({
@@ -43,7 +43,6 @@ export default function CatalogContent({
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // --- Инициализация фильтров из URL ---
   const getInitialFilters = (): FilterState => {
     const params = new URLSearchParams(searchParams.toString())
     return {
@@ -79,6 +78,20 @@ export default function CatalogContent({
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isSortOpen, setIsSortOpen] = useState(false)
 
+  const [tempFilters, setTempFilters] = useState<FilterState>(activeFilters)
+  
+  // Состояние раскрытия секций в мобильной модалке
+  const [mobileExpandedSections, setMobileExpandedSections] = useState<Record<string, boolean>>({
+    categories: false,
+    filter1: false,
+    filter2: false,
+    filter3: false,
+    filter4: false,
+    filter5: false,
+    tags: false,
+    scales: false,
+  })
+
   const filterPanelRef = useRef<{ resetFilters: () => void }>(null)
 
   const fetchProducts = useCallback(async () => {
@@ -107,11 +120,8 @@ export default function CatalogContent({
     setTotal(data.total)
     setTotalPages(data.totalPages)
 
-    // Обновляем только динамические теги (остальные фильтры статичны)
-    if (data.availableFilters?.tags) {
-      setAvailableTags(data.availableFilters.tags)
-    } else {
-      setAvailableTags([])
+    if (data.availableFilters) {
+      setAvailableTags(data.availableFilters.tags || [])
     }
 
     setLoading(false)
@@ -175,6 +185,25 @@ export default function CatalogContent({
     setIsSortOpen(false)
   }
 
+  const openMobileFilter = () => {
+    setTempFilters({ ...activeFilters })
+    setIsFilterOpen(true)
+  }
+
+  const applyMobileFilters = () => {
+    setActiveFilters(tempFilters)
+    setPage(1)
+    setIsFilterOpen(false)
+  }
+
+  const closeMobileFilter = () => {
+    setIsFilterOpen(false)
+  }
+
+  const toggleMobileSection = (section: string) => {
+    setMobileExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
+
   const activeFiltersCount =
     activeFilters.categories.length +
     activeFilters.filter1.length +
@@ -185,21 +214,23 @@ export default function CatalogContent({
     activeFilters.tags.length +
     activeFilters.scales.length
 
-  // Компонент для секции фильтров в мобильной модалке
-  const FilterSection = ({
+  // Компонент секции фильтра для мобильной модалки
+  const MobileFilterSection = ({
     title,
+    sectionKey,
     options,
     selected,
     onToggle,
     paginated = false
   }: {
     title: string
-    options: string[]
+    sectionKey: string
+    options: { value: string; label: string }[]
     selected: string[]
     onToggle: (value: string) => void
     paginated?: boolean
   }) => {
-    const [isExpanded, setIsExpanded] = useState(false)
+    const isExpanded = mobileExpandedSections[sectionKey]
     const [page, setPage] = useState(1)
     const perPage = 10
 
@@ -211,7 +242,7 @@ export default function CatalogContent({
     return (
       <div className="border-b border-borderLight pb-3">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => toggleMobileSection(sectionKey)}
           className="flex justify-between items-center w-full text-left py-2 text-white font-medium"
         >
           <span>{title}</span>
@@ -220,14 +251,17 @@ export default function CatalogContent({
         {isExpanded && (
           <div className="mt-2 space-y-2">
             {visibleOptions.map(opt => (
-              <label key={opt} className="flex items-center gap-2 text-gray-300">
+              <label
+                key={opt.value}
+                className="flex items-center gap-2 text-gray-300 cursor-pointer"
+              >
                 <input
                   type="checkbox"
-                  checked={selected.includes(opt)}
-                  onChange={() => onToggle(opt)}
+                  checked={selected.includes(opt.value)}
+                  onChange={() => onToggle(opt.value)}
                   className="rounded border-gray-500"
                 />
-                {opt}
+                <span>{opt.label}</span>
               </label>
             ))}
             {paginated && totalPages > 1 && (
@@ -257,7 +291,7 @@ export default function CatalogContent({
 
   return (
     <div className="overflow-x-hidden">
-      {/* Десктопная версия */}
+      {/* ДЕСКТОПНАЯ ВЕРСИЯ */}
       <div className="hidden lg:block">
         <div className="max-w-screen-2xl mx-auto lg:max-w-none lg:ml-[2vw]">
           <Breadcrumbs items={[{ label: 'Главная', href: '/' }, { label: 'Каталог' }]} />
@@ -342,13 +376,13 @@ export default function CatalogContent({
         </div>
       </div>
 
-      {/* Мобильная версия – сохранена из версии напарника, дополнена categoryNames и фильтрами */}
+      {/* МОБИЛЬНАЯ ВЕРСИЯ */}
       <div className="lg:hidden">
         <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
           <div className="grid grid-cols-3 items-center">
             <div className="justify-self-start relative">
               <button
-                onClick={() => setIsFilterOpen(true)}
+                onClick={openMobileFilter}
                 className="text-white font-medium border-[1.5px] border-white rounded-full px-5 py-1.5 text-sm"
               >
                 Фильтры
@@ -396,40 +430,36 @@ export default function CatalogContent({
           )}
         </div>
 
-        {/* Модальное окно фильтров – обновлено с categoryNames и полными списками */}
+        {/* Модальное окно фильтров (мобильное) */}
         {isFilterOpen && (
-          <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto">
-            <div className="bg-darkbg min-h-screen p-4">
+          <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto" onClick={closeMobileFilter}>
+            <div className="bg-darkbg min-h-screen p-4" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Фильтры</h2>
-                <button onClick={() => setIsFilterOpen(false)} className="text-white">
+                <button onClick={closeMobileFilter} className="text-white">
                   <X size={24} />
                 </button>
               </div>
 
               <div className="space-y-4">
-                {/* Категория */}
-                <FilterSection
+                <MobileFilterSection
                   title="Категория"
-                  options={categories.map(slug => categoryNames[slug] || slug)}
-                  selected={activeFilters.categories}
+                  sectionKey="categories"
+                  options={categories.map(slug => ({ value: slug, label: categoryNames[slug] || slug }))}
+                  selected={tempFilters.categories}
                   onToggle={(value) => {
-                    // value – это отображаемое имя, нужно найти slug
-                    const slug = Object.keys(categoryNames).find(key => categoryNames[key] === value) || value
-                    setActiveFilters(prev => ({
+                    setTempFilters(prev => ({
                       ...prev,
-                      categories: prev.categories.includes(slug)
-                        ? prev.categories.filter(v => v !== slug)
-                        : [...prev.categories, slug]
+                      categories: prev.categories.includes(value)
+                        ? prev.categories.filter(v => v !== value)
+                        : [...prev.categories, value]
                     }))
                   }}
                 />
 
-                {/* Динамические фильтры 1-5 */}
                 {(['filter1', 'filter2', 'filter3', 'filter4', 'filter5'] as const).map((key) => {
                   const options = allFilterOptions[key] || []
                   if (options.length === 0) return null
-                  // Заголовки можно позже брать из категории, пока так
                   const titles: Record<string, string> = {
                     filter1: 'Фракция',
                     filter2: 'Тип',
@@ -438,13 +468,14 @@ export default function CatalogContent({
                     filter5: 'Особенность'
                   }
                   return (
-                    <FilterSection
+                    <MobileFilterSection
                       key={key}
+                      sectionKey={key}
                       title={titles[key]}
-                      options={options}
-                      selected={activeFilters[key]}
+                      options={options.map(opt => ({ value: opt, label: opt }))}
+                      selected={tempFilters[key]}
                       onToggle={(value) => {
-                        setActiveFilters(prev => ({
+                        setTempFilters(prev => ({
                           ...prev,
                           [key]: prev[key].includes(value)
                             ? prev[key].filter(v => v !== value)
@@ -455,13 +486,13 @@ export default function CatalogContent({
                   )
                 })}
 
-                {/* Теги – динамические, с пагинацией */}
-                <FilterSection
+                <MobileFilterSection
                   title="Теги"
-                  options={availableTags}
-                  selected={activeFilters.tags}
+                  sectionKey="tags"
+                  options={availableTags.map(tag => ({ value: tag, label: tag }))}
+                  selected={tempFilters.tags}
                   onToggle={(value) => {
-                    setActiveFilters(prev => ({
+                    setTempFilters(prev => ({
                       ...prev,
                       tags: prev.tags.includes(value)
                         ? prev.tags.filter(v => v !== value)
@@ -471,14 +502,14 @@ export default function CatalogContent({
                   paginated={true}
                 />
 
-                {/* Масштаб – показываем только если вариантов >= 2 */}
                 {allFilterOptions.scales.length >= 2 && (
-                  <FilterSection
+                  <MobileFilterSection
                     title="Масштаб"
-                    options={allFilterOptions.scales}
-                    selected={activeFilters.scales}
+                    sectionKey="scales"
+                    options={allFilterOptions.scales.map(scale => ({ value: scale, label: scale }))}
+                    selected={tempFilters.scales}
                     onToggle={(value) => {
-                      setActiveFilters(prev => ({
+                      setTempFilters(prev => ({
                         ...prev,
                         scales: prev.scales.includes(value)
                           ? prev.scales.filter(v => v !== value)
@@ -491,13 +522,28 @@ export default function CatalogContent({
 
               <div className="mt-6 flex gap-4">
                 <button
-                  onClick={handleClearAllFilters}
+                  onClick={() => {
+                    setTempFilters({
+                      categories: [],
+                      filter1: [],
+                      filter2: [],
+                      filter3: [],
+                      filter4: [],
+                      filter5: [],
+                      tags: [],
+                      scales: [],
+                      gameSystems: [],
+                      factions: [],
+                      types: [],
+                      fileFormats: [],
+                    })
+                  }}
                   className="text-gray-400 hover:text-white underline"
                 >
                   Сбросить фильтры
                 </button>
                 <button
-                  onClick={() => setIsFilterOpen(false)}
+                  onClick={applyMobileFilters}
                   className="flex-1 bg-white text-darkbg py-3 rounded-lg font-semibold"
                 >
                   Применить
@@ -509,8 +555,8 @@ export default function CatalogContent({
 
         {/* Модальное окно сортировки и цены */}
         {isSortOpen && (
-          <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto">
-            <div className="bg-darkbg min-h-screen p-4">
+          <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto" onClick={() => setIsSortOpen(false)}>
+            <div className="bg-darkbg min-h-screen p-4" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Сортировка и цена</h2>
                 <button onClick={() => setIsSortOpen(false)} className="text-white">
