@@ -1,7 +1,7 @@
 // app/catalog/CatalogContent.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { FilterPanel } from '@/components/catalog/FilterPanel'
@@ -11,7 +11,7 @@ import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 import Pagination from '@/components/catalog/Pagination'
 import type { Product } from '@/types'
-import { X } from 'lucide-react'
+import { X, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
 
 interface CatalogContentProps {
   initialProducts: Product[]
@@ -71,6 +71,8 @@ export default function CatalogContent({
 
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isSortOpen, setIsSortOpen] = useState(false)
+
+  const filterPanelRef = useRef<{ resetFilters: () => void }>(null)
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
@@ -181,6 +183,76 @@ export default function CatalogContent({
     activeFilters.filter5.length +
     activeFilters.tags.length +
     activeFilters.scales.length
+
+  // Компонент для отображения одной секции фильтров в мобильной модалке
+  const FilterSection = ({
+    title,
+    options,
+    selected,
+    onToggle,
+    paginated = false
+  }: {
+    title: string
+    options: string[]
+    selected: string[]
+    onToggle: (value: string) => void
+    paginated?: boolean
+  }) => {
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [page, setPage] = useState(1)
+    const perPage = 10
+
+    const totalPages = Math.ceil(options.length / perPage)
+    const visibleOptions = paginated
+      ? options.slice((page - 1) * perPage, page * perPage)
+      : options
+
+    return (
+      <div className="border-b border-borderLight pb-3">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex justify-between items-center w-full text-left py-2 text-white font-medium"
+        >
+          <span>{title}</span>
+          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        </button>
+        {isExpanded && (
+          <div className="mt-2 space-y-2">
+            {visibleOptions.map(opt => (
+              <label key={opt} className="flex items-center gap-2 text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt)}
+                  onChange={() => onToggle(opt)}
+                  className="rounded border-gray-500"
+                />
+                {opt}
+              </label>
+            ))}
+            {paginated && totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs text-gray-400">{page} / {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="overflow-x-hidden">
@@ -320,34 +392,109 @@ export default function CatalogContent({
           )}
         </div>
 
-        {/* Модальное окно фильтров */}
+        {/* Модальное окно фильтров — ПРЯМАЯ РЕАЛИЗАЦИЯ */}
         {isFilterOpen && (
           <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto">
             <div className="bg-darkbg min-h-screen p-4">
-              <div className="flex justify-end items-center mb-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Фильтры</h2>
                 <button onClick={() => setIsFilterOpen(false)} className="text-white">
                   <X size={24} />
                 </button>
               </div>
 
-              {/* Принудительно показываем FilterPanel на мобилке */}
-              <div className="block">
-                <FilterPanel
-                  products={products}
-                  onFilter={handleFilterChange}
-                  hidePriceSlider={true}
-                  allCategories={categories}
-                  allFilterOptions={allFilterOptions}
-                  availableTags={availableTags}
+              <div className="space-y-4">
+                {/* Категория */}
+                <FilterSection
+                  title="Категория"
+                  options={categories}
+                  selected={activeFilters.categories}
+                  onToggle={(value) => {
+                    setActiveFilters(prev => ({
+                      ...prev,
+                      categories: prev.categories.includes(value)
+                        ? prev.categories.filter(v => v !== value)
+                        : [...prev.categories, value]
+                    }))
+                  }}
+                />
+
+                {/* Динамические фильтры 1-5 */}
+                {(['filter1', 'filter2', 'filter3', 'filter4', 'filter5'] as const).map((key) => {
+                  const options = allFilterOptions[key] || []
+                  if (options.length === 0) return null
+                  // Простые заголовки (в будущем можно подтянуть из категории)
+                  const titles: Record<string, string> = {
+                    filter1: 'Фракция',
+                    filter2: 'Тип',
+                    filter3: 'Класс',
+                    filter4: 'Материал',
+                    filter5: 'Особенность'
+                  }
+                  return (
+                    <FilterSection
+                      key={key}
+                      title={titles[key]}
+                      options={options}
+                      selected={activeFilters[key]}
+                      onToggle={(value) => {
+                        setActiveFilters(prev => ({
+                          ...prev,
+                          [key]: prev[key].includes(value)
+                            ? prev[key].filter(v => v !== value)
+                            : [...prev[key], value]
+                        }))
+                      }}
+                    />
+                  )
+                })}
+
+                {/* Теги */}
+                <FilterSection
+                  title="Теги"
+                  options={availableTags}
+                  selected={activeFilters.tags}
+                  onToggle={(value) => {
+                    setActiveFilters(prev => ({
+                      ...prev,
+                      tags: prev.tags.includes(value)
+                        ? prev.tags.filter(v => v !== value)
+                        : [...prev.tags, value]
+                    }))
+                  }}
+                  paginated={true}
+                />
+
+                {/* Масштаб */}
+                <FilterSection
+                  title="Масштаб"
+                  options={allFilterOptions.scales}
+                  selected={activeFilters.scales}
+                  onToggle={(value) => {
+                    setActiveFilters(prev => ({
+                      ...prev,
+                      scales: prev.scales.includes(value)
+                        ? prev.scales.filter(v => v !== value)
+                        : [...prev.scales, value]
+                    }))
+                  }}
                 />
               </div>
 
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="mt-6 w-full bg-white text-darkbg py-3 rounded-lg font-semibold"
-              >
-                Применить
-              </button>
+              <div className="mt-6 flex gap-4">
+                <button
+                  onClick={handleClearAllFilters}
+                  className="text-gray-400 hover:text-white underline"
+                >
+                  Сбросить фильтры
+                </button>
+                <button
+                  onClick={() => setIsFilterOpen(false)}
+                  className="flex-1 bg-white text-darkbg py-3 rounded-lg font-semibold"
+                >
+                  Применить
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -364,7 +511,7 @@ export default function CatalogContent({
               </div>
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-white font-normal text-sm mb-2">Выберите:</h3>
+                  <h3 className="text-white font-normal text-sm mb-2">Упорядочить:</h3>
                   <SortDropdown onSort={handleSortChange} />
                 </div>
                 <div>

@@ -7,8 +7,9 @@ import { FavoritesButton } from '@/components/common/FavoritesButton'
 import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { StickyBuyBar } from '@/components/product/StickyBuyBar'
+import ProductSidebar from '@/components/product/ProductSidebar' // <-- новый компонент
 import Image from 'next/image'
-import Link from 'next/link' // <-- Добавлен импорт Link
+import Link from 'next/link'
 
 interface ProductPageProps {
   params: Promise<{ article: string }>
@@ -82,7 +83,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         {/* Основная сетка с фиксированными боковыми блоками */}
         <div className="relative mt-8 z-10">
-          {/* Фиксированный левый блок (Теги) – ТЕПЕРЬ С ССЫЛКАМИ */}
+          {/* Фиксированный левый блок (Теги) */}
           <div 
             className="fixed z-30 hidden lg:block"
             style={{ 
@@ -108,7 +109,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
 
-          {/* Фиксированный правый блок (Цена и ссылки) */}
+          {/* Фиксированный правый блок (Цена и ссылки) – заменён на ProductSidebar */}
           <div 
             className="fixed z-30 hidden lg:block"
             style={{ 
@@ -118,20 +119,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               width: `calc((75vw - 45vw) / 2 - 1rem)`
             }}
           >
-            <div className="pl-4 space-y-6">
-              <div className="flex items-center gap-4">
-                <button className="bg-white text-darkbg font-bold text-xl px-6 py-3 rounded-lg border-2 border-white hover:bg-darkbg hover:text-white transition-colors">
-                  {product.price} ₽
-                </button>
-                <FavoritesButton productId={product.article} />
-              </div>
-              <div className="text-white space-y-2 text-lg">
-                <div className="cursor-pointer hover:text-accent transition">Выбрать материал</div>
-                <div className="cursor-pointer hover:text-accent transition">Выбрать масштаб</div>
-                <div className="cursor-pointer hover:text-accent transition">Особый заказ</div>
-                <Link href="/faq" className="block hover:text-accent transition">Частые вопросы</Link>
-              </div>
-            </div>
+            <ProductSidebar product={product} />
           </div>
 
           {/* Сетка с плейсхолдерами для сохранения ширины */}

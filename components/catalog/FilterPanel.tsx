@@ -1,6 +1,6 @@
 // components/catalog/FilterPanel.tsx
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Product } from '@/types'
 import { SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
@@ -33,7 +33,6 @@ interface FilterPanelProps {
     filter5Name?: string | null
   }
   allCategories?: string[]
-  // Полные списки опций (кроме тегов) – они не меняются при фильтрации
   allFilterOptions?: {
     categories: string[]
     filter1: string[]
@@ -43,11 +42,11 @@ interface FilterPanelProps {
     filter5: string[]
     scales: string[]
   }
-  // Динамический список тегов, который приходит из CatalogContent
   availableTags?: string[]
+  forceOpen?: boolean
 }
 
-export const FilterPanel = ({ 
+export const FilterPanel = forwardRef<any, FilterPanelProps>(({ 
   products, 
   onFilter, 
   hidePriceSlider = false, 
@@ -56,7 +55,8 @@ export const FilterPanel = ({
   allCategories = [],
   allFilterOptions,
   availableTags = [],
-}: FilterPanelProps) => {
+  forceOpen = false,
+}, ref) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
@@ -85,7 +85,6 @@ export const FilterPanel = ({
     scales: false,
   })
 
-  // Состояние для пагинации тегов
   const [tagsPage, setTagsPage] = useState(1)
   const tagsPerPage = 10
 
@@ -93,9 +92,11 @@ export const FilterPanel = ({
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  // Определяем, какие опции использовать для каждой секции
-  // Для категорий, filter1-5, scales используем allFilterOptions (если передан)
-  // Для тегов используем availableTags
+  // Синхронизация внешнего пропа forceOpen с внутренним состоянием
+  useEffect(() => {
+    setIsOpen(forceOpen);
+  }, [forceOpen]);
+
   const getSectionOptions = (sectionKey: string): string[] => {
     if (sectionKey === 'tags') {
       return availableTags
@@ -103,7 +104,6 @@ export const FilterPanel = ({
     if (allFilterOptions) {
       return (allFilterOptions as any)[sectionKey] || []
     }
-    // fallback (если allFilterOptions не передан) – вычисляем из products
     if (sectionKey === 'categories') {
       return allCategories.length > 0 
         ? allCategories 
@@ -149,8 +149,12 @@ export const FilterPanel = ({
       fileFormats: [],
     })
     setPriceMax(3500)
-    setTagsPage(1) // сбрасываем страницу тегов
+    setTagsPage(1)
   }
+
+  useImperativeHandle(ref, () => ({
+    resetFilters
+  }))
 
   const applyFilters = useCallback(() => {
     let filtered = products
@@ -223,7 +227,6 @@ export const FilterPanel = ({
     const priceChanged = prevPriceMaxRef.current !== priceMax
     if (filtersChanged || priceChanged) {
       applyFilters()
-      // При изменении фильтров сбрасываем страницу тегов на первую
       setTagsPage(1)
     }
     prevFiltersRef.current = filters
@@ -244,7 +247,6 @@ export const FilterPanel = ({
     return section.title && getSectionOptions(section.key).length > 0
   })
 
-  // Компонент для отображения секции с чекбоксами
   const FilterSection = ({ title, sectionKey, options, selected }: { 
     title: string; 
     sectionKey: string; 
@@ -254,7 +256,6 @@ export const FilterPanel = ({
     const isExpanded = expandedSections[sectionKey]
     const isTagsSection = sectionKey === 'tags'
     
-    // Пагинация для тегов
     const totalPages = Math.ceil(options.length / tagsPerPage)
     const startIndex = (tagsPage - 1) * tagsPerPage
     const endIndex = startIndex + tagsPerPage
@@ -277,7 +278,6 @@ export const FilterPanel = ({
                 /> {opt}
               </label>
             ))}
-            {/* Пагинация для тегов */}
             {isTagsSection && totalPages > 1 && (
               <div className="flex items-center justify-between pt-2">
                 <button
@@ -343,7 +343,6 @@ export const FilterPanel = ({
           <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
         </div>
       </div>
-      {/* Мобильная модалка */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 p-4 overflow-auto">
           <div className="bg-cardbg p-6 rounded-xl max-w-md mx-auto relative">
@@ -374,4 +373,4 @@ export const FilterPanel = ({
       )}
     </>
   )
-}
+})
