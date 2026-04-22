@@ -10,20 +10,16 @@ interface CategoryCardProps {
   }
 }
 
-// Функция определяет баннер по имени категории
 const getBannerByCategory = (name: string, slug: string): string | null => {
   const lowerName = name.toLowerCase()
   const lowerSlug = slug.toLowerCase()
 
-  // D&D
   if (lowerName.includes('d&d') || lowerName.includes('dnd') || lowerSlug.includes('dnd')) {
     return '/dnd-banner.png'
   }
-  // Trench Crusade
   if (lowerName.includes('trench') || lowerName.includes('crusade') || lowerSlug.includes('trench')) {
     return '/tc-banner.png'
   }
-  // Универсальная
   if (lowerName.includes('универсальн') || lowerName.includes('universal') || lowerSlug.includes('universal')) {
     return '/uni-banner.png'
   }
@@ -33,16 +29,14 @@ const getBannerByCategory = (name: string, slug: string): string | null => {
 export const CategoryCard = ({ category }: CategoryCardProps) => {
   const [hasError, setHasError] = useState(false)
 
-  // Сначала пробуем взять изображение из БД, иначе подставляем баннер по имени
   let imageSrc = category.image && category.image.trim() !== '' ? category.image : null
   if (!imageSrc) {
     imageSrc = getBannerByCategory(category.name, category.slug)
   }
 
-  // Заглушка, если ничего нет
   if (!imageSrc) {
     return (
-      <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
+      <Link href={`/catalog?category=${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
         <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-darkbg">
           <div className="w-full h-full flex items-center justify-center bg-gray-700 text-white font-semibold text-base">
             Заглушка
@@ -54,7 +48,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
 
   if (hasError) {
     return (
-      <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
+      <Link href={`/catalog?category=${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
         <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-darkbg">
           <div className="w-full h-full flex items-center justify-center bg-gray-700 text-white font-semibold text-base">
             Заглушка
@@ -65,7 +59,7 @@ export const CategoryCard = ({ category }: CategoryCardProps) => {
   }
 
   return (
-    <Link href={`/category/${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
+    <Link href={`/catalog?category=${category.slug}`} className="block w-full transition duration-300 hover:scale-105">
       <div className="relative w-full aspect-[900/400] rounded-xl overflow-hidden bg-darkbg">
         <img
           src={imageSrc}

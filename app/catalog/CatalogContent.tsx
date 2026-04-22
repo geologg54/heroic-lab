@@ -28,6 +28,7 @@ interface CatalogContentProps {
     filter5: string[]
     scales: string[]
   }
+  categoryNames: Record<string, string> // <-- имена категорий из БД
 }
 
 export default function CatalogContent({
@@ -37,9 +38,29 @@ export default function CatalogContent({
   totalPages: initialTotalPages,
   categories,
   allFilterOptions,
+  categoryNames,
 }: CatalogContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // --- Инициализация фильтров из URL ---
+  const getInitialFilters = (): FilterState => {
+    const params = new URLSearchParams(searchParams.toString())
+    return {
+      categories: params.getAll('category'),
+      filter1: params.getAll('filter1'),
+      filter2: params.getAll('filter2'),
+      filter3: params.getAll('filter3'),
+      filter4: params.getAll('filter4'),
+      filter5: params.getAll('filter5'),
+      tags: params.getAll('tags'),
+      scales: params.getAll('scale'),
+      gameSystems: [],
+      factions: [],
+      types: [],
+      fileFormats: [],
+    }
+  }
 
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [total, setTotal] = useState(initialTotal)
@@ -48,21 +69,7 @@ export default function CatalogContent({
   const [loading, setLoading] = useState(false)
 
   const [availableTags, setAvailableTags] = useState<string[]>([])
-
-  const [activeFilters, setActiveFilters] = useState<FilterState>({
-    categories: [],
-    filter1: [],
-    filter2: [],
-    filter3: [],
-    filter4: [],
-    filter5: [],
-    tags: [],
-    scales: [],
-    gameSystems: [],
-    factions: [],
-    types: [],
-    fileFormats: [],
-  })
+  const [activeFilters, setActiveFilters] = useState<FilterState>(getInitialFilters())
 
   const MAX_PRICE = 3500
   const [priceMax, setPriceMax] = useState(MAX_PRICE)
@@ -100,6 +107,7 @@ export default function CatalogContent({
     setTotal(data.total)
     setTotalPages(data.totalPages)
 
+    // Обновляем только динамические теги (остальные фильтры статичны)
     if (data.availableFilters?.tags) {
       setAvailableTags(data.availableFilters.tags)
     } else {
@@ -107,7 +115,6 @@ export default function CatalogContent({
     }
 
     setLoading(false)
-
     router.push(`/catalog?${params.toString()}`, { scroll: false })
   }, [page, sortBy, priceMax, activeFilters, router])
 
@@ -161,14 +168,8 @@ export default function CatalogContent({
     setPage(1)
   }
 
-  const handlePriceChange = (value: number) => {
-    setTempPrice(value)
-  }
-
-  const handlePriceCommit = () => {
-    setPriceMax(tempPrice)
-  }
-
+  const handlePriceChange = (value: number) => setTempPrice(value)
+  const handlePriceCommit = () => setPriceMax(tempPrice)
   const applySortAndClose = () => {
     setPriceMax(tempPrice)
     setIsSortOpen(false)
@@ -184,7 +185,7 @@ export default function CatalogContent({
     activeFilters.tags.length +
     activeFilters.scales.length
 
-  // Компонент для отображения одной секции фильтров в мобильной модалке
+  // Компонент для секции фильтров в мобильной модалке
   const FilterSection = ({
     title,
     options,
@@ -273,6 +274,8 @@ export default function CatalogContent({
                     allCategories={categories}
                     allFilterOptions={allFilterOptions}
                     availableTags={availableTags}
+                    categoryNames={categoryNames}
+                    activeFilters={activeFilters}
                   />
                 </div>
               </aside>
@@ -283,6 +286,7 @@ export default function CatalogContent({
                 filters={activeFilters}
                 onRemove={handleRemoveFilter}
                 onClearAll={handleClearAllFilters}
+                categoryNames={categoryNames}
               />
               {loading ? (
                 <div className="text-center py-20 text-white">Загрузка...</div>
@@ -338,7 +342,7 @@ export default function CatalogContent({
         </div>
       </div>
 
-      {/* Мобильная версия */}
+      {/* Мобильная версия – сохранена из версии напарника, дополнена categoryNames и фильтрами */}
       <div className="lg:hidden">
         <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
           <div className="grid grid-cols-3 items-center">
@@ -392,7 +396,7 @@ export default function CatalogContent({
           )}
         </div>
 
-        {/* Модальное окно фильтров — ПРЯМАЯ РЕАЛИЗАЦИЯ */}
+        {/* Модальное окно фильтров – обновлено с categoryNames и полными списками */}
         {isFilterOpen && (
           <div className="fixed inset-0 z-[60] bg-black/80 overflow-auto">
             <div className="bg-darkbg min-h-screen p-4">
@@ -407,14 +411,16 @@ export default function CatalogContent({
                 {/* Категория */}
                 <FilterSection
                   title="Категория"
-                  options={categories}
+                  options={categories.map(slug => categoryNames[slug] || slug)}
                   selected={activeFilters.categories}
                   onToggle={(value) => {
+                    // value – это отображаемое имя, нужно найти slug
+                    const slug = Object.keys(categoryNames).find(key => categoryNames[key] === value) || value
                     setActiveFilters(prev => ({
                       ...prev,
-                      categories: prev.categories.includes(value)
-                        ? prev.categories.filter(v => v !== value)
-                        : [...prev.categories, value]
+                      categories: prev.categories.includes(slug)
+                        ? prev.categories.filter(v => v !== slug)
+                        : [...prev.categories, slug]
                     }))
                   }}
                 />
@@ -423,7 +429,7 @@ export default function CatalogContent({
                 {(['filter1', 'filter2', 'filter3', 'filter4', 'filter5'] as const).map((key) => {
                   const options = allFilterOptions[key] || []
                   if (options.length === 0) return null
-                  // Простые заголовки (в будущем можно подтянуть из категории)
+                  // Заголовки можно позже брать из категории, пока так
                   const titles: Record<string, string> = {
                     filter1: 'Фракция',
                     filter2: 'Тип',
@@ -449,7 +455,7 @@ export default function CatalogContent({
                   )
                 })}
 
-                {/* Теги */}
+                {/* Теги – динамические, с пагинацией */}
                 <FilterSection
                   title="Теги"
                   options={availableTags}
@@ -465,20 +471,22 @@ export default function CatalogContent({
                   paginated={true}
                 />
 
-                {/* Масштаб */}
-                <FilterSection
-                  title="Масштаб"
-                  options={allFilterOptions.scales}
-                  selected={activeFilters.scales}
-                  onToggle={(value) => {
-                    setActiveFilters(prev => ({
-                      ...prev,
-                      scales: prev.scales.includes(value)
-                        ? prev.scales.filter(v => v !== value)
-                        : [...prev.scales, value]
-                    }))
-                  }}
-                />
+                {/* Масштаб – показываем только если вариантов >= 2 */}
+                {allFilterOptions.scales.length >= 2 && (
+                  <FilterSection
+                    title="Масштаб"
+                    options={allFilterOptions.scales}
+                    selected={activeFilters.scales}
+                    onToggle={(value) => {
+                      setActiveFilters(prev => ({
+                        ...prev,
+                        scales: prev.scales.includes(value)
+                          ? prev.scales.filter(v => v !== value)
+                          : [...prev.scales, value]
+                      }))
+                    }}
+                  />
+                )}
               </div>
 
               <div className="mt-6 flex gap-4">

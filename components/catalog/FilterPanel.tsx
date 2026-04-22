@@ -43,6 +43,8 @@ interface FilterPanelProps {
     scales: string[]
   }
   availableTags?: string[]
+  categoryNames?: Record<string, string>
+  activeFilters?: FilterState
   forceOpen?: boolean
 }
 
@@ -55,10 +57,12 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
   allCategories = [],
   allFilterOptions,
   availableTags = [],
+  categoryNames = {},
+  activeFilters: externalFilters,
   forceOpen = false,
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [filters, setFilters] = useState<FilterState>({
+  const [filters, setFilters] = useState<FilterState>(externalFilters || {
     categories: [],
     filter1: [],
     filter2: [],
@@ -92,10 +96,15 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  // Синхронизация внешнего пропа forceOpen с внутренним состоянием
   useEffect(() => {
-    setIsOpen(forceOpen);
-  }, [forceOpen]);
+    setIsOpen(forceOpen)
+  }, [forceOpen])
+
+  useEffect(() => {
+    if (externalFilters) {
+      setFilters(externalFilters)
+    }
+  }, [externalFilters])
 
   const getSectionOptions = (sectionKey: string): string[] => {
     if (sectionKey === 'tags') {
@@ -104,6 +113,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     if (allFilterOptions) {
       return (allFilterOptions as any)[sectionKey] || []
     }
+    // fallback
     if (sectionKey === 'categories') {
       return allCategories.length > 0 
         ? allCategories 
@@ -233,6 +243,9 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     prevPriceMaxRef.current = priceMax
   }, [filters, priceMax, applyFilters])
 
+  const scalesOptions = getSectionOptions('scales')
+  const shouldShowScales = scalesOptions.length >= 2
+
   const sections = [
     { key: 'categories', title: 'Категория' },
     { key: 'filter1', title: filterNames.filter1Name || '' },
@@ -241,9 +254,9 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     { key: 'filter4', title: filterNames.filter4Name || '' },
     { key: 'filter5', title: filterNames.filter5Name || '' },
     { key: 'tags', title: 'Теги' },
-    { key: 'scales', title: 'Масштаб' },
+    ...(shouldShowScales ? [{ key: 'scales', title: 'Масштаб' }] : []),
   ].filter(section => {
-    if (section.key === 'categories' || section.key === 'tags' || section.key === 'scales') return true
+    if (section.key === 'categories' || section.key === 'tags') return true
     return section.title && getSectionOptions(section.key).length > 0
   })
 
@@ -261,6 +274,13 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     const endIndex = startIndex + tagsPerPage
     const visibleOptions = isTagsSection ? options.slice(startIndex, endIndex) : options
 
+    const getDisplayName = (value: string) => {
+      if (sectionKey === 'categories' && categoryNames[value]) {
+        return categoryNames[value]
+      }
+      return value
+    }
+
     return (
       <div className="pb-3">
         <button onClick={() => toggleSection(sectionKey)} className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition">
@@ -275,7 +295,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
                   type="checkbox" 
                   checked={selected.includes(opt)} 
                   onChange={() => toggleFilter(sectionKey as keyof FilterState, opt)} 
-                /> {opt}
+                /> {getDisplayName(opt)}
               </label>
             ))}
             {isTagsSection && totalPages > 1 && (
@@ -337,6 +357,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
                 filters={filters}
                 onRemove={(key, value) => toggleFilter(key as keyof FilterState, value)}
                 onClearAll={resetFilters}
+                categoryNames={categoryNames}
               />
             </div>
           )}
