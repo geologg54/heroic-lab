@@ -34,3 +34,15 @@ Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or pa
 [2026-04-21T10:48:03.044Z] Ошибка отправки письма на ventalpt@gmail.com (тема: Ваш заказ №100006 принят)
 Error: Invalid login: 535 5.7.8 Error: authentication failed: Invalid user or password! 1776768485-5mPeBu8Qs0U0
 
+[2026-04-24T11:21:48.993Z] Ошибка отправки письма на heroic.lab@yandex.ru (тема: Новый заказ №100001 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: This user does not have access rights to this service 1777029706-kLTP2v8SGeA0
+
+[2026-04-24T11:21:49.003Z] Ошибка отправки письма на ivan.pust2@gmail.com (тема: Ваш заказ №100001 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: This user does not have access rights to this service 1777029706-kLTN57BS8Cg0
+
+[2026-04-24T11:43:07.600Z] Ошибка отправки письма на heroic.lab@yandex.ru (тема: Новый заказ №100002 на сайте)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: This user does not have access rights to this service 1777030985-5hTGMwARB4Y0
+
+[2026-04-24T11:43:07.615Z] Ошибка отправки письма на ivan.pust2@gmail.com (тема: Ваш заказ №100002 принят)
+Error: Invalid login: 535 5.7.8 Error: authentication failed: This user does not have access rights to this service 1777030985-5hTB5CBRtW20
+

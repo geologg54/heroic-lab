@@ -7,9 +7,9 @@ import { CartItem, Product } from '@/types'
 
 interface CartContextType {
   items: CartItem[]
-  addToCart: (product: Product, quantity?: number) => void
-  removeFromCart: (productArticle: string) => void
-  updateQuantity: (productArticle: string, quantity: number) => void
+  addToCart: (product: Product, quantity?: number, options?: { materialId?: string; materialName?: string }) => void
+  removeFromCart: (productArticle: string, options?: object) => void
+  updateQuantity: (productArticle: string, quantity: number, options?: object) => void
   clearCart: () => void
   totalItems: number
   totalPrice: number
@@ -64,7 +64,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       fetch('/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({
+          items: items.map(i => ({
+            product: { article: i.product.article },
+            quantity: i.quantity,
+            options: i.options,
+          })),
+        }),
       }).catch(console.error)
     } else {
       // Сохраняем в localStorage
@@ -72,34 +78,59 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [items, session, isInitialized])
 
-  const addToCart = (product: Product, quantity = 1) => {
+  // Добавление товара с учётом опций (материал и т.д.)
+  const addToCart = (
+    product: Product,
+    quantity = 1,
+    options?: { materialId?: string; materialName?: string }
+  ) => {
     setItems(prev => {
-      const existing = prev.find(i => i.product.article === product.article)
-      if (existing) {
-        return prev.map(i =>
-          i.product.article === product.article
-            ? { ...i, quantity: i.quantity + quantity }
-            : i
-        )
+      // Ищем позицию с таким же артикулом И опциями (строгое сравнение)
+      const existingIndex = prev.findIndex(
+        i =>
+          i.product.article === product.article &&
+          JSON.stringify(i.options) === JSON.stringify(options)
+      )
+      if (existingIndex >= 0) {
+        const updated = [...prev]
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + quantity,
+        }
+        return updated
       }
-      return [...prev, { product, quantity }]
+      return [...prev, { product, quantity, options }]
     })
   }
 
-  const removeFromCart = (productArticle: string) => {
-    setItems(prev => prev.filter(i => i.product.article !== productArticle))
+  // Удаление позиции по артикулу и опциям (чтобы удалить именно изменённый вариант)
+  const removeFromCart = (productArticle: string, options?: object) => {
+    setItems(prev =>
+      prev.filter(
+        i =>
+          !(
+            i.product.article === productArticle &&
+            JSON.stringify(i.options) === JSON.stringify(options)
+          )
+      )
+    )
   }
 
-  const updateQuantity = (productArticle: string, quantity: number) => {
+  // Обновление количества для конкретной позиции
+  const updateQuantity = (productArticle: string, quantity: number, options?: object) => {
     setItems(prev =>
       prev.map(i =>
-        i.product.article === productArticle ? { ...i, quantity } : i
+        i.product.article === productArticle &&
+        JSON.stringify(i.options) === JSON.stringify(options)
+          ? { ...i, quantity }
+          : i
       )
     )
   }
 
   const clearCart = () => setItems([])
 
+  // Суммарные показатели (считаем по базовой цене товара, опции не влияют)
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0)
   const totalPrice = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
 

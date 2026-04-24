@@ -16,12 +16,12 @@ model User {
   role             String    @default("user")
   twoFactorEnabled Boolean   @default(false)
   twoFactorSecret  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
 
   orders           Order[]
   cartItems        CartItem[]
-
+  supportMessages  SupportMessage[]  // ← добавлено
 }
 
 model Category {
@@ -33,10 +33,9 @@ model Category {
   parent      Category? @relation("CategoryToCategory", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryToCategory")
   products    Product[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
-  // 🆕 Названия динамических фильтров
   filter1Name String?
   filter2Name String?
   filter3Name String?
@@ -55,14 +54,12 @@ model Product {
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id])
 
-  // Динамические фильтры
   filter1     String?
   filter2     String?
   filter3     String?
   filter4     String?
   filter5     String?
 
-  // Поля карточки
   stock       Int      @default(0)
   heightMax   Float?
   baseMax     Float?
@@ -72,7 +69,6 @@ model Product {
   contents    String?
   artist      String?
 
-  // Оставляем scale и tags, они нужны
   scale       String   @default("32mm")
   tags        String   @default("")
 
@@ -131,7 +127,7 @@ model OrderItem {
 model Coupon {
   id              String   @id @default(cuid())
   code            String   @unique
-  type            String   // "percent" или "fixed"
+  type            String
   value           Int
   minOrderAmount  Int?
   maxUses         Int?
@@ -143,6 +139,40 @@ model Coupon {
   updatedAt       DateTime @updatedAt
 
   orders          Order[]
+}
+
+// Новая система обращений
+model SupportConversation {
+  id            String           @id @default(cuid())
+  ticketNumber  String           @unique
+  customerEmail String
+  customerName  String?
+  subject       String?
+  status        String           @default("open")
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  messages      SupportMessage[]
+}
+
+model SupportMessage {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     String             // "customer" или "admin"
+  adminId        String?            // ID администратора, если senderType = "admin"
+  admin          User?              @relation(fields: [adminId], references: [id])
+  message        String
+  createdAt      DateTime           @default(now())
+}
+
+model Material {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  priceMultiplier Float    @default(1.0)
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Setting {

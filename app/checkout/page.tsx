@@ -1,7 +1,7 @@
 // app/checkout/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useCart } from '@/hooks/useCart'
@@ -24,7 +24,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // 🆕 Состояния для купона
+  // Состояния для купона
   const [couponCode, setCouponCode] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
   const [couponError, setCouponError] = useState('')
@@ -49,6 +49,29 @@ export default function CheckoutPage() {
     }
   }, [session])
 
+  // Автоматический комментарий на основе изменённых материалов
+  const autoComment = useMemo(() => {
+    const lines: string[] = []
+    items.forEach(item => {
+      if (item.options?.materialName) {
+        lines.push(
+          `"${item.product.article}" "${item.product.name}". Изменение материала на "${item.options.materialName}"`
+        )
+      }
+      // В будущем сюда же можно добавить другие опции (масштаб и т.д.)
+    })
+    return lines.join('\n')
+  }, [items])
+
+  // Обновляем поле комментария, если есть автоматический комментарий
+  useEffect(() => {
+    if (autoComment) {
+      setForm(prev => ({ ...prev, comment: autoComment }))
+    }
+  }, [autoComment])
+
+  const hasAutoComment = autoComment.length > 0
+
   // Пока загружается сессия или корзина пуста, показываем заглушку
   if (status === 'loading' || items.length === 0) {
     return (
@@ -62,7 +85,7 @@ export default function CheckoutPage() {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  // 🆕 Применение купона
+  // Применение купона
   const applyCoupon = async () => {
     if (!couponCode.trim()) return
     setCheckingCoupon(true)
@@ -118,7 +141,6 @@ export default function CheckoutPage() {
       paymentMethod: form.paymentMethod,
       email: form.email || undefined,
       name: form.name || undefined,
-      // 🆕 Добавляем данные купона
       couponId: appliedCoupon?.id,
       discount: couponDiscount,
     }
@@ -241,15 +263,15 @@ export default function CheckoutPage() {
           <div>
             <label className="block text-white mb-1">Способ доставки</label>
             <select
-  name="deliveryMethod"
-  className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
-  value={form.deliveryMethod}
-  onChange={handleChange}
->
-  <option value="СДЭК">СДЭК</option>
-  <option value="Почта России">Почта России</option>
-  <option value="Самовывоз">Самовывоз</option>
-</select>
+              name="deliveryMethod"
+              className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
+              value={form.deliveryMethod}
+              onChange={handleChange}
+            >
+              <option value="СДЭК">СДЭК</option>
+              <option value="Почта России">Почта России</option>
+              <option value="Самовывоз">Самовывоз</option>
+            </select>
           </div>
           <div>
             <label className="block text-white mb-1">Способ оплаты</label>
@@ -270,8 +292,14 @@ export default function CheckoutPage() {
               rows={3}
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
               value={form.comment}
-              onChange={handleChange}
+              onChange={hasAutoComment ? undefined : handleChange}
+              readOnly={hasAutoComment}
             />
+            {hasAutoComment && (
+              <p className="text-xs text-gray-400 mt-1">
+                Комментарий сформирован автоматически на основе выбранных опций
+              </p>
+            )}
           </div>
           {error && (
             <div className="p-3 bg-red-900/30 border border-red-500 text-red-300 rounded-lg">
@@ -294,13 +322,18 @@ export default function CheckoutPage() {
         <div className="bg-cardbg p-6 rounded-xl border border-borderLight">
           <h2 className="text-xl font-bold mb-4">Ваш заказ</h2>
           {items.map(item => (
-            <div key={item.product.article} className="flex justify-between py-2 border-b border-borderLight">
-              <span>{item.product.name} x{item.quantity}</span>
+            <div key={`${item.product.article}_${JSON.stringify(item.options)}`} className="flex justify-between py-2 border-b border-borderLight">
+              <span>
+                {item.product.name} x{item.quantity}
+                {item.options?.materialName && (
+                  <span className="block text-xs text-accent">Материал: {item.options.materialName}</span>
+                )}
+              </span>
               <span>{item.product.price * item.quantity} ₽</span>
             </div>
           ))}
 
-          {/* 🆕 Блок купона */}
+          {/* Блок купона */}
           <div className="mt-4 pt-4 border-t border-borderLight">
             <label className="block text-white mb-2">Промокод</label>
             <div className="flex gap-2">
@@ -344,7 +377,7 @@ export default function CheckoutPage() {
             )}
           </div>
 
-          {/* 🆕 Итоговая сумма с учётом скидки */}
+          {/* Итоговая сумма */}
           <div className="flex justify-between items-center mt-4 pt-2 border-t border-borderLight">
             <span className="text-white font-bold">Скидка:</span>
             <span className="text-green-400 font-bold">-{couponDiscount} ₽</span>

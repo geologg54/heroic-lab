@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, getOrderStatusUpdateEmail } from '@/lib/email'
+import { logger } from '@/lib/logger'
 
 // GET – список заказов с расширенными фильтрами и сортировкой
 export async function GET(request: Request) {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  
+
   // --- Параметры фильтрации ---
   const search = searchParams.get('search') || ''
   const dateFrom = searchParams.get('dateFrom')
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
   const order = searchParams.get('order') || 'desc'
 
   const where: any = {}
-  
+
   if (status) {
     where.status = status
   }
@@ -160,23 +161,25 @@ export async function PATCH(request: Request) {
   })
 }
 
-// PUT – обновление одного заказа (статус)
+// PUT – обновление одного заказа (статус) с логированием
 export async function PUT(request: Request) {
+  // Получаем сессию и проверяем права администратора
+  let session;
   try {
-    await requireAdmin()
+    session = await requireAdmin();
   } catch (error) {
-    return error
+    return error;
   }
 
-  const { id, status } = await request.json()
+  const { id, status } = await request.json();
 
   if (!id || !status) {
-    return NextResponse.json({ error: 'Не указан ID заказа или статус' }, { status: 400 })
+    return NextResponse.json({ error: 'Не указан ID заказа или статус' }, { status: 400 });
   }
 
-  const allowedStatuses = ['processing', 'shipped', 'delivered', 'cancelled', 'in_delivery']
+  const allowedStatuses = ['processing', 'shipped', 'delivered', 'cancelled', 'in_delivery'];
   if (!allowedStatuses.includes(status)) {
-    return NextResponse.json({ error: 'Недопустимый статус' }, { status: 400 })
+    return NextResponse.json({ error: 'Недопустимый статус' }, { status: 400 });
   }
 
   const order = await prisma.order.update({
@@ -186,14 +189,14 @@ export async function PUT(request: Request) {
       user: true,
       items: { include: { product: true } },
     },
-  })
+  });
 
-  // По желанию можно отправить уведомление о смене статуса
-  // const customerEmail = order.user?.email || order.guestEmail;
-  // if (customerEmail) {
-  //   const { subject, text } = await getOrderStatusUpdateEmail(order);
-  //   sendEmail({ to: customerEmail, subject, text }).catch(console.error);
-  // }
+  // Логируем изменение статуса в файл info.log
+  logger.info(`Статус заказа №${order.orderNumber} изменён на ${status}`, {
+    adminId: session.user.id,
+    orderId: id,
+    newStatus: status,
+  });
 
-  return NextResponse.json(order)
+  return NextResponse.json(order);
 }
