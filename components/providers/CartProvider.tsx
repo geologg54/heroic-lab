@@ -7,7 +7,12 @@ import { CartItem, Product } from '@/types'
 
 interface CartContextType {
   items: CartItem[]
-  addToCart: (product: Product, quantity?: number, options?: { materialId?: string; materialName?: string }) => void
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    options?: { materialId?: string; materialName?: string },
+    finalPrice?: number
+  ) => void
   removeFromCart: (productArticle: string, options?: object) => void
   updateQuantity: (productArticle: string, quantity: number, options?: object) => void
   clearCart: () => void
@@ -22,7 +27,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // При монтировании загружаем корзину из localStorage (анонимный пользователь)
   useEffect(() => {
     const stored = localStorage.getItem('cart')
     if (stored) {
@@ -31,23 +35,20 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     setIsInitialized(true)
   }, [])
 
-  // Когда сессия загружена и инициализация прошла, синхронизируем с сервером
   useEffect(() => {
     if (!isInitialized) return
 
     if (session?.user) {
-      // Пользователь вошёл – загружаем корзину с сервера
       fetch('/api/cart')
         .then(res => res.json())
         .then(data => {
           if (data.items) {
             setItems(data.items)
-            localStorage.removeItem('cart') // очищаем локальное хранилище
+            localStorage.removeItem('cart')
           }
         })
         .catch(console.error)
     } else {
-      // Пользователь вышел – загружаем из localStorage (если осталось)
       const stored = localStorage.getItem('cart')
       if (stored) {
         setItems(JSON.parse(stored))
@@ -55,12 +56,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [session, isInitialized])
 
-  // Сохраняем корзину при изменениях
   useEffect(() => {
     if (!isInitialized) return
 
     if (session?.user) {
-      // Отправляем на сервер
       fetch('/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,19 +72,17 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         }),
       }).catch(console.error)
     } else {
-      // Сохраняем в localStorage
       localStorage.setItem('cart', JSON.stringify(items))
     }
   }, [items, session, isInitialized])
 
-  // Добавление товара с учётом опций (материал и т.д.)
   const addToCart = (
     product: Product,
     quantity = 1,
-    options?: { materialId?: string; materialName?: string }
+    options?: { materialId?: string; materialName?: string },
+    finalPrice?: number
   ) => {
     setItems(prev => {
-      // Ищем позицию с таким же артикулом И опциями (строгое сравнение)
       const existingIndex = prev.findIndex(
         i =>
           i.product.article === product.article &&
@@ -99,11 +96,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         }
         return updated
       }
-      return [...prev, { product, quantity, options }]
+      return [...prev, { product, quantity, options, finalPrice: finalPrice ?? product.price }]
     })
   }
 
-  // Удаление позиции по артикулу и опциям (чтобы удалить именно изменённый вариант)
   const removeFromCart = (productArticle: string, options?: object) => {
     setItems(prev =>
       prev.filter(
@@ -116,7 +112,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  // Обновление количества для конкретной позиции
   const updateQuantity = (productArticle: string, quantity: number, options?: object) => {
     setItems(prev =>
       prev.map(i =>
@@ -130,9 +125,11 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const clearCart = () => setItems([])
 
-  // Суммарные показатели (считаем по базовой цене товара, опции не влияют)
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0)
-  const totalPrice = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const totalPrice = items.reduce(
+    (sum, i) => sum + (i.finalPrice ?? i.product.price) * i.quantity,
+    0
+  )
 
   return (
     <CartContext.Provider

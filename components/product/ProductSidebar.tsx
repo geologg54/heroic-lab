@@ -14,14 +14,14 @@ export default function ProductSidebar({ product }: { product: Product }) {
   const { addToCart } = useCart();
   const { selectedMaterial, defaultMaterial, finalPrice, openModal } = useMaterial();
 
-  // Проверяем, отличается ли выбранный материал от дефолтного
-  const isMaterialChanged = defaultMaterial && selectedMaterial && selectedMaterial.id !== defaultMaterial.id;
+  const isMaterialChanged =
+    defaultMaterial && selectedMaterial && selectedMaterial.id !== defaultMaterial.id;
 
   const handleAddToCart = () => {
     const options = isMaterialChanged
       ? { materialName: selectedMaterial.name, materialId: selectedMaterial.id }
       : undefined;
-    addToCart(product, 1, options);
+    addToCart(product, 1, options, finalPrice);
   };
 
   const specialOrderMsg = `Добрый день. Хочу обсудить с вами персональный заказ.`;
@@ -32,7 +32,6 @@ export default function ProductSidebar({ product }: { product: Product }) {
     <>
       <div className="pl-4 space-y-6">
         <div className="flex items-center gap-4">
-          {/* Кнопка с пересчитанной ценой */}
           <button
             onClick={handleAddToCart}
             className="bg-white text-darkbg font-bold text-xl px-6 py-3 rounded-lg border-2 border-white hover:bg-darkbg hover:text-white transition-colors"
@@ -42,7 +41,6 @@ export default function ProductSidebar({ product }: { product: Product }) {
           <FavoritesButton productId={product.article} />
         </div>
         <div className="text-white space-y-2 text-lg">
-          {/* Кнопка выбора материала (открывает модалку) */}
           <button onClick={openModal} className="block hover:text-accent transition">
             Изменить материал
           </button>
@@ -60,7 +58,6 @@ export default function ProductSidebar({ product }: { product: Product }) {
           </Link>
         </div>
       </div>
-
       <FaqModal isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />
     </>
   );
