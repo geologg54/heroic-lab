@@ -5,7 +5,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
-import { faqItems } from '@/faqData'
+import { faqItems } from '@/lib/faqData'
 
 export default function FAQPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)

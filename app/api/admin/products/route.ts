@@ -75,50 +75,76 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json()
-  
-  const {
-    article, name, price, oldPrice, description, images, categoryId,
-    filter1, filter2, filter3, filter4, filter5,
-    stock, heightMax, baseMax, heightMin, baseMin,
-    assembly, contents, artist, scale, tags
-  } = data
 
-  if (!article || !name || !price || !categoryId) {
-    return NextResponse.json({ error: 'Отсутствуют обязательные поля' }, { status: 400 })
+  // ========== ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ ==========
+  // Артикул обязателен, непустой и не длиннее 50 символов
+  if (!data.article || typeof data.article !== 'string' || data.article.trim().length === 0 || data.article.length > 50) {
+    return NextResponse.json({ error: 'Артикул должен быть непустым и не длиннее 50 символов' }, { status: 400 })
   }
 
-  const existing = await prisma.product.findUnique({ where: { article } })
+  // Название обязательно, до 200 символов
+  if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0 || data.name.length > 200) {
+    return NextResponse.json({ error: 'Название товара обязательно (до 200 символов)' }, { status: 400 })
+  }
+
+  // Цена: должна быть числом >= 0
+  const price = parseInt(data.price)
+  if (isNaN(price) || price < 0) {
+    return NextResponse.json({ error: 'Цена должна быть положительным числом' }, { status: 400 })
+  }
+
+  // Категория обязательна
+  if (!data.categoryId || typeof data.categoryId !== 'string') {
+    return NextResponse.json({ error: 'Не указана категория товара' }, { status: 400 })
+  }
+
+  // Описание — если есть, ограничим длину
+  if (data.description && typeof data.description === 'string' && data.description.length > 5000) {
+    return NextResponse.json({ error: 'Описание не должно превышать 5000 символов' }, { status: 400 })
+  }
+
+  // Дополнительно можно проверить stock (число) и другие числовые поля
+  const stock = data.stock !== undefined ? parseInt(data.stock) : 0
+  if (isNaN(stock) || stock < 0) {
+    return NextResponse.json({ error: 'Количество должно быть числом >= 0' }, { status: 400 })
+  }
+
+  // Проверяем, нет ли уже товара с таким артикулом
+  const existing = await prisma.product.findUnique({ where: { article: data.article.trim() } })
   if (existing) {
     return NextResponse.json({ error: 'Товар с таким артикулом уже существует' }, { status: 400 })
   }
 
+  // Формируем объект для создания
+  const productData = {
+    article: data.article.trim(),
+    name: data.name.trim(),
+    searchName: data.name.trim().toLowerCase(),
+    price,
+    oldPrice: data.oldPrice ? parseInt(data.oldPrice) || null : null,
+    description: data.description || '',
+    images: Array.isArray(data.images) ? data.images.join(',') : (data.images || ''),
+    categoryId: data.categoryId,
+    filter1: data.filter1 || null,
+    filter2: data.filter2 || null,
+    filter3: data.filter3 || null,
+    filter4: data.filter4 || null,
+    filter5: data.filter5 || null,
+    stock,
+    heightMax: data.heightMax ? parseFloat(data.heightMax) : null,
+    baseMax: data.baseMax ? parseFloat(data.baseMax) : null,
+    heightMin: data.heightMin ? parseFloat(data.heightMin) : null,
+    baseMin: data.baseMin ? parseFloat(data.baseMin) : null,
+    assembly: data.assembly || null,
+    contents: data.contents || null,
+    artist: data.artist || null,
+    scale: data.scale || '32mm',
+    tags: Array.isArray(data.tags) ? data.tags.join(',') : (data.tags || ''),
+  }
+
   const product = await prisma.product.create({
-    data: {
-      article,
-      name,
-      searchName: name.toLowerCase(),
-      price: parseInt(price),
-      oldPrice: oldPrice ? parseInt(oldPrice) : null,
-      description: description || '',
-      images: Array.isArray(images) ? images.join(',') : images || '',
-      categoryId,
-      filter1: filter1 || null,
-      filter2: filter2 || null,
-      filter3: filter3 || null,
-      filter4: filter4 || null,
-      filter5: filter5 || null,
-      stock: stock !== undefined ? parseInt(stock) : 0,
-      heightMax: heightMax ? parseFloat(heightMax) : null,
-      baseMax: baseMax ? parseFloat(baseMax) : null,
-      heightMin: heightMin ? parseFloat(heightMin) : null,
-      baseMin: baseMin ? parseFloat(baseMin) : null,
-      assembly: assembly || null,
-      contents: contents || null,
-      artist: artist || null,
-      scale: scale || '32mm',
-      tags: Array.isArray(tags) ? tags.join(',') : tags || '',
-    },
-    include: { category: true }
+    data: productData,
+    include: { category: true },
   })
 
   return NextResponse.json(product, { status: 201 })

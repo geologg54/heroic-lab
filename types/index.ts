@@ -41,6 +41,16 @@ export interface Product {
   createdAt?: Date | string | null
 }
 
+// types/index.ts
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  options?: {
+    materialId?: string;
+    materialName?: string;
+  };
+}
+
 export interface Category {
   id: string
   name: string

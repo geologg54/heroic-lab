@@ -5,7 +5,6 @@ export default function Footer() {
   return (
     <footer className="bg-darkbg py-8 mt-12">
       <div className="container mx-auto px-6 lg:px-12">
-        {/* Сетка с 4 колонками, равномерно распределёнными */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           <div>
             <h3 className="text-white font-bold mb-4">Героическая лаборатория</h3>
@@ -16,6 +15,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link href="/faq" className="hover:text-white transition">Частые вопросы</Link></li>
               <li><Link href="/custom" className="hover:text-white transition">Особые заказы</Link></li>
+              <li><Link href="/contact" className="hover:text-white transition">Поддержка</Link></li>
             </ul>
           </div>
           <div>
@@ -45,7 +45,6 @@ export default function Footer() {
           </div>
         </div>
         
-        {/* Копирайт по центру, без полоски */}
         <div className="text-center text-xs text-gray-500 mt-12 pt-4">
           Героическая лаборатория миниатюр©
         </div>
