@@ -48,7 +48,8 @@ export interface CartItem {
   options?: {
     materialId?: string;
     materialName?: string;
-  };
+  }
+  finalPrice?: number   // <-- добавлено
 }
 
 export interface Category {
@@ -69,7 +70,3 @@ export interface Category {
   filter5Name?: string | null
 }
 
-export interface CartItem {
-  product: Product
-  quantity: number
-}
