@@ -143,15 +143,16 @@ model Coupon {
 
 // Новая система обращений
 model SupportConversation {
-  id            String           @id @default(cuid())
-  ticketNumber  String           @unique
-  customerEmail String
-  customerName  String?
-  subject       String?
-  status        String           @default("open")
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  messages      SupportMessage[]
+  id               String           @id @default(cuid())
+  ticketNumber     String           @unique
+  customerEmail    String
+  customerName     String?
+  subject          String?
+  status           String           @default("open")
+  adminLastReadAt  DateTime?        // ← добавили только это
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  messages         SupportMessage[]
 }
 
 model SupportMessage {
@@ -174,6 +175,7 @@ model Material {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
 
 model Setting {
   key       String   @id

@@ -33,7 +33,8 @@ export default async function OrdersPage() {
             <div key={order.id} className="bg-cardbg rounded-xl border border-borderLight p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <div className="text-white font-semibold">Заказ № {order.id.slice(-8)}</div>
+                  {/* Заменили order.id.slice(-8) на order.orderNumber */}
+                  <div className="text-white font-semibold">Заказ № {order.orderNumber}</div>
                   <div className="text-gray-400 text-sm">
                     {new Date(order.createdAt).toLocaleDateString('ru-RU')}
                   </div>

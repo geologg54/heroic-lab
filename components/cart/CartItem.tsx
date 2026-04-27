@@ -9,11 +9,11 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const { updateQuantity, removeFromCart } = useCart()
 
   const handleRemove = () => {
-    removeFromCart(item.product.article, item.options)
+    removeFromCart(item.cartItemId)  // теперь по cartItemId
   }
 
   const handleQuantityChange = (newQty: number) => {
-    updateQuantity(item.product.article, newQty, item.options)
+    updateQuantity(item.cartItemId, newQty)  // теперь по cartItemId
   }
 
   return (

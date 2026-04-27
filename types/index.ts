@@ -42,14 +42,16 @@ export interface Product {
 }
 
 // types/index.ts
+// types/index.ts
 export interface CartItem {
+  cartItemId: string;   // <-- уникальный идентификатор позиции в корзине
   product: Product;
   quantity: number;
   options?: {
     materialId?: string;
     materialName?: string;
   }
-  finalPrice?: number   // <-- добавлено
+  finalPrice?: number;
 }
 
 export interface Category {

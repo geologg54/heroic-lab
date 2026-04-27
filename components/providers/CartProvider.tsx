@@ -13,8 +13,8 @@ interface CartContextType {
     options?: { materialId?: string; materialName?: string },
     finalPrice?: number
   ) => void
-  removeFromCart: (productArticle: string, options?: object) => void
-  updateQuantity: (productArticle: string, quantity: number, options?: object) => void
+  removeFromCart: (cartItemId: string) => void
+  updateQuantity: (cartItemId: string, quantity: number) => void
   clearCart: () => void
   totalItems: number
   totalPrice: number
@@ -22,28 +22,46 @@ interface CartContextType {
 
 export const CartContext = createContext<CartContextType | undefined>(undefined)
 
+// Генерация уникального ID (можно crypto.randomUUID, но для простоты используем Math.random)
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
+}
+
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const { data: session, status } = useSession()
   const [items, setItems] = useState<CartItem[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
 
+  // Загрузка из localStorage при монтировании
   useEffect(() => {
     const stored = localStorage.getItem('cart')
     if (stored) {
-      setItems(JSON.parse(stored))
+      try {
+        const parsed = JSON.parse(stored)
+        // Добавляем cartItemId всем элементам, у которых его нет (старые данные)
+        const fixed = parsed.map((item: any) => ({
+          ...item,
+          cartItemId: item.cartItemId || generateId(),
+        }))
+        setItems(fixed)
+      } catch {}
     }
     setIsInitialized(true)
   }, [])
 
+  // Синхронизация с сервером при изменении сессии
   useEffect(() => {
     if (!isInitialized) return
-
     if (session?.user) {
       fetch('/api/cart')
         .then(res => res.json())
         .then(data => {
           if (data.items) {
-            setItems(data.items)
+            const fixed = data.items.map((item: any) => ({
+              ...item,
+              cartItemId: item.cartItemId || generateId(),
+            }))
+            setItems(fixed)
             localStorage.removeItem('cart')
           }
         })
@@ -51,14 +69,21 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       const stored = localStorage.getItem('cart')
       if (stored) {
-        setItems(JSON.parse(stored))
+        try {
+          const parsed = JSON.parse(stored)
+          const fixed = parsed.map((item: any) => ({
+            ...item,
+            cartItemId: item.cartItemId || generateId(),
+          }))
+          setItems(fixed)
+        } catch {}
       }
     }
   }, [session, isInitialized])
 
+  // Сохранение в localStorage / на сервер при изменении items
   useEffect(() => {
     if (!isInitialized) return
-
     if (session?.user) {
       fetch('/api/cart', {
         method: 'POST',
@@ -96,29 +121,25 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         }
         return updated
       }
-      return [...prev, { product, quantity, options, finalPrice: finalPrice ?? product.price }]
+      // Новый элемент с уникальным ID
+      return [...prev, {
+        cartItemId: generateId(),
+        product,
+        quantity,
+        options,
+        finalPrice: finalPrice ?? product.price,
+      }]
     })
   }
 
-  const removeFromCart = (productArticle: string, options?: object) => {
-    setItems(prev =>
-      prev.filter(
-        i =>
-          !(
-            i.product.article === productArticle &&
-            JSON.stringify(i.options) === JSON.stringify(options)
-          )
-      )
-    )
+  const removeFromCart = (cartItemId: string) => {
+    setItems(prev => prev.filter(i => i.cartItemId !== cartItemId))
   }
 
-  const updateQuantity = (productArticle: string, quantity: number, options?: object) => {
+  const updateQuantity = (cartItemId: string, quantity: number) => {
     setItems(prev =>
       prev.map(i =>
-        i.product.article === productArticle &&
-        JSON.stringify(i.options) === JSON.stringify(options)
-          ? { ...i, quantity }
-          : i
+        i.cartItemId === cartItemId ? { ...i, quantity } : i
       )
     )
   }

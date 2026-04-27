@@ -322,7 +322,7 @@ export default function CheckoutPage() {
         <div className="bg-cardbg p-6 rounded-xl border border-borderLight">
           <h2 className="text-xl font-bold mb-4">Ваш заказ</h2>
           {items.map(item => (
-            <div key={`${item.product.article}_${JSON.stringify(item.options)}`} className="flex justify-between py-2 border-b border-borderLight">
+            <div key={item.cartItemId} className="flex justify-between py-2 border-b border-borderLight">
               <span>
                 {item.product.name} x{item.quantity}
                 {item.options?.materialName && (
