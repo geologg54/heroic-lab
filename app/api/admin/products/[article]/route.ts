@@ -1,16 +1,17 @@
 // app/api/admin/products/[article]/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ article: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Проверка прав администратора (единый способ)
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { article } = await params
@@ -20,7 +21,7 @@ export async function GET(
   })
 
   if (!product) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    return NextResponse.json({ error: 'Товар не найден' }, { status: 404 })
   }
 
   return NextResponse.json(product)
@@ -30,9 +31,10 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ article: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { article } = await params
@@ -113,9 +115,10 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ article: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    await requireAdmin()
+  } catch (error) {
+    return error
   }
 
   const { article } = await params
