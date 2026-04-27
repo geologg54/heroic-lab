@@ -8,27 +8,28 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
+    await requireAdmin()
   } catch (error) {
-    return error;
+    return error
   }
 
-  const { id } = await params;
+  const { id } = await params
   const conversation = await prisma.supportConversation.findUnique({
     where: { id },
-    include: {
-      messages: {
-        orderBy: { createdAt: 'asc' },
-        include: { admin: { select: { name: true, email: true } } },
-      },
-    },
-  });
+    include: { messages: { include: { admin: { select: { name: true, email: true } } } } }
+  })
 
   if (!conversation) {
-    return NextResponse.json({ error: 'Тикет не найден' }, { status: 404 });
+    return NextResponse.json({ error: 'Тикет не найден' }, { status: 404 })
   }
 
-  return NextResponse.json(conversation);
+  // Отмечаем, что администратор прочитал тикет
+  await prisma.supportConversation.update({
+    where: { id },
+    data: { adminLastReadAt: new Date() }
+  })
+
+  return NextResponse.json(conversation)
 }
 
 export async function POST(

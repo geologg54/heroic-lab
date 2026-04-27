@@ -5,6 +5,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
+import { sendVKAdminNotification, buildNewOrderNotification } from '@/lib/vkNotifications' // <-- добавлен импорт
 
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -154,7 +155,6 @@ export async function POST(request: Request) {
     const customerEmail = guestEmail || session?.user?.email
 
     if (customerEmail) {
-      // Получаем шаблоны писем асинхронно
       const [confirmationEmail, adminEmail] = await Promise.all([
         getOrderConfirmationEmail(order),
         getNewOrderAdminEmail(order)
@@ -173,6 +173,11 @@ export async function POST(request: Request) {
     } else {
       console.warn(`Заказ ${order.id}: не удалось определить email покупателя, письмо не отправлено`)
     }
+
+    // ========== УВЕДОМЛЕНИЕ В VK ==========
+    sendVKAdminNotification(buildNewOrderNotification(order))
+      .catch(err => console.error('VK order notification error:', err))
+    // ======================================
 
     return NextResponse.json(
       { orderId: order.id, orderNumber: order.orderNumber },
