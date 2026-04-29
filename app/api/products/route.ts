@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   const limit = parseInt(searchParams.get('limit') || '12')
   const skip = (page - 1) * limit
 
-  const categorySlug = searchParams.get('category')
+  // 👇 Теперь берём ВСЕ выбранные категории
+  const categorySlugs = searchParams.getAll('category')
   const minPrice = searchParams.get('minPrice')
   const maxPrice = searchParams.get('maxPrice')
   const search = searchParams.get('search') || ''
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   
   const articlesParam = searchParams.get('articles')
 
-  // Получаем массивы выбранных значений фильтров
+  // Старые глобальные фильтры (используются при одной категории)
   const filter1Vals = searchParams.getAll('filter1')
   const filter2Vals = searchParams.getAll('filter2')
   const filter3Vals = searchParams.getAll('filter3')
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
   const tagsVals = searchParams.getAll('tags')
   const scalesVals = searchParams.getAll('scale')
 
-  // ---------- 1. Базовый where (категория, цена, поиск) ----------
+  // ---------- 1. Базовый where ----------
   const where: any = {}
 
   if (articlesParam) {
@@ -36,7 +37,11 @@ export async function GET(request: Request) {
     }
   }
 
-  if (categorySlug) where.category = { slug: categorySlug }
+  // 👇 Исправлено: фильтр по массиву категорий
+  if (categorySlugs.length > 0) {
+    where.category = { slug: { in: categorySlugs } }
+  }
+
   if (minPrice || maxPrice) {
     where.price = {}
     if (minPrice) where.price.gte = parseInt(minPrice)
@@ -60,14 +65,14 @@ export async function GET(request: Request) {
   try {
     const shouldPaginate = !articlesParam
     
-    // Получаем ВСЕ товары, удовлетворяющие базовым условиям (без учёта фильтров по тегам и т.д.)
+    // Получаем ВСЕ товары по базовым условиям
     const baseProducts = await prisma.product.findMany({
       where,
       include: { category: true },
       orderBy,
     })
 
-    // Преобразуем строки в массивы для удобства
+    // Преобразуем строки в массивы
     const productsWithArrays = baseProducts.map(p => ({
       ...p,
       tagsArray: p.tags.split(',').map(t => t.trim()).filter(Boolean),
@@ -79,27 +84,63 @@ export async function GET(request: Request) {
       scalesArray: (p.scale || '').split(',').map(s => s.trim()).filter(Boolean),
     }))
 
-    // Функция проверки: есть ли в массиве товара хотя бы одно из выбранных значений
     const hasAny = (productArray: string[], selected: string[]) => {
       if (selected.length === 0) return true
       return selected.some(val => productArray.includes(val))
     }
 
-    // Фильтруем товары по точному совпадению с выбранными фильтрами
-    let filteredProducts = productsWithArrays.filter(p => {
-      return hasAny(p.tagsArray, tagsVals) &&
-             hasAny(p.filter1Array, filter1Vals) &&
-             hasAny(p.filter2Array, filter2Vals) &&
-             hasAny(p.filter3Array, filter3Vals) &&
-             hasAny(p.filter4Array, filter4Vals) &&
-             hasAny(p.filter5Array, filter5Vals) &&
-             hasAny(p.scalesArray, scalesVals)
-    })
+    // ----- Обработка фильтров, привязанных к категориям (categoryFilters) -----
+    const categoryFiltersMap: Record<string, Record<string, string[]>> = {}
+    for (const [key, value] of searchParams.entries()) {
+      if (key.startsWith('cat_')) {
+        const parts = key.split('_')
+        if (parts.length === 3) {
+          const slug = parts[1]
+          const field = parts[2]
+          if (!categoryFiltersMap[slug]) categoryFiltersMap[slug] = {}
+          if (!categoryFiltersMap[slug][field]) categoryFiltersMap[slug][field] = []
+          categoryFiltersMap[slug][field].push(value)
+        }
+      }
+    }
 
-    // Для подсчёта доступных опций используем товары, отфильтрованные только по базовым условиям
-    // (чтобы при выборе тега другие теги не исчезали)
+    let filteredProducts = productsWithArrays
+
+    // Применяем фильтры в разрезе категорий, если они заданы
+    if (Object.keys(categoryFiltersMap).length > 0) {
+      filteredProducts = filteredProducts.filter(p => {
+        const catSlug = p.category.slug
+        const catFilters = categoryFiltersMap[catSlug]
+        if (!catFilters) return true // для этой категории нет дополнительных фильтров
+
+        const checks = []
+        if (catFilters.filter1) checks.push(hasAny(p.filter1Array, catFilters.filter1))
+        if (catFilters.filter2) checks.push(hasAny(p.filter2Array, catFilters.filter2))
+        if (catFilters.filter3) checks.push(hasAny(p.filter3Array, catFilters.filter3))
+        if (catFilters.filter4) checks.push(hasAny(p.filter4Array, catFilters.filter4))
+        if (catFilters.filter5) checks.push(hasAny(p.filter5Array, catFilters.filter5))
+        if (catFilters.scale) checks.push(hasAny(p.scalesArray, catFilters.scale))
+        return checks.every(Boolean)
+      })
+    } else {
+      // Нет categoryFilters — используем глобальные фильтры (старое поведение)
+      filteredProducts = filteredProducts.filter(p => {
+        return hasAny(p.filter1Array, filter1Vals) &&
+               hasAny(p.filter2Array, filter2Vals) &&
+               hasAny(p.filter3Array, filter3Vals) &&
+               hasAny(p.filter4Array, filter4Vals) &&
+               hasAny(p.filter5Array, filter5Vals) &&
+               hasAny(p.scalesArray, scalesVals)
+      })
+    }
+
+    // Теги применяются глобально
+    if (tagsVals.length > 0) {
+      filteredProducts = filteredProducts.filter(p => hasAny(p.tagsArray, tagsVals))
+    }
+
+    // Доступные фильтры (на основе всех товаров до пагинации)
     const productsForAvailable = productsWithArrays
-
     const availableFilters = {
       categories: [...new Set(productsForAvailable.map(p => p.category.slug))],
       filter1: [...new Set(productsForAvailable.flatMap(p => p.filter1Array))],

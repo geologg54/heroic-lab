@@ -41,12 +41,23 @@ export default function AdminCategoriesPage() {
       : '/api/admin/categories'
     const method = editingId ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
+    // Подготавливаем данные: заменяем пустые строки на null для необязательных полей
+const payload = {
+  ...form,
+  parentId: form.parentId || null,
+  image: form.image || null,
+  filter1Name: form.filter1Name || null,
+  filter2Name: form.filter2Name || null,
+  filter3Name: form.filter3Name || null,
+  filter4Name: form.filter4Name || null,
+  filter5Name: form.filter5Name || null,
+}
 
+const res = await fetch(url, {
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload)
+})
     if (res.ok) {
       setShowForm(false)
       setEditingId(null)

@@ -18,6 +18,37 @@ export interface FilterState {
   factions: string[]
   types: string[]
   fileFormats: string[]
+  categoryFilters?: CategoryFilters
+}
+
+export interface CategoryFilters {
+  [categorySlug: string]: {
+    filter1?: string[]
+    filter2?: string[]
+    filter3?: string[]
+    filter4?: string[]
+    filter5?: string[]
+    scales?: string[]
+  }
+}
+
+interface CategoryWithFilters {
+  slug: string
+  filter1Name?: string | null
+  filter2Name?: string | null
+  filter3Name?: string | null
+  filter4Name?: string | null
+  filter5Name?: string | null
+}
+
+export interface CategoryFilterGroup {
+  categorySlug: string
+  categoryName: string
+  filter1Name?: string | null
+  filter2Name?: string | null
+  filter3Name?: string | null
+  filter4Name?: string | null
+  filter5Name?: string | null
 }
 
 interface FilterPanelProps {
@@ -31,7 +62,7 @@ interface FilterPanelProps {
     filter3Name?: string | null
     filter4Name?: string | null
     filter5Name?: string | null
-  }
+  } | null
   allCategories?: string[]
   allFilterOptions?: {
     categories: string[]
@@ -46,62 +77,79 @@ interface FilterPanelProps {
   categoryNames?: Record<string, string>
   activeFilters?: FilterState
   forceOpen?: boolean
+  categoryFilterGroups?: CategoryFilterGroup[]
+  categoriesData?: CategoryWithFilters[]
+
+  // 🆕 Раздельные опции и названия фильтров
+  categoryFilterOptions?: {
+    [slug: string]: {
+      filter1: string[]
+      filter2: string[]
+      filter3: string[]
+      filter4: string[]
+      filter5: string[]
+      scales: string[]
+    }
+  }
+  categoryFilterNames?: {
+    [slug: string]: {
+      filter1Name?: string | null
+      filter2Name?: string | null
+      filter3Name?: string | null
+      filter4Name?: string | null
+      filter5Name?: string | null
+    }
+  }
 }
 
-// Функция для умной сортировки: числа по возрастанию, строки по алфавиту
 const smartSort = (a: string, b: string): number => {
-  // Проверяем, являются ли обе строки числами
   const aNum = Number(a)
   const bNum = Number(b)
   if (!isNaN(aNum) && !isNaN(bNum)) {
     return aNum - bNum
   }
-  // Если одна число, другая нет - число идёт раньше? Обычно строки сортируются по алфавиту
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
 }
 
-export const FilterPanel = forwardRef<any, FilterPanelProps>(({ 
-  products, 
-  onFilter, 
-  hidePriceSlider = false, 
+export const FilterPanel = forwardRef<any, FilterPanelProps>(({
+  products,
+  onFilter,
+  hidePriceSlider = false,
   hideMobileButton = false,
-  filterNames = {},
+  filterNames,
   allCategories = [],
   allFilterOptions,
   availableTags = [],
   categoryNames = {},
   activeFilters: externalFilters,
   forceOpen = false,
+  categoryFilterGroups = [],
+  categoriesData = [],
+  categoryFilterOptions,
+  categoryFilterNames,
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [filters, setFilters] = useState<FilterState>(externalFilters || {
-    categories: [],
-    filter1: [],
-    filter2: [],
-    filter3: [],
-    filter4: [],
-    filter5: [],
-    tags: [],
-    scales: [],
-    gameSystems: [],
-    factions: [],
-    types: [],
-    fileFormats: [],
+  const [filters, setFilters] = useState<FilterState>(() => {
+    if (externalFilters) return externalFilters
+    return {
+      categories: [],
+      filter1: [],
+      filter2: [],
+      filter3: [],
+      filter4: [],
+      filter5: [],
+      tags: [],
+      scales: [],
+      gameSystems: [],
+      factions: [],
+      types: [],
+      fileFormats: [],
+      categoryFilters: {},
+    }
   })
   const [priceMax, setPriceMax] = useState(3500)
 
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    categories: false,
-    filter1: false,
-    filter2: false,
-    filter3: false,
-    filter4: false,
-    filter5: false,
-    tags: false,
-    scales: false,
-  })
-
-  // Состояние пагинации для тегов (не сбрасываем при каждом изменении фильтров)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [tagsPage, setTagsPage] = useState(1)
   const tagsPerPage = 10
 
@@ -119,14 +167,21 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     }
   }, [externalFilters])
 
-  const getSectionOptions = (sectionKey: string): string[] => {
-    if (sectionKey === 'tags') {
-      return availableTags
+  const getSectionOptions = (sectionKey: string, categorySlug?: string): string[] => {
+    if (categorySlug && categoryFilterOptions && categoryFilterOptions[categorySlug]) {
+      if (sectionKey.startsWith('filter')) {
+        const field = sectionKey.split('_')[0] as keyof typeof categoryFilterOptions[string]
+        return categoryFilterOptions[categorySlug][field] || []
+      }
+      if (sectionKey === 'scales') {
+        return categoryFilterOptions[categorySlug].scales || []
+      }
     }
+
+    if (sectionKey === 'tags') return availableTags
     if (allFilterOptions) {
       return (allFilterOptions as any)[sectionKey] || []
     }
-    // fallback (не используется, так как передаём allFilterOptions)
     return []
   }
 
@@ -134,34 +189,50 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
-  const toggleFilter = (key: keyof FilterState, value: string) => {
+  const toggleFilter = (key: string, value: string, categorySlug?: string) => {
     setFilters(prev => {
-      const current = prev[key] as string[]
-      return {
-        ...prev,
-        [key]: current.includes(value) ? current.filter(v => v !== value) : [...current, value]
+      if (prev.categories.length > 1 && categorySlug) {
+        const currentCatFilters = prev.categoryFilters || {}
+        const catFilter = currentCatFilters[categorySlug] || {}
+        const field = key as keyof typeof catFilter
+        let currentValues = catFilter[field]
+        if (!Array.isArray(currentValues)) {
+          currentValues = []
+        }
+        const newValues = currentValues.includes(value)
+          ? currentValues.filter(v => v !== value)
+          : [...currentValues, value]
+        return {
+          ...prev,
+          categoryFilters: {
+            ...currentCatFilters,
+            [categorySlug]: {
+              ...catFilter,
+              [field]: newValues,
+            }
+          }
+        }
+      } else {
+        const currentValues = (prev as any)[key] as string[] | undefined
+        const arr = Array.isArray(currentValues) ? currentValues : []
+        const newValues = arr.includes(value)
+          ? arr.filter(v => v !== value)
+          : [...arr, value]
+        return { ...prev, [key]: newValues }
       }
     })
-    // Не сбрасываем страницу тегов при toggle
   }
 
   const resetFilters = () => {
     setFilters({
       categories: [],
-      filter1: [],
-      filter2: [],
-      filter3: [],
-      filter4: [],
-      filter5: [],
-      tags: [],
-      scales: [],
-      gameSystems: [],
-      factions: [],
-      types: [],
-      fileFormats: [],
+      filter1: [], filter2: [], filter3: [], filter4: [], filter5: [],
+      tags: [], scales: [],
+      gameSystems: [], factions: [], types: [], fileFormats: [],
+      categoryFilters: {},
     })
     setPriceMax(3500)
-    setTagsPage(1) // сбрасываем страницу тегов только при полном сбросе
+    setTagsPage(1)
   }
 
   useImperativeHandle(ref, () => ({
@@ -169,59 +240,91 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
   }))
 
   const applyFilters = useCallback(() => {
-    let filtered = products
+    let filtered = [...products]
 
-    if (filters.categories.length) {
+    if (filters.categories.length > 0) {
       filtered = filtered.filter(p => {
         const catSlug = typeof p.category === 'object' ? p.category.slug : p.categorySlug
         return filters.categories.includes(catSlug)
       })
     }
 
-    const hasAny = (productValues: string[], selected: string[]) => {
-      return selected.some(sel => productValues.includes(sel))
+    const hasAny = (productValues: string[], selected: string[]) =>
+      selected.some(sel => productValues.includes(sel))
+
+    if (filters.categories.length > 1 && filters.categoryFilters) {
+      filtered = filtered.filter(p => {
+        const catSlug = typeof p.category === 'object' ? p.category.slug : p.categorySlug
+        const catFilter = filters.categoryFilters?.[catSlug]
+        if (!catFilter) return true
+        const checks: boolean[] = []
+        if (catFilter.filter1?.length) {
+          const vals = (p.filter1 || '').split(',').map(s => s.trim())
+          checks.push(hasAny(vals, catFilter.filter1!))
+        }
+        if (catFilter.filter2?.length) {
+          const vals = (p.filter2 || '').split(',').map(s => s.trim())
+          checks.push(hasAny(vals, catFilter.filter2!))
+        }
+        if (catFilter.filter3?.length) {
+          const vals = (p.filter3 || '').split(',').map(s => s.trim())
+          checks.push(hasAny(vals, catFilter.filter3!))
+        }
+        if (catFilter.filter4?.length) {
+          const vals = (p.filter4 || '').split(',').map(s => s.trim())
+          checks.push(hasAny(vals, catFilter.filter4!))
+        }
+        if (catFilter.filter5?.length) {
+          const vals = (p.filter5 || '').split(',').map(s => s.trim())
+          checks.push(hasAny(vals, catFilter.filter5!))
+        }
+        if (catFilter.scales?.length) {
+          const vals = (p.scale || '').split(',').map(s => s.trim())
+          checks.push(hasAny(vals, catFilter.scales!))
+        }
+        return checks.length === 0 || checks.every(Boolean)
+      })
+    } else {
+      if (filters.filter1.length > 0) {
+        filtered = filtered.filter(p => {
+          const vals = (p.filter1 || '').split(',').map(s => s.trim())
+          return hasAny(vals, filters.filter1)
+        })
+      }
+      if (filters.filter2.length > 0) {
+        filtered = filtered.filter(p => {
+          const vals = (p.filter2 || '').split(',').map(s => s.trim())
+          return hasAny(vals, filters.filter2)
+        })
+      }
+      if (filters.filter3.length > 0) {
+        filtered = filtered.filter(p => {
+          const vals = (p.filter3 || '').split(',').map(s => s.trim())
+          return hasAny(vals, filters.filter3)
+        })
+      }
+      if (filters.filter4.length > 0) {
+        filtered = filtered.filter(p => {
+          const vals = (p.filter4 || '').split(',').map(s => s.trim())
+          return hasAny(vals, filters.filter4)
+        })
+      }
+      if (filters.filter5.length > 0) {
+        filtered = filtered.filter(p => {
+          const vals = (p.filter5 || '').split(',').map(s => s.trim())
+          return hasAny(vals, filters.filter5)
+        })
+      }
+      if (filters.scales.length > 0) {
+        filtered = filtered.filter(p => {
+          const vals = (p.scale || '').split(',').map(s => s.trim())
+          return hasAny(vals, filters.scales)
+        })
+      }
     }
 
-    if (filters.filter1.length) {
-      filtered = filtered.filter(p => {
-        const vals = (p.filter1 || '').split(',').map(s => s.trim())
-        return hasAny(vals, filters.filter1)
-      })
-    }
-    if (filters.filter2.length) {
-      filtered = filtered.filter(p => {
-        const vals = (p.filter2 || '').split(',').map(s => s.trim())
-        return hasAny(vals, filters.filter2)
-      })
-    }
-    if (filters.filter3.length) {
-      filtered = filtered.filter(p => {
-        const vals = (p.filter3 || '').split(',').map(s => s.trim())
-        return hasAny(vals, filters.filter3)
-      })
-    }
-    if (filters.filter4.length) {
-      filtered = filtered.filter(p => {
-        const vals = (p.filter4 || '').split(',').map(s => s.trim())
-        return hasAny(vals, filters.filter4)
-      })
-    }
-    if (filters.filter5.length) {
-      filtered = filtered.filter(p => {
-        const vals = (p.filter5 || '').split(',').map(s => s.trim())
-        return hasAny(vals, filters.filter5)
-      })
-    }
-
-    if (filters.tags.length) {
+    if (filters.tags.length > 0) {
       filtered = filtered.filter(p => hasAny(p.tags, filters.tags))
-    }
-
-    if (filters.scales.length) {
-      filtered = filtered.filter(p => {
-        const vals = (p.scale || '').split(',').map(s => s.trim())
-        return hasAny(vals, filters.scales)
-      })
     }
 
     filtered = filtered.filter(p => p.price <= priceMax)
@@ -239,8 +342,6 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     const priceChanged = prevPriceMaxRef.current !== priceMax
     if (filtersChanged || priceChanged) {
       applyFilters()
-      // Не сбрасываем tagsPage при изменении фильтров, кроме случаев когда изменилась категория?
-      // Если категория изменилась, набор тегов меняется, поэтому можно сбросить страницу
       if (prevFiltersRef.current.categories !== filters.categories) {
         setTagsPage(1)
       }
@@ -249,46 +350,68 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     prevPriceMaxRef.current = priceMax
   }, [filters, priceMax, applyFilters])
 
-  const scalesOptions = getSectionOptions('scales')
-  const shouldShowScales = scalesOptions.length >= 2
+  // Формирование секций
+  const hasCategory = filters.categories.length > 0
+  const multiCategory = hasCategory && filters.categories.length > 1
 
-  const sections = [
+  const sections: Array<{ key: string; title: string; field?: keyof FilterState; categorySlug?: string }> = [
     { key: 'categories', title: 'Категория' },
-    { key: 'filter1', title: filterNames.filter1Name || '' },
-    { key: 'filter2', title: filterNames.filter2Name || '' },
-    { key: 'filter3', title: filterNames.filter3Name || '' },
-    { key: 'filter4', title: filterNames.filter4Name || '' },
-    { key: 'filter5', title: filterNames.filter5Name || '' },
-    { key: 'tags', title: 'Теги' },
-    ...(shouldShowScales ? [{ key: 'scales', title: 'Масштаб' }] : []),
-  ].filter(section => {
-    if (section.key === 'categories' || section.key === 'tags') return true
-    return section.title && getSectionOptions(section.key).length > 0
-  })
+  ]
 
-  const FilterSection = ({ title, sectionKey, options, selected }: { 
-    title: string; 
-    sectionKey: string; 
-    options: string[]; 
-    selected: string[] 
+  if (hasCategory) {
+    if (multiCategory && categoryFilterGroups.length > 0) {
+      // Используем раздельные фильтры (без префикса категории в названии)
+      categoryFilterGroups.forEach(group => {
+        if (group.filter1Name) {
+          const title = categoryFilterNames?.[group.categorySlug]?.filter1Name || group.filter1Name || 'Фильтр 1'
+          sections.push({ key: `filter1_${group.categorySlug}`, title, categorySlug: group.categorySlug })
+        }
+        if (group.filter2Name) {
+          const title = categoryFilterNames?.[group.categorySlug]?.filter2Name || group.filter2Name || 'Фильтр 2'
+          sections.push({ key: `filter2_${group.categorySlug}`, title, categorySlug: group.categorySlug })
+        }
+        if (group.filter3Name) {
+          const title = categoryFilterNames?.[group.categorySlug]?.filter3Name || group.filter3Name || 'Фильтр 3'
+          sections.push({ key: `filter3_${group.categorySlug}`, title, categorySlug: group.categorySlug })
+        }
+        if (group.filter4Name) {
+          const title = categoryFilterNames?.[group.categorySlug]?.filter4Name || group.filter4Name || 'Фильтр 4'
+          sections.push({ key: `filter4_${group.categorySlug}`, title, categorySlug: group.categorySlug })
+        }
+        if (group.filter5Name) {
+          const title = categoryFilterNames?.[group.categorySlug]?.filter5Name || group.filter5Name || 'Фильтр 5'
+          sections.push({ key: `filter5_${group.categorySlug}`, title, categorySlug: group.categorySlug })
+        }
+      })
+      const scalesOpts = getSectionOptions('scales')
+      if (scalesOpts.length >= 2) sections.push({ key: 'scales', title: 'Масштаб' })
+    } else {
+      if (filterNames?.filter1Name) sections.push({ key: 'filter1', title: filterNames.filter1Name! })
+      if (filterNames?.filter2Name) sections.push({ key: 'filter2', title: filterNames.filter2Name! })
+      if (filterNames?.filter3Name) sections.push({ key: 'filter3', title: filterNames.filter3Name! })
+      if (filterNames?.filter4Name) sections.push({ key: 'filter4', title: filterNames.filter4Name! })
+      if (filterNames?.filter5Name) sections.push({ key: 'filter5', title: filterNames.filter5Name! })
+      const scalesOpts = getSectionOptions('scales')
+      if (scalesOpts.length >= 2) sections.push({ key: 'scales', title: 'Масштаб' })
+    }
+  }
+
+  sections.push({ key: 'tags', title: 'Теги' })
+
+  const FilterSection = ({ title, sectionKey, options, selected, categorySlug }: {
+    title: string
+    sectionKey: string
+    options: string[]
+    selected: string[]
+    categorySlug?: string
   }) => {
-    const isExpanded = expandedSections[sectionKey]
+    const isExpanded = expandedSections[sectionKey] ?? false
     const isTagsSection = sectionKey === 'tags'
-    
-    // Сортируем опции
     const sortedOptions = [...options].sort(smartSort)
-    
     const totalPages = Math.ceil(sortedOptions.length / tagsPerPage)
     const startIndex = (tagsPage - 1) * tagsPerPage
     const endIndex = startIndex + tagsPerPage
     const visibleOptions = isTagsSection ? sortedOptions.slice(startIndex, endIndex) : sortedOptions
-
-    const getDisplayName = (value: string) => {
-      if (sectionKey === 'categories' && categoryNames[value]) {
-        return categoryNames[value]
-      }
-      return value
-    }
 
     return (
       <div className="pb-3">
@@ -300,30 +423,19 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
           <div className="mt-2 space-y-1">
             {visibleOptions.map(opt => (
               <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
-                <input 
-                  type="checkbox" 
-                  checked={selected.includes(opt)} 
-                  onChange={() => toggleFilter(sectionKey as keyof FilterState, opt)} 
-                /> {getDisplayName(opt)}
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt)}
+                  onChange={() => toggleFilter(sectionKey.split('_')[0], opt, categorySlug)}
+                />
+                <span>{sectionKey === 'categories' && categoryNames[opt] ? categoryNames[opt] : opt}</span>
               </label>
             ))}
             {isTagsSection && totalPages > 1 && (
               <div className="flex items-center justify-between pt-2">
-                <button
-                  onClick={() => setTagsPage(p => Math.max(1, p - 1))}
-                  disabled={tagsPage === 1}
-                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
-                >
-                  <ChevronLeft size={16} />
-                </button>
+                <button onClick={() => setTagsPage(p => Math.max(1, p - 1))} disabled={tagsPage === 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30"><ChevronLeft size={16} /></button>
                 <span className="text-xs text-gray-400">{tagsPage} / {totalPages}</span>
-                <button
-                  onClick={() => setTagsPage(p => Math.min(totalPages, p + 1))}
-                  disabled={tagsPage === totalPages}
-                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
-                >
-                  <ChevronRight size={16} />
-                </button>
+                <button onClick={() => setTagsPage(p => Math.min(totalPages, p + 1))} disabled={tagsPage === totalPages} className="p-1 text-gray-400 hover:text-white disabled:opacity-30"><ChevronRight size={16} /></button>
               </div>
             )}
           </div>
@@ -332,7 +444,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     )
   }
 
-  const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
+  const hasActiveFilters = Object.values(filters).some(arr => Array.isArray(arr) && arr.length > 0)
 
   return (
     <>
@@ -343,15 +455,34 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
       )}
       <div className="hidden lg:block">
         <div className="space-y-4">
-          {sections.map(section => (
-            <FilterSection
-              key={section.key}
-              title={section.title}
-              sectionKey={section.key}
-              options={getSectionOptions(section.key)}
-              selected={filters[section.key as keyof FilterState] as string[]}
-            />
-          ))}
+          {sections.map(section => {
+            const isMulti = multiCategory && !!section.categorySlug
+            let selected: string[] = []
+            if (isMulti) {
+              const catFilter = filters.categoryFilters?.[section.categorySlug!] || {}
+              const field = section.key.split('_')[0] as keyof typeof catFilter
+              selected = catFilter[field] || []
+            } else {
+              if (section.key === 'tags') selected = filters.tags || []
+              else if (section.key === 'scales') selected = filters.scales || []
+              else if (section.key === 'categories') selected = filters.categories || []
+              else {
+                const val = (filters as any)[section.key]
+                selected = Array.isArray(val) ? val : []
+              }
+            }
+            const options = section.key === 'tags' ? availableTags : getSectionOptions(section.key.split('_')[0], section.categorySlug)
+            return (
+              <FilterSection
+                key={section.key}
+                title={section.title}
+                sectionKey={section.key}
+                options={options}
+                selected={selected}
+                categorySlug={section.categorySlug}
+              />
+            )
+          })}
           {!hidePriceSlider && (
             <div className="pt-2">
               <div className="flex justify-between items-center">
@@ -364,7 +495,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
             <div className="pt-2">
               <ActiveFilters
                 filters={filters}
-                onRemove={(key, value) => toggleFilter(key as keyof FilterState, value)}
+                onRemove={(key, value) => toggleFilter(key, value)}
                 onClearAll={resetFilters}
                 categoryNames={categoryNames}
               />
@@ -379,15 +510,34 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
             <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 text-gray-400"><X size={24} /></button>
             <h2 className="text-xl font-bold text-white mb-4">Фильтры</h2>
             <div className="space-y-4">
-              {sections.map(section => (
-                <FilterSection
-                  key={section.key}
-                  title={section.title}
-                  sectionKey={section.key}
-                  options={getSectionOptions(section.key)}
-                  selected={filters[section.key as keyof FilterState] as string[]}
-                />
-              ))}
+              {sections.map(section => {
+                const isMulti = multiCategory && !!section.categorySlug
+                let selected: string[] = []
+                if (isMulti) {
+                  const catFilter = filters.categoryFilters?.[section.categorySlug!] || {}
+                  const field = section.key.split('_')[0] as keyof typeof catFilter
+                  selected = catFilter[field] || []
+                } else {
+                  if (section.key === 'tags') selected = filters.tags || []
+                  else if (section.key === 'scales') selected = filters.scales || []
+                  else if (section.key === 'categories') selected = filters.categories || []
+                  else {
+                    const val = (filters as any)[section.key]
+                    selected = Array.isArray(val) ? val : []
+                  }
+                }
+                const options = section.key === 'tags' ? availableTags : getSectionOptions(section.key.split('_')[0], section.categorySlug)
+                return (
+                  <FilterSection
+                    key={section.key}
+                    title={section.title}
+                    sectionKey={section.key}
+                    options={options}
+                    selected={selected}
+                    categorySlug={section.categorySlug}
+                  />
+                )
+              })}
               {!hidePriceSlider && (
                 <div className="pt-2">
                   <div className="flex justify-between items-center">

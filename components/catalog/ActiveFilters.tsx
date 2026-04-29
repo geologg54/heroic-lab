@@ -26,7 +26,10 @@ const filterLabels: Record<string, string> = {
 }
 
 export const ActiveFilters = ({ filters, onRemove, onClearAll, categoryNames = {} }: ActiveFiltersProps) => {
-  const hasFilters = Object.values(filters).some(arr => arr.length > 0)
+  // Проверяем только массивы, чтобы не пытаться перебирать categoryFilters
+  const hasFilters = Object.entries(filters).some(
+    ([, values]) => Array.isArray(values) && values.length > 0
+  )
   if (!hasFilters) return null
 
   const getDisplayValue = (key: string, value: string) => {
@@ -38,15 +41,24 @@ export const ActiveFilters = ({ filters, onRemove, onClearAll, categoryNames = {
 
   return (
     <div className="flex flex-wrap gap-2 mb-4">
-      {Object.entries(filters).map(([key, values]) =>
-        values.map((value: string) => (
-          <span key={`${key}-${value}`} className="bg-accent/20 text-accent text-sm px-2 py-1 rounded-full flex items-center gap-1">
+      {Object.entries(filters).map(([key, values]) => {
+        // Пропускаем не-массивы (объект categoryFilters) и пустые массивы
+        if (!Array.isArray(values)) return null
+        return values.map((value: string) => (
+          <span
+            key={`${key}-${value}`}
+            className="bg-accent/20 text-accent text-sm px-2 py-1 rounded-full flex items-center gap-1"
+          >
             {filterLabels[key] || key}: {getDisplayValue(key, value)}
-            <button onClick={() => onRemove(key as keyof FilterState, value)}><X size={14} /></button>
+            <button onClick={() => onRemove(key as keyof FilterState, value)}>
+              <X size={14} />
+            </button>
           </span>
         ))
-      )}
-      <button onClick={onClearAll} className="text-gray-400 text-sm hover:text-white">Сбросить все</button>
+      })}
+      <button onClick={onClearAll} className="text-gray-400 text-sm hover:text-white">
+        Сбросить все
+      </button>
     </div>
   )
 }
