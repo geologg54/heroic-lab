@@ -72,3 +72,13 @@ export interface Category {
   filter5Name?: string | null
 }
 
+export interface CategoryFilters {
+  [categorySlug: string]: {
+    filter1?: string[]
+    filter2?: string[]
+    filter3?: string[]
+    filter4?: string[]
+    filter5?: string[]
+    scales?: string[]
+  }
+}
