@@ -200,3 +200,16 @@
 {"timestamp":"2026-04-29T13:04:51.455Z","level":"INFO","message":"Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0"}
 {"timestamp":"2026-04-30T09:53:59.253Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
 {"timestamp":"2026-04-30T09:54:21.994Z","level":"INFO","message":"Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0"}
+{"timestamp":"2026-04-30T14:01:26.465Z","level":"INFO","message":"Статус заказа №100002 изменён на delivered","adminId":"228","orderId":"cmocud92q000derklj3ilgp92","newStatus":"delivered"}
+{"timestamp":"2026-04-30T14:01:28.004Z","level":"INFO","message":"Статус заказа №100004 изменён на delivered","adminId":"228","orderId":"cmohfacap0015ijw8ffijs6b0","newStatus":"delivered"}
+{"timestamp":"2026-04-30T16:09:19.190Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-04-30T16:21:39.969Z","level":"INFO","message":"Успешный вход: valerabiven@borrow.zhmih","ip":"::1"}
+{"timestamp":"2026-04-30T16:21:42.357Z","level":"INFO","message":"Успешный вход: valerabiven@borrow.zhmih","ip":"::1"}
+{"timestamp":"2026-04-30T16:21:43.446Z","level":"INFO","message":"Успешный вход: valerabiven@borrow.zhmih","ip":"::1"}
+{"timestamp":"2026-04-30T16:40:12.625Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-04-30T16:45:59.658Z","level":"INFO","message":"Успешный вход: valerabiven@borrow.zhmih","ip":"::1"}
+{"timestamp":"2026-04-30T16:46:15.013Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-04-30T16:49:51.325Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T16:57:56.823Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T16:58:18.460Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T17:05:48.546Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}

@@ -4,14 +4,14 @@ import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Package, FolderTree, Layout, Image, 
   Library, ShoppingCart, Users, FileText, MessageCircle, X,
-  Ticket, Settings // 🆕 импорт иконки для купонов
+  Ticket, Settings, Star
 } from 'lucide-react'
 
 const menu = [
   { name: 'Дашборд', href: '/admin', icon: LayoutDashboard },
   { name: 'Товары', href: '/admin/products', icon: Package },
   { name: 'Категории', href: '/admin/categories', icon: FolderTree },
-  { name: 'Купоны', href: '/admin/coupons', icon: Ticket }, // 🆕 пункт меню
+  { name: 'Купоны', href: '/admin/coupons', icon: Ticket },
   { name: 'Главная страница', href: '/admin/homepage', icon: Layout },
   { name: 'Баннеры', href: '/admin/banners', icon: Image },
   { name: 'Медиатека', href: '/admin/media', icon: Library },
@@ -19,6 +19,7 @@ const menu = [
   { name: 'Пользователи', href: '/admin/users', icon: Users },
   { name: 'Страницы', href: '/admin/pages', icon: FileText },
   { name: 'Чат поддержки', href: '/admin/support', icon: MessageCircle },
+  { name: 'Отзывы', href: '/admin/reviews', icon: Star },
   { name: 'Настройки', href: '/admin/settings', icon: Settings },
 ]
 

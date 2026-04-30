@@ -9,16 +9,15 @@ export async function GET(request: Request) {
   const limit = parseInt(searchParams.get('limit') || '12')
   const skip = (page - 1) * limit
 
-  // 👇 Теперь берём ВСЕ выбранные категории
   const categorySlugs = searchParams.getAll('category')
   const minPrice = searchParams.get('minPrice')
   const maxPrice = searchParams.get('maxPrice')
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
-  
   const articlesParam = searchParams.get('articles')
+  const onSale = searchParams.get('onSale')   // <-- новое
 
-  // Старые глобальные фильтры (используются при одной категории)
+  // фильтры filter1, filter2, tags, scales...
   const filter1Vals = searchParams.getAll('filter1')
   const filter2Vals = searchParams.getAll('filter2')
   const filter3Vals = searchParams.getAll('filter3')
@@ -27,7 +26,6 @@ export async function GET(request: Request) {
   const tagsVals = searchParams.getAll('tags')
   const scalesVals = searchParams.getAll('scale')
 
-  // ---------- 1. Базовый where ----------
   const where: any = {}
 
   if (articlesParam) {
@@ -37,7 +35,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // 👇 Исправлено: фильтр по массиву категорий
   if (categorySlugs.length > 0) {
     where.category = { slug: { in: categorySlugs } }
   }
@@ -52,9 +49,16 @@ export async function GET(request: Request) {
     where.searchName = { contains: search.toLowerCase() }
   }
 
-  // ---------- 2. Сортировка ----------
+  // Фильтр по акционным товарам (только там, где есть oldPrice)
+  if (onSale === 'true') {
+    where.oldPrice = { not: null }
+  }
+
+  // Сортировка
   let orderBy: any = {}
   switch (sort) {
+    case 'oldest': orderBy = { createdAt: 'asc' }; break;
+case 'popularity': orderBy = {}; break; // обработаем после получения данных
     case 'price-asc': orderBy = { price: 'asc' }; break
     case 'price-desc': orderBy = { price: 'desc' }; break
     case 'name': orderBy = { name: 'asc' }; break
@@ -65,14 +69,19 @@ export async function GET(request: Request) {
   try {
     const shouldPaginate = !articlesParam
     
-    // Получаем ВСЕ товары по базовым условиям
     const baseProducts = await prisma.product.findMany({
       where,
       include: { category: true },
       orderBy,
     })
+    if (sort === 'popularity') {
+  (baseProducts as any[]).sort((a, b) => {
+    if (a.oldPrice !== null && b.oldPrice === null) return -1;
+    if (a.oldPrice === null && b.oldPrice !== null) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
 
-    // Преобразуем строки в массивы
     const productsWithArrays = baseProducts.map(p => ({
       ...p,
       tagsArray: p.tags.split(',').map(t => t.trim()).filter(Boolean),
@@ -89,7 +98,7 @@ export async function GET(request: Request) {
       return selected.some(val => productArray.includes(val))
     }
 
-    // ----- Обработка фильтров, привязанных к категориям (categoryFilters) -----
+    // categoryFilters (раздельные по категориям)
     const categoryFiltersMap: Record<string, Record<string, string[]>> = {}
     for (const [key, value] of searchParams.entries()) {
       if (key.startsWith('cat_')) {
@@ -106,13 +115,11 @@ export async function GET(request: Request) {
 
     let filteredProducts = productsWithArrays
 
-    // Применяем фильтры в разрезе категорий, если они заданы
     if (Object.keys(categoryFiltersMap).length > 0) {
       filteredProducts = filteredProducts.filter(p => {
         const catSlug = p.category.slug
         const catFilters = categoryFiltersMap[catSlug]
-        if (!catFilters) return true // для этой категории нет дополнительных фильтров
-
+        if (!catFilters) return true
         const checks = []
         if (catFilters.filter1) checks.push(hasAny(p.filter1Array, catFilters.filter1))
         if (catFilters.filter2) checks.push(hasAny(p.filter2Array, catFilters.filter2))
@@ -123,7 +130,6 @@ export async function GET(request: Request) {
         return checks.every(Boolean)
       })
     } else {
-      // Нет categoryFilters — используем глобальные фильтры (старое поведение)
       filteredProducts = filteredProducts.filter(p => {
         return hasAny(p.filter1Array, filter1Vals) &&
                hasAny(p.filter2Array, filter2Vals) &&
@@ -134,12 +140,10 @@ export async function GET(request: Request) {
       })
     }
 
-    // Теги применяются глобально
     if (tagsVals.length > 0) {
       filteredProducts = filteredProducts.filter(p => hasAny(p.tagsArray, tagsVals))
     }
 
-    // Доступные фильтры (на основе всех товаров до пагинации)
     const productsForAvailable = productsWithArrays
     const availableFilters = {
       categories: [...new Set(productsForAvailable.map(p => p.category.slug))],
@@ -152,7 +156,6 @@ export async function GET(request: Request) {
       scales: [...new Set(productsForAvailable.flatMap(p => p.scalesArray))],
     }
 
-    // Пагинация
     const paginatedProducts = shouldPaginate
       ? filteredProducts.slice(skip, skip + limit)
       : filteredProducts

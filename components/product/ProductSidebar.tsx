@@ -7,6 +7,7 @@ import FaqModal from '@/components/product/FaqModal';
 import { useCart } from '@/hooks/useCart';
 import { useMaterial } from '@/components/product/MaterialProvider';
 import Link from 'next/link';
+import { ShoppingCart } from 'lucide-react';
 import type { Product } from '@/types';
 
 export default function ProductSidebar({ product }: { product: Product }) {
@@ -34,23 +35,29 @@ export default function ProductSidebar({ product }: { product: Product }) {
         <div className="flex items-center gap-4">
           <button
             onClick={handleAddToCart}
-            className="bg-white text-darkbg font-bold text-xl px-6 py-3 rounded-lg border-2 border-white hover:bg-darkbg hover:text-white transition-colors"
+            className="bg-white text-darkbg font-bold text-xl px-6 py-3 rounded-lg border-2 border-white hover:bg-darkbg hover:text-white active:bg-darkbg active:text-white focus:outline-none transition-colors duration-150"
           >
-            {finalPrice} ₽
+            <ShoppingCart size={20} className="inline-block mr-2" />
+            <span className="flex flex-col items-start">
+              {product.oldPrice && (
+                <span className="text-gray-400 line-through text-xs">{product.oldPrice} ₽</span>
+              )}
+              <span>{finalPrice} ₽</span>
+            </span>
           </button>
           <FavoritesButton productId={product.article} />
         </div>
         <div className="text-white space-y-2 text-lg">
-          <button onClick={openModal} className="block hover:text-accent transition">
+          <button onClick={openModal} className="block hover:text-accent focus:outline-none transition">
             Изменить материал
           </button>
           <Link href={`/contact?message=${encodeURIComponent(scaleMsg)}`} className="block hover:text-accent transition">
             Выбрать масштаб
           </Link>
           <Link href={`/contact?message=${encodeURIComponent(specialOrderMsg)}`} className="block hover:text-accent transition">
-            Особый заказ
+            Персональный заказ
           </Link>
-          <button onClick={() => setIsFaqOpen(true)} className="block hover:text-accent transition">
+          <button onClick={() => setIsFaqOpen(true)} className="block hover:text-accent focus:outline-none transition">
             Частые вопросы
           </button>
           <Link href={`/contact?message=${encodeURIComponent(questionMsg)}`} className="block hover:text-accent transition">

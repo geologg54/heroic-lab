@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     validFrom,
     validUntil,
     isActive,
+    stackable,   // <-- новое поле
   } = data
 
   if (!code || !type || value === undefined) {
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
       validFrom: validFrom ? new Date(validFrom) : new Date(),
       validUntil: validUntil ? new Date(validUntil) : null,
       isActive: isActive ?? true,
+      stackable: stackable ?? false,   // <-- сохраняем stackable
     },
   })
 

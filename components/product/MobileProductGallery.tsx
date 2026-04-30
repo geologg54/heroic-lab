@@ -61,7 +61,6 @@ export default function MobileProductGallery({ images }: Props) {
 
   return (
     <div className="relative w-full">
-      {/* Изображение – 75% ширины, центрировано */}
       <div
         className="relative mx-auto max-w-[75%] aspect-[4/5] overflow-hidden"
         onTouchStart={handleTouchStart}
@@ -96,15 +95,14 @@ export default function MobileProductGallery({ images }: Props) {
         )}
       </div>
 
-      {/* Миниатюры – тоже 75% ширины */}
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto mt-3 pb-2 max-w-[75%] mx-auto">
           {images.map((img, idx) => (
             <button
               key={idx}
               onClick={() => goTo(idx)}
-              className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-transform duration-200 ${
-                idx === current ? 'scale-125 z-10 shadow-lg' : 'opacity-70 hover:opacity-100'
+              className={`relative flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden transition-transform duration-200 ${
+                idx === current ? 'scale-125 z-10 shadow-lg' : 'opacity-60 hover:opacity-100'
               }`}
             >
               <Image src={img} alt={`Миниатюра ${idx + 1}`} fill className="object-cover" />

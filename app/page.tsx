@@ -1,64 +1,13 @@
 // app/page.tsx
 import { HeroBanner } from '@/components/common/HeroBanner'
 import { CategoryCard } from '@/components/catalog/CategoryCard'
-import { CTASection } from '@/components/common/CTASection'
-import { CollectionBlock } from '@/components/common/CollectionBlock'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import type { Category, Product } from '@/types'
-
-// Вспомогательная функция форматирования товара
-function formatProduct(p: any): Product {
-  const images = p.images ? p.images.split(',') : []
-  const tags = p.tags ? p.tags.split(',') : []
-  return {
-    article: p.article,
-    name: p.name,
-    price: p.price,
-    oldPrice: p.oldPrice,
-    image: images[0] || '',
-    images,
-    category: p.category,
-    categorySlug: p.category.slug,
-    categoryName: p.category.name,
-    subcategory: null,
-    description: p.description,
-    shortDesc: null,
-    filter1: p.filter1,
-    filter2: p.filter2,
-    filter3: p.filter3,
-    filter4: p.filter4,
-    filter5: p.filter5,
-    stock: p.stock,
-    heightMax: p.heightMax,
-    baseMax: p.baseMax,
-    heightMin: p.heightMin,
-    baseMin: p.baseMin,
-    assembly: p.assembly,
-    contents: p.contents,
-    artist: p.artist,
-    scale: p.scale,
-    tags,
-    createdAt: p.createdAt?.toISOString() || null,
-  } as Product
-}
+import ReviewsSection from '@/components/reviews/ReviewsSection'
+import BannerImage from '@/components/common/BannerImage'
 
 export default async function HomePage() {
-  // Загружаем категории и все товары напрямую из БД
-  const [categories, allProducts] = await Promise.all([
-    prisma.category.findMany(),
-    prisma.product.findMany({
-      include: { category: true },
-      orderBy: { createdAt: 'desc' },
-    }),
-  ])
-
-  const products: Product[] = allProducts.map(formatProduct)
-
-  // Товары для коллекции Trench Crusade
-  const trenchProducts = products
-    .filter(p => p.categorySlug === 'trench-crusade')
-    .slice(0, 3)
+  const categories = await prisma.category.findMany()
 
   return (
     <div>
@@ -81,22 +30,23 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-12">
-        <CollectionBlock
-          title="Коллекция «Траншейный кошмар»"
-          subtitle="Миниатюры для Trench Crusade"
-          link="/category/trench-crusade"
-          products={trenchProducts}
-        />
+      {/* Баннер акции */}
+      <section className="bg-darkbg py-10 px-4 md:px-6">
+        <Link href="/catalog?onSale=true">
+          <div className="relative w-full aspect-[900/300] rounded-xl overflow-hidden hover:opacity-90 transition-opacity">
+            <BannerImage
+              src="/images/banner/banner.png"
+              alt="Акция"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </Link>
       </section>
 
-      <CTASection
-        title="Подпишитесь на рассылку"
-        text="Получайте новинки и скидки на 3D-модели"
-        buttonText="Подписаться"
-      />
+      {/* Отзывы */}
+      <ReviewsSection />
 
-      {/* Новый блок – приглашение написать в поддержку */}
+      {/* Блок "Остались вопросы?" */}
       <div className="bg-darkbg py-16 text-center border-t border-[#1e3a5f]">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-white mb-3">Остались вопросы?</h2>

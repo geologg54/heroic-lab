@@ -51,3 +51,19 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Исправление залипания кнопок на сенсорных экранах */
+button, a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* На устройствах без мыши (телефоны, планшеты) полностью отключаем hover-эффекты,
+   чтобы кнопки не оставались в "нажатом" состоянии после тапа */
+@media (hover: none) {
+  button:hover,
+  a:hover {
+    background-color: transparent !important;
+    color: inherit !important;
+  }
+}

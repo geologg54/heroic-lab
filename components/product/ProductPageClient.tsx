@@ -47,7 +47,6 @@ export default function ProductPageClient({
 
   const tagsFilterUrl = `/catalog?${product.tags.map(tag => `tags=${encodeURIComponent(tag)}`).join('&')}`;
 
-  // --- Блок с названием товара (вынесли отдельно, чтобы можно было управлять его положением) ---
   const titleBlock = (
     <div className="min-h-[5rem] flex items-center justify-center">
       <h1 className="text-3xl md:text-4xl font-bold text-white text-center">
@@ -56,7 +55,6 @@ export default function ProductPageClient({
     </div>
   );
 
-  // --- Основной контент (размеры, характеристики, описание, похожие) – теперь без названия! ---
   const mainContent = (
     <>
       {/* Размеры */}
@@ -160,21 +158,17 @@ export default function ProductPageClient({
 
   return (
     <div className="w-full bg-darkbg">
-      {/* Мобильная галерея на всю ширину */}
       {isMobile && (
         <div className="relative z-10">
           <MobileProductGallery images={product.images} />
         </div>
       )}
 
-      {/* Основной контейнер */}
       <div className={`${isMobile ? 'w-full px-4' : 'w-[75%] mx-auto'} relative`}>
-        {/* Хлебные крошки (только десктоп) */}
         <div className="h-20 hidden lg:flex items-center relative z-20">
           <Breadcrumbs items={breadcrumbItems} />
         </div>
 
-        {/* Градиентный фон */}
         <div className="absolute top-20 left-0 w-full h-[calc(100%-5rem)] pointer-events-none z-0">
           <div
             className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[40%] aspect-square rounded-full opacity-50"
@@ -192,46 +186,47 @@ export default function ProductPageClient({
           />
         </div>
 
-        {/* Десктопная галерея */}
         {!isMobile && (
           <div className="relative z-10">
             <ProductGallery images={product.images} />
           </div>
         )}
 
-        {/* Мобильный блок с кнопками и тегами – ПЕРЕСТАВИЛИ НАЗВАНИЕ И ТЕГИ */}
         {isMobile && (
           <div className="relative mt-4 z-10 flex flex-col items-center">
-            {/* Ряд кнопок: цена/корзина, избранное, настройки */}
+            {/* Кнопки: цена/корзина, избранное, настройки */}
             <div className="flex items-center justify-center gap-4 mb-3">
               <button
                 onClick={handleMobileAddToCart}
-                className="flex items-center gap-2 bg-white text-darkbg font-bold text-xl px-6 py-3 rounded-lg border-2 border-white hover:bg-darkbg hover:text-white transition-colors"
+                className="flex items-center gap-2 bg-white text-darkbg font-bold text-xl px-6 py-3 rounded-lg border-2 border-white hover:bg-darkbg hover:text-white active:bg-darkbg active:text-white focus:outline-none transition-colors duration-150"
               >
                 <ShoppingCart size={20} />
-                <span>{finalPrice} ₽</span>
+                <span className="flex flex-col items-start">
+                  {product.oldPrice && (
+                    <span className="text-gray-400 line-through text-xs">{product.oldPrice} ₽</span>
+                  )}
+                  <span>{finalPrice} ₽</span>
+                </span>
               </button>
               <FavoritesButton productId={product.article} />
-              {/* Кнопка настроек – привели к единому стилю (без обводки, меньше) */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="p-2 rounded-full text-white hover:bg-white/10 transition-colors"
+                className="p-2 rounded-full text-white hover:bg-white/10 active:bg-white/20 focus:outline-none transition-colors duration-150"
                 aria-label="Меню действий"
               >
                 <Settings size={22} />
               </button>
             </div>
 
-            {/* Название товара – переехало сюда, над тегами */}
             {titleBlock}
 
-            {/* Теги теперь под названием */}
+            {/* Теги */}
             <div className="flex flex-wrap gap-2 justify-center mb-6">
               {product.tags.map((tag, idx) => (
                 <Link
                   key={idx}
                   href={`/catalog?tags=${encodeURIComponent(tag)}`}
-                  className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg transition-colors text-sm"
+                  className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg active:bg-white active:text-darkbg focus:outline-none transition-colors duration-150 text-sm"
                 >
                   {tag}
                 </Link>
@@ -240,14 +235,12 @@ export default function ProductPageClient({
           </div>
         )}
 
-        {/* Основной контент: на десктопе – с боковыми колонками, на мобильном – по центру */}
         {isMobile ? (
           <div className="relative mt-4 z-10 w-full">
             {mainContent}
           </div>
         ) : (
           <div className="relative mt-8 z-10">
-            {/* Левая колонка – теги (десктоп) */}
             <div
               className="fixed z-30 hidden lg:block"
               style={{
@@ -264,7 +257,7 @@ export default function ProductPageClient({
                     <Link
                       key={idx}
                       href={`/catalog?tags=${encodeURIComponent(tag)}`}
-                      className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg transition-colors text-sm"
+                      className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg active:bg-white active:text-darkbg focus:outline-none transition-colors duration-150 text-sm"
                     >
                       {tag}
                     </Link>
@@ -273,7 +266,6 @@ export default function ProductPageClient({
               </div>
             </div>
 
-            {/* Правая колонка – сайдбар (десктоп) */}
             <div
               className="fixed z-30 hidden lg:block"
               style={{
@@ -286,11 +278,9 @@ export default function ProductPageClient({
               <ProductSidebar product={product} />
             </div>
 
-            {/* Центральный контент в сетке */}
             <div className="grid grid-cols-[1fr_45vw_1fr] gap-0">
               <div className="pr-8 hidden lg:block" />
               <div className="w-full">
-                {/* На десктопе название идёт перед mainContent */}
                 {titleBlock}
                 {mainContent}
               </div>
@@ -300,10 +290,8 @@ export default function ProductPageClient({
         )}
       </div>
 
-      {/* Липкая панель (мобилка) */}
       <StickyBuyBar product={product} finalPrice={finalPrice} />
 
-      {/* Мобильная панель действий */}
       <MobileActionPanel
         product={product}
         open={mobileMenuOpen}

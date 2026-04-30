@@ -1,4 +1,5 @@
 // prisma/schema.prisma
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,8 +21,12 @@ model User {
   updatedAt        DateTime  @default(now()) @updatedAt
 
   orders           Order[]
+  reviews          Review[]
+  coupons          UserCoupon[]        // <-- новое поле
   cartItems        CartItem[]
-  supportMessages  SupportMessage[]  // ← добавлено
+  supportMessages  SupportMessage[]
+  emailVerified    Boolean  @default(false)
+  emailVerifyToken String?  @unique
 }
 
 model Category {
@@ -112,6 +117,7 @@ model Order {
   couponId       String?
   coupon         Coupon?   @relation(fields: [couponId], references: [id])
   items          OrderItem[]
+  reviews        Review[]
 }
 
 model OrderItem {
@@ -125,20 +131,35 @@ model OrderItem {
 }
 
 model Coupon {
-  id              String   @id @default(cuid())
-  code            String   @unique
+  id              String    @id @default(cuid())
+  code            String    @unique
   type            String
   value           Int
   minOrderAmount  Int?
   maxUses         Int?
-  usedCount       Int      @default(0)
-  validFrom       DateTime @default(now())
+  usedCount       Int       @default(0)
+  validFrom       DateTime  @default(now())
   validUntil      DateTime?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean   @default(true)
+  stackable       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   orders          Order[]
+  userCoupons     UserCoupon[]
+}
+
+model UserCoupon {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  couponId   String
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  usedAt     DateTime?
+  emailSent  Boolean  @default(false)
+
+  @@unique([userId, couponId])
 }
 
 // Новая система обращений
@@ -176,9 +197,35 @@ model Material {
   updatedAt       DateTime @updatedAt
 }
 
+model Review {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  authorName String?  // Имя автора (может быть "Анонимно")
+  orderId    String?  // Связь с заказом (необязательно)
+  order      Order?   @relation(fields: [orderId], references: [id])
+  rating     Int      // 1-5
+  text       String   @default("")
+  images     String   @default("") // имена файлов через запятую
+  sourceUrl  String?  // ссылка на внешний отзыв
+  isExternal Boolean  @default(false) // true если добавлен админом
+  featured   Boolean  @default(false) // показывать на главной
+  status     String   @default("pending") // pending | approved | rejected
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
 
 model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

@@ -4,6 +4,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { AccountSidebar } from '@/components/account/AccountSidebar'
+import NewsletterSection from '@/components/common/NewsletterSection'
 
 export default function AccountPage() {
   const { data: session, status } = useSession()
@@ -23,11 +24,16 @@ export default function AccountPage() {
       <h1 className="text-3xl font-bold text-white mb-8">Личный кабинет</h1>
       <div className="flex flex-col md:flex-row gap-8">
         <AccountSidebar />
-        <div className="flex-1 bg-cardbg p-6 rounded-xl border border-borderLight">
-          <h2 className="text-xl font-bold mb-4">
-            Привет, {session.user.name || session.user.email}
-          </h2>
-          <p>Здесь будут ваши заказы, загрузки и избранное.</p>
+        <div className="flex-1 space-y-6">
+          <div className="bg-cardbg p-6 rounded-xl border border-borderLight">
+            <h2 className="text-xl font-bold mb-4">
+              Привет, {session.user.name || session.user.email}
+            </h2>
+            <p>Здесь будут ваши заказы, загрузки и избранное.</p>
+          </div>
+
+          {/* Подписка на рассылку */}
+          <NewsletterSection />
         </div>
       </div>
     </div>

@@ -9,11 +9,11 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const { updateQuantity, removeFromCart } = useCart()
 
   const handleRemove = () => {
-    removeFromCart(item.cartItemId)  // теперь по cartItemId
+    removeFromCart(item.cartItemId)
   }
 
   const handleQuantityChange = (newQty: number) => {
-    updateQuantity(item.cartItemId, newQty)  // теперь по cartItemId
+    updateQuantity(item.cartItemId, newQty)
   }
 
   return (
@@ -32,7 +32,12 @@ export default function CartItem({ item }: { item: CartItemType }) {
             Изменён материал: {item.options.materialName}
           </span>
         )}
-        <p className="text-amber-400">{item.finalPrice ?? item.product.price} ₽</p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-amber-400 font-bold">{item.finalPrice ?? item.product.price} ₽</span>
+          {item.product.oldPrice && (
+            <span className="text-gray-500 line-through text-sm">{item.product.oldPrice} ₽</span>
+          )}
+        </div>
         <div className="flex items-center gap-3 mt-2">
           <select
             value={item.quantity}

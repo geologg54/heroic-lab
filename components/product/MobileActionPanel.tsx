@@ -35,7 +35,7 @@ export default function MobileActionPanel({ product, open, onOpen, onClose }: Pr
         if (tabTimeout.current) clearTimeout(tabTimeout.current)
         tabTimeout.current = setTimeout(() => {
           setShowTab(false)
-        }, 1000)
+        }, 500)
       } else {
         setShowTab(false)
       }
@@ -78,7 +78,7 @@ export default function MobileActionPanel({ product, open, onOpen, onClose }: Pr
             Выбрать масштаб
           </Link>
           <Link href={`/contact?message=${encodeURIComponent(messages.special)}`} onClick={onClose} className="block hover:text-accent transition">
-            Особый заказ
+            Персональный заказ
           </Link>
           <button onClick={() => { setIsFaqOpen(true); onClose() }} className="block hover:text-accent transition w-full text-left">
             Частые вопросы

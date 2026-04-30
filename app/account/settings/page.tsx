@@ -17,7 +17,6 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     name: '',
     email: '',
-    currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   })
@@ -46,7 +45,6 @@ export default function SettingsPage() {
     setTwoFAEnabled(session.user.twoFactorEnabled || false)
   }, [session, status, router])
 
-  // Обновление профиля (без изменений)
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
@@ -67,7 +65,6 @@ export default function SettingsPage() {
     if (form.name !== session?.user?.name) payload.name = form.name
     if (form.email !== session?.user?.email) payload.email = form.email
     if (form.newPassword) {
-      payload.currentPassword = form.currentPassword
       payload.newPassword = form.newPassword
     }
 
@@ -92,7 +89,6 @@ export default function SettingsPage() {
       await update()
       setForm(prev => ({
         ...prev,
-        currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       }))
@@ -100,8 +96,7 @@ export default function SettingsPage() {
     setLoading(false)
   }
 
-  // === Функции для 2FA ===
-
+  // === Функции для 2FA (без изменений) ===
   const enable2FA = async () => {
     setTwoFALoading(true)
     try {
@@ -137,7 +132,7 @@ export default function SettingsPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        await update() // обновляем сессию, чтобы получить twoFactorEnabled: true
+        await update()
         setTwoFAEnabled(true)
         setShowTwoFAModal(false)
         setSuccess('2FA успешно включена')
@@ -205,7 +200,6 @@ export default function SettingsPage() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
-            {/* Поля профиля (без изменений) */}
             <div>
               <label className="block text-white mb-2">Имя</label>
               <input
@@ -233,16 +227,6 @@ export default function SettingsPage() {
               <h3 className="text-lg font-semibold text-white mb-4">Сменить пароль</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-white mb-2">Текущий пароль</label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    value={form.currentPassword}
-                    onChange={handleChange}
-                    className="w-full p-3 rounded-lg bg-[#0f2a42] border border-borderLight text-white"
-                  />
-                </div>
-                <div>
                   <label className="block text-white mb-2">Новый пароль</label>
                   <input
                     type="password"
@@ -265,7 +249,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Блок 2FA (только для админов) */}
             {session?.user?.role === 'admin' && (
               <div className="border-t border-borderLight pt-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Двухфакторная аутентификация</h3>
@@ -310,7 +293,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Модальное окно для настройки 2FA */}
+      {/* Модальное окно 2FA (без изменений) */}
       {showTwoFAModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
@@ -318,7 +301,7 @@ export default function SettingsPage() {
             {twoFAStep === 'qr' && (
               <>
                 <p className="text-gray-300 mb-2">
-                  Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Authy).
+                  Отсканируйте QR-код в приложении-аутентификаторе.
                 </p>
                 <div className="flex justify-center mb-4">
                   {qrCode && <img src={qrCode} alt="QR Code" />}

@@ -3,3 +3,26 @@
   "ip": "::1"
 }
 -----------------------------------
+{"timestamp":"2026-04-30T16:21:43.649Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:21:47.193Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:21:54.844Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:22:09.060Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:22:11.287Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:22:43.295Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:23:13.027Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:23:27.013Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"valerabiven@borrow.zhmih"}
+{"timestamp":"2026-04-30T16:23:44.285Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:23:45.074Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:23:48.523Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:23:56.044Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:23:56.862Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:24:34.516Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"ivan.pust2@gmail.com"}
+{"timestamp":"2026-04-30T16:24:37.191Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:24:43.596Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::1","email":"heroic.lab@yandex.ru"}
+{"timestamp":"2026-04-30T16:32:02.633Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-04-30T16:40:25.747Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для valerabiven@borrow.zhmih","ip":"::1"}
+{"timestamp":"2026-04-30T16:40:34.792Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для valerabiven@borrow.zhmih","ip":"::1"}
+{"timestamp":"2026-04-30T16:57:46.813Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T16:57:50.462Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T17:05:21.090Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T17:05:45.665Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для ivan.pust2@gmail.com","ip":"::1"}

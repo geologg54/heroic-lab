@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, Edit, Trash2, CheckCircle, XCircle, Send } from 'lucide-react'
 
 export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<any[]>([])
@@ -18,7 +18,16 @@ export default function AdminCouponsPage() {
     validFrom: '',
     validUntil: '',
     isActive: true,
+    stackable: false,
   })
+
+  // Состояния для рассылки
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [users, setUsers] = useState<any[]>([])
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [sendingCoupon, setSendingCoupon] = useState(false)
+  // Поля купона для рассылки (используем те же form)
+  const [sendForm, setSendForm] = useState({ ...form, code: '', maxUses: '1' })
 
   useEffect(() => {
     fetchCoupons()
@@ -29,6 +38,12 @@ export default function AdminCouponsPage() {
     const data = await res.json()
     setCoupons(data)
     setLoading(false)
+  }
+
+  const fetchUsers = async () => {
+    const res = await fetch('/api/admin/users?limit=1000')
+    const data = await res.json()
+    setUsers(data.users || [])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,6 +71,7 @@ export default function AdminCouponsPage() {
         validFrom: '',
         validUntil: '',
         isActive: true,
+        stackable: false,
       })
       fetchCoupons()
     } else {
@@ -75,6 +91,7 @@ export default function AdminCouponsPage() {
       validFrom: coupon.validFrom ? coupon.validFrom.slice(0, 10) : '',
       validUntil: coupon.validUntil ? coupon.validUntil.slice(0, 10) : '',
       isActive: coupon.isActive,
+      stackable: coupon.stackable || false,
     })
     setShowForm(true)
   }
@@ -99,33 +116,86 @@ export default function AdminCouponsPage() {
     fetchCoupons()
   }
 
+  const handleSendCoupons = async () => {
+    if (!sendForm.code || !sendForm.type || !sendForm.value) {
+      alert('Заполните параметры купона')
+      return
+    }
+    if (selectedUserIds.size === 0) {
+      alert('Выберите хотя бы одного пользователя')
+      return
+    }
+    setSendingCoupon(true)
+    try {
+      const res = await fetch('/api/admin/coupons/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: sendForm.code,
+          type: sendForm.type,
+          value: sendForm.value,
+          minOrderAmount: sendForm.minOrderAmount || null,
+          maxUses: sendForm.maxUses ? parseInt(sendForm.maxUses) : null,
+          validUntil: sendForm.validUntil || null,
+          stackable: sendForm.stackable,
+          userIds: Array.from(selectedUserIds),
+        }),
+      })
+      if (res.ok) {
+        alert('Купоны отправлены!')
+        setShowSendModal(false)
+        setSelectedUserIds(new Set())
+        setSendForm({ ...form, code: '', maxUses: '1' })
+        fetchCoupons()
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Ошибка')
+      }
+    } finally {
+      setSendingCoupon(false)
+    }
+  }
+
   if (loading) return <div className="text-white">Загрузка...</div>
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Скидочные купоны</h1>
-        <button
-          onClick={() => {
-            setEditingId(null)
-            setForm({
-              code: '',
-              type: 'percent',
-              value: '',
-              minOrderAmount: '',
-              maxUses: '',
-              validFrom: '',
-              validUntil: '',
-              isActive: true,
-            })
-            setShowForm(true)
-          }}
-          className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
-        >
-          <Plus size={18} /> Создать купон
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              fetchUsers()
+              setShowSendModal(true)
+            }}
+            className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+          >
+            <Send size={18} /> Рассылка
+          </button>
+          <button
+            onClick={() => {
+              setEditingId(null)
+              setForm({
+                code: '',
+                type: 'percent',
+                value: '',
+                minOrderAmount: '',
+                maxUses: '',
+                validFrom: '',
+                validUntil: '',
+                isActive: true,
+                stackable: false,
+              })
+              setShowForm(true)
+            }}
+            className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
+          >
+            <Plus size={18} /> Создать купон
+          </button>
+        </div>
       </div>
 
+      {/* Форма создания/редактирования */}
       {showForm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
@@ -208,6 +278,17 @@ export default function AdminCouponsPage() {
                   className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
                 />
               </div>
+              <div>
+                <label className="flex items-center gap-2 text-white">
+                  <input
+                    type="checkbox"
+                    checked={form.stackable}
+                    onChange={e => setForm({ ...form, stackable: e.target.checked })}
+                    className="w-4 h-4 accent-accent"
+                  />
+                  Суммируется с другими скидками
+                </label>
+              </div>
               <div className="flex gap-2 pt-4">
                 <button type="submit" className="bg-accent px-4 py-2 rounded-lg text-white">
                   Сохранить
@@ -225,6 +306,96 @@ export default function AdminCouponsPage() {
         </div>
       )}
 
+      {/* Модальное окно рассылки */}
+      {showSendModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-cardbg p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-white mb-4">Рассылка купона</h2>
+
+            {/* Форма параметров купона */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-white mb-1">Код *</label>
+                <input type="text" value={sendForm.code} onChange={e => setSendForm({ ...sendForm, code: e.target.value.toUpperCase() })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Тип *</label>
+                <select value={sendForm.type} onChange={e => setSendForm({ ...sendForm, type: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white">
+                  <option value="percent">%</option>
+                  <option value="fixed">Фикс ₽</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-white mb-1">Значение *</label>
+                <input type="number" value={sendForm.value} onChange={e => setSendForm({ ...sendForm, value: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Мин. сумма</label>
+                <input type="number" value={sendForm.minOrderAmount} onChange={e => setSendForm({ ...sendForm, minOrderAmount: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Макс. использований</label>
+                <input type="number" value={sendForm.maxUses} onChange={e => setSendForm({ ...sendForm, maxUses: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
+              </div>
+              <div>
+                <label className="block text-white mb-1">Действует до</label>
+                <input type="date" value={sendForm.validUntil} onChange={e => setSendForm({ ...sendForm, validUntil: e.target.value })}
+                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-white mt-6">
+                  <input type="checkbox" checked={sendForm.stackable} onChange={e => setSendForm({ ...sendForm, stackable: e.target.checked })}
+                    className="w-4 h-4 accent-accent" />
+                  Суммируется
+                </label>
+              </div>
+            </div>
+
+            {/* Список пользователей */}
+            <div className="mb-4">
+              <label className="flex items-center gap-2 text-white">
+                <input type="checkbox" checked={selectedUserIds.size === users.length && users.length > 0}
+                  onChange={() => {
+                    if (selectedUserIds.size === users.length) setSelectedUserIds(new Set());
+                    else setSelectedUserIds(new Set(users.map(u => u.id)));
+                  }} />
+                Выбрать всех
+              </label>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto mb-4">
+              {users.map((user: any) => (
+                <label key={user.id} className="flex items-center gap-2 text-sm text-gray-300">
+                  <input type="checkbox" checked={selectedUserIds.has(user.id)}
+                    onChange={() => {
+                      const newSet = new Set(selectedUserIds);
+                      if (newSet.has(user.id)) newSet.delete(user.id);
+                      else newSet.add(user.id);
+                      setSelectedUserIds(newSet);
+                    }} />
+                  {user.email} ({user.name || '—'}) – заказов: {user.ordersCount}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={handleSendCoupons} disabled={sendingCoupon}
+                className="bg-accent px-4 py-2 rounded-lg text-white">
+                {sendingCoupon ? 'Отправка...' : 'Отправить'}
+              </button>
+              <button onClick={() => setShowSendModal(false)} className="bg-gray-700 px-4 py-2 rounded-lg text-white">
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Таблица купонов */}
       <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="border-b border-borderLight">

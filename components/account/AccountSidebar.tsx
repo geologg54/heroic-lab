@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import { User, ShoppingBag, Download, Heart, HelpCircle, Settings, LogOut, Shield } from 'lucide-react'
+import { User, ShoppingBag, Download, Heart, HelpCircle, Settings, LogOut, Shield, Ticket } from 'lucide-react'
 
 export const AccountSidebar = () => {
   const path = usePathname()
@@ -15,10 +15,10 @@ export const AccountSidebar = () => {
     { href: '/account/downloads', label: 'Загрузки', icon: Download },
     { href: '/account/favorites', label: 'Избранное', icon: Heart },
     { href: '/account/support', label: 'Поддержка', icon: HelpCircle },
+    { href: '/account/coupons', label: 'Мои промокоды', icon: Ticket },
     { href: '/account/settings', label: 'Настройки', icon: Settings },
   ]
 
-  // Показываем заглушку во время загрузки сессии
   if (status === 'loading') {
     return (
       <aside className="w-full md:w-64 bg-cardbg rounded-xl border border-borderLight p-4 h-fit">
@@ -27,7 +27,6 @@ export const AccountSidebar = () => {
     )
   }
 
-  // Проверяем, что сессия загружена и пользователь админ
   const isAdmin = session?.user?.role === 'admin'
 
   return (
@@ -45,7 +44,6 @@ export const AccountSidebar = () => {
           </Link>
         ))}
 
-        {/* Ссылка на админку для администраторов */}
         {isAdmin && (
           <Link
             href="/admin"

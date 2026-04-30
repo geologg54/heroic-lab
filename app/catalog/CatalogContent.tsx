@@ -11,7 +11,7 @@ import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
 import Pagination from '@/components/catalog/Pagination'
 import type { Product } from '@/types'
-import { X, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
+import { X, ChevronDown, ChevronRight, ChevronLeft, ChevronUp } from 'lucide-react'
 
 interface StaticFilterOptions {
   categories: string[]
@@ -127,6 +127,12 @@ export default function CatalogContent({
 
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isSortOpen, setIsSortOpen] = useState(false)
+  const [showOnlySale, setShowOnlySale] = useState(false)
+
+  const handleToggleSale = () => {
+    setShowOnlySale(prev => !prev)
+    setPage(1)
+  }
   const [tempFilters, setTempFilters] = useState<FilterState>(activeFilters)
   const [mobileExpandedSections, setMobileExpandedSections] = useState<Record<string, boolean>>({})
 
@@ -206,6 +212,7 @@ export default function CatalogContent({
     params.set('limit', '12')
     if (sortBy !== 'newest') params.set('sort', sortBy)
     if (priceMax < 3500) params.set('maxPrice', priceMax.toString())
+    if (showOnlySale) params.set('onSale', 'true')
 
     activeFilters.categories.forEach(cat => params.append('category', cat))
     activeFilters.tags.forEach(v => params.append('tags', v))
@@ -238,8 +245,7 @@ export default function CatalogContent({
     if (data.availableFilters) setAvailableTags(data.availableFilters.tags || [])
     setLoading(false)
     router.push(`/catalog?${params.toString()}`, { scroll: false })
-  }, [page, sortBy, priceMax, activeFilters, router])
-
+  }, [page, sortBy, priceMax, activeFilters, router, showOnlySale])
   useEffect(() => {
     fetchProducts()
   }, [fetchProducts])
@@ -537,9 +543,22 @@ export default function CatalogContent({
                 </span>
               )}
             </div>
-            <button onClick={() => setIsSortOpen(true)} className="justify-self-center text-white font-medium border-[1.5px] border-white rounded-full px-5 py-1.5 text-sm">
-              Порядок
-            </button>
+            <div className="justify-self-center flex items-center gap-2">
+              <button
+  onClick={handleToggleSale}
+  className={`text-sm font-medium border-2 rounded-full px-3 py-1.5 transition-colors duration-150 focus:outline-none ${
+    showOnlySale
+      ? 'bg-white text-darkbg border-white'
+      : 'bg-transparent text-white border-white'
+  }`}
+>
+  Акция
+</button>
+              <button onClick={() => setIsSortOpen(true)} className="text-white border-[1.5px] border-white rounded-full p-1.5 focus:outline-none">
+    <ChevronUp size={16} />
+    <ChevronDown size={16} />
+  </button>
+            </div>
             <div className="justify-self-end text-white font-semibold text-sm">
               Товаров: {total}
             </div>
