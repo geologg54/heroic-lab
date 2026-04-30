@@ -18,10 +18,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const productCatSlug =
     typeof product.category === 'object' ? product.category.slug : product.categorySlug;
 
+  // product.tags уже массив строк (парсится в getProductByArticle)
+  const productTags = product.tags.map(t => t.toLowerCase());
+
+  // Подбираем до 3 товаров, у которых есть хотя бы один общий тег с текущим товаром
   const related = allProducts
     .filter((p) => {
-      const catSlug = typeof p.category === 'object' ? p.category.slug : p.categorySlug;
-      return catSlug === productCatSlug && p.article !== product.article;
+      if (p.article === product.article) return false;
+      const pTags = p.tags.map(t => t.toLowerCase());
+      return productTags.some(tag => pTags.includes(tag));
     })
     .slice(0, 3);
 
