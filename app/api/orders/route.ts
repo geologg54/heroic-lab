@@ -5,7 +5,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, getNewOrderAdminEmail, getOrderConfirmationEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
-import { sendVKAdminNotification, buildNewOrderNotification } from '@/lib/vkNotifications' // <-- добавлен импорт
+import { sendVKAdminNotification, buildNewOrderNotification } from '@/lib/vkNotifications'
+import { notifyError } from '@/lib/errorNotifier' // <-- добавлен импорт
 
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -160,24 +161,21 @@ export async function POST(request: Request) {
         getNewOrderAdminEmail(order)
       ])
 
+      // Отправляем письма, ошибки перехватываем и уведомляем администратора
       Promise.all([
-        sendEmail({
-          to: customerEmail,
-          ...confirmationEmail,
-        }).catch(err => console.error('Ошибка отправки письма покупателю:', err)),
-        sendEmail({
-          to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!,
-          ...adminEmail,
-        }).catch(err => console.error('Ошибка отправки письма админу:', err)),
+        sendEmail({ to: customerEmail, ...confirmationEmail })
+          .catch(err => notifyError('Ошибка отправки письма покупателю о заказе', err)),
+        sendEmail({ to: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM!, ...adminEmail })
+          .catch(err => notifyError('Ошибка отправки письма админу о новом заказе', err)),
       ])
     } else {
       console.warn(`Заказ ${order.id}: не удалось определить email покупателя, письмо не отправлено`)
+      notifyError(`Не удалось определить email покупателя для заказа №${order.orderNumber}`, null)
     }
 
-    // ========== УВЕДОМЛЕНИЕ В VK ==========
+    // Уведомление в VK о новом заказе
     sendVKAdminNotification(buildNewOrderNotification(order))
-      .catch(err => console.error('VK order notification error:', err))
-    // ======================================
+      .catch(err => notifyError('Ошибка отправки VK-уведомления о новом заказе', err))
 
     return NextResponse.json(
       { orderId: order.id, orderNumber: order.orderNumber },
@@ -185,6 +183,8 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     logger.error('Ошибка создания заказа', error)
+    // Уведомление администратору о критической ошибке
+    notifyError('Критическая ошибка при создании заказа', error).catch(() => {})
     return NextResponse.json(
       { error: 'Внутренняя ошибка сервера' },
       { status: 500 }

@@ -5,12 +5,33 @@ import Link from 'next/link'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Демо-отправка
-    setSubmitted(true)
+    setLoading(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error || 'Ошибка')
+      } else {
+        setSubmitted(true)
+      }
+    } catch {
+      setError('Ошибка сети')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -27,12 +48,19 @@ export default function ForgotPasswordPage() {
               required
               className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white"
             />
-            <button type="submit" className="w-full border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white py-3 rounded-lg font-bold text-white transition-colors duration-300">
-            Отправить ссылку
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white py-3 rounded-lg font-bold text-white transition-colors duration-300 disabled:opacity-50"
+            >
+              {loading ? 'Отправка...' : 'Отправить ссылку'}
             </button>
           </form>
         ) : (
-          <p className="text-green-400">Ссылка для сброса пароля отправлена на {email}</p>
+          <div className="text-green-400">
+            Если указанный email зарегистрирован, на него отправлена инструкция по сбросу пароля.
+          </div>
         )}
         <div className="mt-4 text-center text-sm text-gray-400">
           <Link href="/login" className="hover:text-accent">Вернуться ко входу</Link>

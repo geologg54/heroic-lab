@@ -14,7 +14,14 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-3">Новичкам</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link href="/faq" className="hover:text-white transition">Частые вопросы</Link></li>
-              <li><Link href="/custom" className="hover:text-white transition">Особые заказы</Link></li>
+              <li>
+                <Link
+                  href="/contact?message=Добрый%20день.%20Хочу%20обсудить%20с%20вами%20персональный%20заказ."
+                  className="hover:text-white transition"
+                >
+                  Персональный заказ
+                </Link>
+              </li>
               <li><Link href="/contact" className="hover:text-white transition">Поддержка</Link></li>
             </ul>
           </div>

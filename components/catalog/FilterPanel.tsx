@@ -79,8 +79,6 @@ interface FilterPanelProps {
   forceOpen?: boolean
   categoryFilterGroups?: CategoryFilterGroup[]
   categoriesData?: CategoryWithFilters[]
-
-  // 🆕 Раздельные опции и названия фильтров
   categoryFilterOptions?: {
     [slug: string]: {
       filter1: string[]
@@ -100,6 +98,9 @@ interface FilterPanelProps {
       filter5Name?: string | null
     }
   }
+  // 🆕 Новые пропсы для управления акционной подборкой
+  showOnlySale?: boolean
+  onToggleSale?: () => void
 }
 
 const smartSort = (a: string, b: string): number => {
@@ -127,6 +128,8 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
   categoriesData = [],
   categoryFilterOptions,
   categoryFilterNames,
+  showOnlySale = false,
+  onToggleSale,
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -233,6 +236,10 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     })
     setPriceMax(3500)
     setTagsPage(1)
+    // 🆕 Сбрасываем и акционную подборку, если она активна
+    if (showOnlySale && onToggleSale) {
+      onToggleSale()
+    }
   }
 
   useImperativeHandle(ref, () => ({
@@ -360,7 +367,6 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
 
   if (hasCategory) {
     if (multiCategory && categoryFilterGroups.length > 0) {
-      // Используем раздельные фильтры (без префикса категории в названии)
       categoryFilterGroups.forEach(group => {
         if (group.filter1Name) {
           const title = categoryFilterNames?.[group.categorySlug]?.filter1Name || group.filter1Name || 'Фильтр 1'
@@ -483,6 +489,23 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
               />
             )
           })}
+
+          {/* 🆕 Кнопка «Акционная подборка» – без выпадающего списка, просто кнопка */}
+          {onToggleSale && (
+            <div className="pt-2">
+              <button
+                onClick={onToggleSale}
+                className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
+                  showOnlySale
+                    ? 'border border-white text-white bg-white/10'
+                    : 'text-gray-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Акционная подборка
+              </button>
+            </div>
+          )}
+
           {!hidePriceSlider && (
             <div className="pt-2">
               <div className="flex justify-between items-center">
@@ -538,6 +561,23 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
                   />
                 )
               })}
+
+              {/* 🆕 Мобильная версия кнопки «Акционная подборка» */}
+              {onToggleSale && (
+                <div className="pt-2">
+                  <button
+                    onClick={onToggleSale}
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
+                      showOnlySale
+                        ? 'border border-white text-white bg-white/10'
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    Акционная подборка
+                  </button>
+                </div>
+              )}
+
               {!hidePriceSlider && (
                 <div className="pt-2">
                   <div className="flex justify-between items-center">

@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, getOrderStatusUpdateEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
+import { notifyError } from '@/lib/errorNotifier' // <-- добавлен импорт
 
 // GET – список заказов с расширенными фильтрами и сортировкой
 export async function GET(request: Request) {
@@ -15,7 +16,6 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
 
-  // --- Параметры фильтрации ---
   const search = searchParams.get('search') || ''
   const dateFrom = searchParams.get('dateFrom')
   const dateTo = searchParams.get('dateTo')
@@ -23,7 +23,6 @@ export async function GET(request: Request) {
   const maxTotal = searchParams.get('maxTotal')
   const status = searchParams.get('status') || undefined
 
-  // --- Параметры сортировки ---
   const sortBy = searchParams.get('sortBy') || 'createdAt'
   const order = searchParams.get('order') || 'desc'
 
@@ -125,7 +124,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Не указан новый статус' }, { status: 400 })
   }
 
-  // Допустимые статусы (включая новый 'in_delivery')
   const allowedStatuses = ['processing', 'shipped', 'delivered', 'cancelled', 'in_delivery']
   if (!allowedStatuses.includes(newStatus)) {
     return NextResponse.json({ error: 'Недопустимый статус' }, { status: 400 })
@@ -146,11 +144,8 @@ export async function PATCH(request: Request) {
       const customerEmail = order.user?.email || order.guestEmail
       if (customerEmail) {
         const { subject, text } = await getOrderStatusUpdateEmail(order)
-        sendEmail({
-          to: customerEmail,
-          subject,
-          text
-        }).catch(err => console.error('Ошибка отправки уведомления:', err))
+        sendEmail({ to: customerEmail, subject, text })
+          .catch(err => notifyError(`Ошибка отправки уведомления о смене статуса заказа №${order.orderNumber}`, err))
       }
     }
   }
@@ -163,7 +158,6 @@ export async function PATCH(request: Request) {
 
 // PUT – обновление одного заказа (статус) с логированием
 export async function PUT(request: Request) {
-  // Получаем сессию и проверяем права администратора
   let session;
   try {
     session = await requireAdmin();
@@ -191,7 +185,6 @@ export async function PUT(request: Request) {
     },
   });
 
-  // Логируем изменение статуса в файл info.log
   logger.info(`Статус заказа №${order.orderNumber} изменён на ${status}`, {
     adminId: session.user.id,
     orderId: id,

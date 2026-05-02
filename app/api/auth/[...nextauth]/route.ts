@@ -41,15 +41,19 @@ export const authOptions: AuthOptions = {
   });
 
   if (!user || !user.password) {
-    logger.warn(`Неудачная попытка входа: email ${credentials.email} не найден`, { ip });
-    return null;
-  }
+        logger.warn(`Неудачная попытка входа: email ${credentials.email} не найден`, { ip });
+        return null;
+      }
 
-  const passwordMatch = await bcrypt.compare(credentials.password, user.password);
-  if (!passwordMatch) {
-    logger.warn(`Неудачная попытка входа: неверный пароль для ${credentials.email}`, { ip });
-    return null;
-  }
+      const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+      if (!passwordMatch) {
+        logger.warn(`Неудачная попытка входа: неверный пароль для ${credentials.email}`, { ip });
+        return null;
+      }
+
+      if (!user.emailVerified) {
+  return null;
+}
 
   logger.info(`Успешный вход: ${user.email}`, { ip });
 
