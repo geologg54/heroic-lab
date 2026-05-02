@@ -213,3 +213,8 @@
 {"timestamp":"2026-04-30T16:57:56.823Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}
 {"timestamp":"2026-04-30T16:58:18.460Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}
 {"timestamp":"2026-04-30T17:05:48.546Z","level":"INFO","message":"Успешный вход: ivan.pust2@gmail.com","ip":"::1"}
+{"timestamp":"2026-04-30T17:25:09.345Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-04-30T17:25:16.645Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-04-30T17:26:02.011Z","level":"INFO","message":"Успешный вход: heroic.lab@yandex.ru","ip":"::1"}
+{"timestamp":"2026-05-01T08:50:55.010Z","level":"INFO","message":"Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0"}
+{"timestamp":"2026-05-01T12:13:58.467Z","level":"INFO","message":"Успешный вход: Ventalpt@gmail.com","ip":"::ffff:10.0.0.101"}

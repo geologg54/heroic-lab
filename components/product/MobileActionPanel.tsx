@@ -22,7 +22,7 @@ export default function MobileActionPanel({ product, open, onOpen, onClose }: Pr
   const { openModal } = useMaterial()
 
   const messages = {
-    special: `Добрый день. Хочу обсудить с вами персональный заказ.`,
+    special: `Добрый день. Хочу обсудить с вами индивидуальный заказ.`,
     scale: `Добрый день. Хочу заказать модель "${product.article}" "${product.name}" в другом масштабе.`,
     question: `Добрый день. У меня возник вопрос о товаре "${product.article}" "${product.name}"`
   }
@@ -35,7 +35,7 @@ export default function MobileActionPanel({ product, open, onOpen, onClose }: Pr
         if (tabTimeout.current) clearTimeout(tabTimeout.current)
         tabTimeout.current = setTimeout(() => {
           setShowTab(false)
-        }, 500)
+        }, 1000)
       } else {
         setShowTab(false)
       }
@@ -78,7 +78,7 @@ export default function MobileActionPanel({ product, open, onOpen, onClose }: Pr
             Выбрать масштаб
           </Link>
           <Link href={`/contact?message=${encodeURIComponent(messages.special)}`} onClick={onClose} className="block hover:text-accent transition">
-            Персональный заказ
+            Индивидуальный заказ
           </Link>
           <button onClick={() => { setIsFaqOpen(true); onClose() }} className="block hover:text-accent transition w-full text-left">
             Частые вопросы

@@ -19,9 +19,8 @@ export const ProductCard = ({ product }: { product: Product }) => {
   }
 
   return (
-    <div className="group relative bg-darkbg transition-all duration-300 hover:shadow-xl flex flex-col w-full h-full">
+    <div className="group relative bg-darkbg transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl flex flex-col w-full h-full">
       <Link href={`/product/${product.article}`} className="flex flex-col h-full">
-        {/* Изображение */}
         <div className="relative aspect-square w-full bg-darkbg overflow-hidden flex-shrink-0">
           {hasImage ? (
             <Image
@@ -38,19 +37,16 @@ export const ProductCard = ({ product }: { product: Product }) => {
           )}
         </div>
 
-        {/* Контент карточки (растягивается, чтобы прижать цену к низу) */}
-        <div className="flex-1 flex flex-col">
-          {/* Название – максимум 2 строки, фиксированное минимальное место */}
-          <div className="px-4 pt-4 pb-2 min-h-[3.5rem] flex items-end">
+        {/* Добавлен mt-2 — отступ между картинкой и названием */}
+        <div className="flex-1 flex flex-col pb-3 mt-2">
+          <div className="px-4 pt-4 pb-2 h-14 flex items-end">
             <h3 className="text-white font-extrabold leading-tight tracking-tight line-clamp-2 text-[clamp(0.85rem,1.4vw,1.65rem)]">
               {product.name}
             </h3>
           </div>
 
-          {/* Блок с размерами, ценой и кнопкой – всегда внизу */}
           <div className="flex justify-between items-end px-4 pb-4 mt-auto">
             <div className="flex flex-col gap-3">
-              {/* Высота модели */}
               <div className="flex items-center gap-2">
                 <img
                   src="/sizeicon.png"
@@ -61,9 +57,8 @@ export const ProductCard = ({ product }: { product: Product }) => {
                   {heightDisplay}
                 </span>
               </div>
-              {/* Цена */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-white font-normal leading-none text-[clamp(0.9rem,1.2vw,1.5rem)]">
+                <span className="text-white font-normal leading-none whitespace-nowrap text-[clamp(0.9rem,1.2vw,1.5rem)]">
                   {product.price} ₽
                 </span>
                 {product.oldPrice && (
@@ -74,7 +69,6 @@ export const ProductCard = ({ product }: { product: Product }) => {
               </div>
             </div>
 
-            {/* Кнопка "В корзину" */}
             <button
               onClick={handleAddToCart}
               className="w-[clamp(60px,12vw,90px)] rounded-[15px] border border-white/0 bg-transparent hover:bg-white active:bg-white/80 focus:outline-none transition-colors duration-150 flex items-center justify-center py-3 group/btn"

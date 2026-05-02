@@ -35,6 +35,27 @@ export default function ProductPageClient({
   const { addToCart } = useCart();
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+
+  // -----------------------------------------------------------
+  // ЕДИНСТВЕННЫЙ ПАРАМЕТР ДЛЯ РУЧНОЙ НАСТРОЙКИ ВЫСОТЫ ПАНЕЛЕЙ
+  // -----------------------------------------------------------
+  // Значение задаётся в vh (процентах высоты экрана).
+  // Отрицательное значение поднимает панели вверх,
+  // положительное опускает вниз.
+  // Примеры: '-10vh' – панели выше, '5vh' – панели ниже.
+  const PANEL_OFFSET = '-75vh'; // <-- измени это значение при необходимости
+
+  // Стили для левой и правой панелей: top задаёт точку прилипания,
+  // marginTop сдвигает стартовую позицию.
+  const leftPanelStyle: React.CSSProperties = {
+    top: '60%',
+    marginTop: PANEL_OFFSET,
+  };
+  const rightPanelStyle: React.CSSProperties = {
+    top: '60%',
+    marginTop: PANEL_OFFSET,
+  };
 
   const handleMobileAddToCart = () => {
     const isMaterialChanged =
@@ -69,7 +90,9 @@ export default function ProductPageClient({
               <Image src="/size-arrow.png" alt="" fill className="object-contain p-2" />
             </div>
             <span className="text-white text-sm md:text-lg leading-tight ml-2 pr-4">
-              {product.heightMax} мм — самая высокая модель в наборе
+              {showMinHeight
+                ? `${product.heightMax} мм — самая высокая модель в наборе`
+                : `${product.heightMax} мм — высота модели`}
             </span>
           </div>
         )}
@@ -110,20 +133,33 @@ export default function ProductPageClient({
         </ul>
       </div>
 
-      {/* Описание */}
+      {/* Описание с «Читать далее» */}
       <div className="mt-10 w-full">
         <h2 className="text-xl font-semibold text-white pb-3 mb-4">Описание</h2>
-        <div className="prose prose-invert text-gray-300 max-w-none text-lg">
+        <div className={`prose prose-invert text-gray-300 max-w-none text-lg ${!descExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
           {product.description.split('\n').map((para, idx) => (
             <p key={idx}>{para}</p>
           ))}
         </div>
+        {product.description.split('\n').length > 4 && (
+          <button
+            onClick={() => setDescExpanded(!descExpanded)}
+            className="mt-2 text-accent hover:underline text-sm"
+          >
+            {descExpanded ? 'Свернуть' : 'Читать далее...'}
+          </button>
+        )}
       </div>
 
+      {/* Комплектация списком */}
       {product.contents && (
         <div className="mt-10 w-full">
           <h2 className="text-xl font-semibold text-white pb-3 mb-4">Комплектация</h2>
-          <p className="text-gray-300 text-lg">{product.contents}</p>
+          <ul className="list-disc list-inside text-gray-300 text-lg space-y-1">
+            {product.contents.split(',').map((item, idx) => (
+              <li key={idx}>{item.trim()}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -133,26 +169,6 @@ export default function ProductPageClient({
           Рекомендуем приклеить к подставке, клей и краски не входят в комплект.
         </p>
       </div>
-
-      {/* Похожие товары */}
-      {related.length > 0 && (
-        <section className="mt-16 mb-12 w-full">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">Похожие товары</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto justify-items-center">
-            {related.slice(0, 3).map((p) => (
-              <ProductCard key={p.article} product={p} />
-            ))}
-          </div>
-          <div className="mt-8 text-center">
-            <Link
-              href={tagsFilterUrl}
-              className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
-            >
-              Показать больше моделей
-            </Link>
-          </div>
-        </section>
-      )}
     </>
   );
 
@@ -192,9 +208,8 @@ export default function ProductPageClient({
           </div>
         )}
 
-        {isMobile && (
+        {isMobile ? (
           <div className="relative mt-4 z-10 flex flex-col items-center">
-            {/* Кнопки: цена/корзина, избранное, настройки */}
             <div className="flex items-center justify-center gap-4 mb-3">
               <button
                 onClick={handleMobileAddToCart}
@@ -220,7 +235,6 @@ export default function ProductPageClient({
 
             {titleBlock}
 
-            {/* Теги */}
             <div className="flex flex-wrap gap-2 justify-center mb-6">
               {product.tags.map((tag, idx) => (
                 <Link
@@ -232,66 +246,70 @@ export default function ProductPageClient({
                 </Link>
               ))}
             </div>
-          </div>
-        )}
 
-        {isMobile ? (
-          <div className="relative mt-4 z-10 w-full">
-            {mainContent}
+            <div className="w-full">
+              {mainContent}
+            </div>
           </div>
         ) : (
           <div className="relative mt-8 z-10">
-            <div
-              className="fixed z-30 hidden lg:block"
-              style={{
-                top: '61%',
-                transform: 'translateY(-50%)',
-                left: `max(1rem, calc((100vw - 75vw) / 2))`,
-                width: `calc((75vw - 45vw) / 2 - 1rem)`,
-              }}
-            >
-              <div className="pr-4">
-                <h3 className="text-white font-semibold mb-3 text-lg text-right">Теги</h3>
-                <div className="flex flex-wrap gap-2 justify-end">
-                  {product.tags.map((tag, idx) => (
-                    <Link
-                      key={idx}
-                      href={`/catalog?tags=${encodeURIComponent(tag)}`}
-                      className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg active:bg-white active:text-darkbg focus:outline-none transition-colors duration-150 text-sm"
-                    >
-                      {tag}
-                    </Link>
-                  ))}
+            <div className="grid grid-cols-[1fr_45vw_1fr] gap-0">
+              {/* Левая панель с тегами – sticky, сдвиг через PANEL_OFFSET */}
+              <div className="pr-8 hidden lg:block">
+                <div className="sticky" style={leftPanelStyle}>
+                  <h3 className="text-white font-semibold mb-3 text-lg text-right">Теги</h3>
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    {product.tags.map((tag, idx) => (
+                      <Link
+                        key={idx}
+                        href={`/catalog?tags=${encodeURIComponent(tag)}`}
+                        className="px-4 py-1 rounded-full border-2 border-white text-white bg-transparent hover:bg-white hover:text-darkbg active:bg-white active:text-darkbg focus:outline-none transition-colors duration-150 text-sm"
+                      >
+                        {tag}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div
-              className="fixed z-30 hidden lg:block"
-              style={{
-                top: '65%',
-                transform: 'translateY(-50%)',
-                right: `max(1rem, calc((100vw - 75vw) / 2))`,
-                width: `calc((75vw - 45vw) / 2 - 1rem)`,
-              }}
-            >
-              <ProductSidebar product={product} />
-            </div>
-
-            <div className="grid grid-cols-[1fr_45vw_1fr] gap-0">
-              <div className="pr-8 hidden lg:block" />
+              {/* Центральная колонка: заголовок и контент */}
               <div className="w-full">
                 {titleBlock}
                 {mainContent}
               </div>
-              <div className="pl-8 hidden lg:block" />
+
+              {/* Правая панель: ProductSidebar – sticky, сдвиг через PANEL_OFFSET */}
+              <div className="pl-8 hidden lg:block">
+                <div className="sticky" style={rightPanelStyle}>
+                  <ProductSidebar product={product} />
+                </div>
+              </div>
             </div>
+
+            {/* Похожие товары */}
+            {related.length > 0 && (
+              <section className="mt-16 mb-12 w-full">
+                <h2 className="text-2xl font-bold text-white mb-6 text-center">Похожие товары</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto justify-items-center">
+                  {related.slice(0, 3).map((p) => (
+                    <ProductCard key={p.article} product={p} />
+                  ))}
+                </div>
+                <div className="mt-8 text-center">
+                  <Link
+                    href={tagsFilterUrl}
+                    className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
+                  >
+                    Показать больше моделей
+                  </Link>
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
 
       <StickyBuyBar product={product} finalPrice={finalPrice} />
-
       <MobileActionPanel
         product={product}
         open={mobileMenuOpen}

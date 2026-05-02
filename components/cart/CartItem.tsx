@@ -1,7 +1,7 @@
 // components/cart/CartItem.tsx
 'use client'
 import Image from 'next/image'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Minus, Plus } from 'lucide-react'
 import { CartItem as CartItemType } from '@/types'
 import { useCart } from '@/hooks/useCart'
 
@@ -12,8 +12,13 @@ export default function CartItem({ item }: { item: CartItemType }) {
     removeFromCart(item.cartItemId)
   }
 
-  const handleQuantityChange = (newQty: number) => {
-    updateQuantity(item.cartItemId, newQty)
+  const increment = () => updateQuantity(item.cartItemId, item.quantity + 1)
+  const decrement = () => {
+    if (item.quantity > 1) {
+      updateQuantity(item.cartItemId, item.quantity - 1)
+    } else {
+      removeFromCart(item.cartItemId) // если 1 и нажали "–", удаляем товар
+    }
   }
 
   return (
@@ -38,17 +43,22 @@ export default function CartItem({ item }: { item: CartItemType }) {
             <span className="text-gray-500 line-through text-sm">{item.product.oldPrice} ₽</span>
           )}
         </div>
-        <div className="flex items-center gap-3 mt-2">
-          <select
-            value={item.quantity}
-            onChange={e => handleQuantityChange(Number(e.target.value))}
-            className="bg-[#0f2a42] border border-borderLight rounded px-2 py-1 text-sm"
+        {/* Новый блок с кнопками +/- */}
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={decrement}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0f2a42] border border-borderLight text-white hover:bg-white hover:text-darkbg transition"
           >
-            {[1, 2, 3, 4, 5].map(q => (
-              <option key={q}>{q}</option>
-            ))}
-          </select>
-          <button onClick={handleRemove} className="text-red-400 hover:text-red-300">
+            <Minus size={16} />
+          </button>
+          <span className="text-white w-6 text-center">{item.quantity}</span>
+          <button
+            onClick={increment}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0f2a42] border border-borderLight text-white hover:bg-white hover:text-darkbg transition"
+          >
+            <Plus size={16} />
+          </button>
+          <button onClick={handleRemove} className="ml-3 text-red-400 hover:text-red-300">
             <Trash2 size={18} />
           </button>
         </div>

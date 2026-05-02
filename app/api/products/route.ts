@@ -9,15 +9,18 @@ export async function GET(request: Request) {
   const limit = parseInt(searchParams.get('limit') || '12')
   const skip = (page - 1) * limit
 
-  const categorySlugs = searchParams.getAll('category')
+  const categorySlug = searchParams.get('category')
   const minPrice = searchParams.get('minPrice')
   const maxPrice = searchParams.get('maxPrice')
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
+  
   const articlesParam = searchParams.get('articles')
-  const onSale = searchParams.get('onSale')   // <-- новое
 
-  // фильтры filter1, filter2, tags, scales...
+  // *** ВАЖНО: параметр акционной подборки ***
+  const onSale = searchParams.get('onSale') === 'true'
+
+  // Получаем массивы выбранных значений фильтров
   const filter1Vals = searchParams.getAll('filter1')
   const filter2Vals = searchParams.getAll('filter2')
   const filter3Vals = searchParams.getAll('filter3')
@@ -26,6 +29,7 @@ export async function GET(request: Request) {
   const tagsVals = searchParams.getAll('tags')
   const scalesVals = searchParams.getAll('scale')
 
+  // Базовый where
   const where: any = {}
 
   if (articlesParam) {
@@ -35,10 +39,7 @@ export async function GET(request: Request) {
     }
   }
 
-  if (categorySlugs.length > 0) {
-    where.category = { slug: { in: categorySlugs } }
-  }
-
+  if (categorySlug) where.category = { slug: categorySlug }
   if (minPrice || maxPrice) {
     where.price = {}
     if (minPrice) where.price.gte = parseInt(minPrice)
@@ -49,16 +50,14 @@ export async function GET(request: Request) {
     where.searchName = { contains: search.toLowerCase() }
   }
 
-  // Фильтр по акционным товарам (только там, где есть oldPrice)
-  if (onSale === 'true') {
+  // Если включена акционная подборка – только товары с oldPrice
+  if (onSale) {
     where.oldPrice = { not: null }
   }
 
   // Сортировка
   let orderBy: any = {}
   switch (sort) {
-    case 'oldest': orderBy = { createdAt: 'asc' }; break;
-case 'popularity': orderBy = {}; break; // обработаем после получения данных
     case 'price-asc': orderBy = { price: 'asc' }; break
     case 'price-desc': orderBy = { price: 'desc' }; break
     case 'name': orderBy = { name: 'asc' }; break
@@ -74,13 +73,6 @@ case 'popularity': orderBy = {}; break; // обработаем после по�
       include: { category: true },
       orderBy,
     })
-    if (sort === 'popularity') {
-  (baseProducts as any[]).sort((a, b) => {
-    if (a.oldPrice !== null && b.oldPrice === null) return -1;
-    if (a.oldPrice === null && b.oldPrice !== null) return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
-}
 
     const productsWithArrays = baseProducts.map(p => ({
       ...p,
@@ -98,53 +90,18 @@ case 'popularity': orderBy = {}; break; // обработаем после по�
       return selected.some(val => productArray.includes(val))
     }
 
-    // categoryFilters (раздельные по категориям)
-    const categoryFiltersMap: Record<string, Record<string, string[]>> = {}
-    for (const [key, value] of searchParams.entries()) {
-      if (key.startsWith('cat_')) {
-        const parts = key.split('_')
-        if (parts.length === 3) {
-          const slug = parts[1]
-          const field = parts[2]
-          if (!categoryFiltersMap[slug]) categoryFiltersMap[slug] = {}
-          if (!categoryFiltersMap[slug][field]) categoryFiltersMap[slug][field] = []
-          categoryFiltersMap[slug][field].push(value)
-        }
-      }
-    }
-
-    let filteredProducts = productsWithArrays
-
-    if (Object.keys(categoryFiltersMap).length > 0) {
-      filteredProducts = filteredProducts.filter(p => {
-        const catSlug = p.category.slug
-        const catFilters = categoryFiltersMap[catSlug]
-        if (!catFilters) return true
-        const checks = []
-        if (catFilters.filter1) checks.push(hasAny(p.filter1Array, catFilters.filter1))
-        if (catFilters.filter2) checks.push(hasAny(p.filter2Array, catFilters.filter2))
-        if (catFilters.filter3) checks.push(hasAny(p.filter3Array, catFilters.filter3))
-        if (catFilters.filter4) checks.push(hasAny(p.filter4Array, catFilters.filter4))
-        if (catFilters.filter5) checks.push(hasAny(p.filter5Array, catFilters.filter5))
-        if (catFilters.scale) checks.push(hasAny(p.scalesArray, catFilters.scale))
-        return checks.every(Boolean)
-      })
-    } else {
-      filteredProducts = filteredProducts.filter(p => {
-        return hasAny(p.filter1Array, filter1Vals) &&
-               hasAny(p.filter2Array, filter2Vals) &&
-               hasAny(p.filter3Array, filter3Vals) &&
-               hasAny(p.filter4Array, filter4Vals) &&
-               hasAny(p.filter5Array, filter5Vals) &&
-               hasAny(p.scalesArray, scalesVals)
-      })
-    }
-
-    if (tagsVals.length > 0) {
-      filteredProducts = filteredProducts.filter(p => hasAny(p.tagsArray, tagsVals))
-    }
+    let filteredProducts = productsWithArrays.filter(p => {
+      return hasAny(p.tagsArray, tagsVals) &&
+             hasAny(p.filter1Array, filter1Vals) &&
+             hasAny(p.filter2Array, filter2Vals) &&
+             hasAny(p.filter3Array, filter3Vals) &&
+             hasAny(p.filter4Array, filter4Vals) &&
+             hasAny(p.filter5Array, filter5Vals) &&
+             hasAny(p.scalesArray, scalesVals)
+    })
 
     const productsForAvailable = productsWithArrays
+
     const availableFilters = {
       categories: [...new Set(productsForAvailable.map(p => p.category.slug))],
       filter1: [...new Set(productsForAvailable.flatMap(p => p.filter1Array))],
