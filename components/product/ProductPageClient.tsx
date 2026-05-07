@@ -18,9 +18,19 @@ import { useCart } from '@/hooks/useCart';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import type { Product } from '@/types';
 
+interface RelatedFilterParams {
+  tags: string[];
+  filter1: string[];
+  filter2: string[];
+  filter3: string[];
+  filter4: string[];
+  filter5: string[];
+}
+
 interface ProductPageClientProps {
   product: Product;
   related: Product[];
+  relatedFilterParams: RelatedFilterParams;
   breadcrumbItems: { label: string; href?: string }[];
   showMinHeight: boolean;
 }
@@ -28,6 +38,7 @@ interface ProductPageClientProps {
 export default function ProductPageClient({
   product,
   related,
+  relatedFilterParams,
   breadcrumbItems,
   showMinHeight,
 }: ProductPageClientProps) {
@@ -37,25 +48,9 @@ export default function ProductPageClient({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
 
-  // -----------------------------------------------------------
-  // ЕДИНСТВЕННЫЙ ПАРАМЕТР ДЛЯ РУЧНОЙ НАСТРОЙКИ ВЫСОТЫ ПАНЕЛЕЙ
-  // -----------------------------------------------------------
-  // Значение задаётся в vh (процентах высоты экрана).
-  // Отрицательное значение поднимает панели вверх,
-  // положительное опускает вниз.
-  // Примеры: '-10vh' – панели выше, '5vh' – панели ниже.
-  const PANEL_OFFSET = '-75vh'; // <-- измени это значение при необходимости
-
-  // Стили для левой и правой панелей: top задаёт точку прилипания,
-  // marginTop сдвигает стартовую позицию.
-  const leftPanelStyle: React.CSSProperties = {
-    top: '60%',
-    marginTop: PANEL_OFFSET,
-  };
-  const rightPanelStyle: React.CSSProperties = {
-    top: '60%',
-    marginTop: PANEL_OFFSET,
-  };
+  const PANEL_OFFSET = '-75vh';
+  const leftPanelStyle: React.CSSProperties = { top: '60%', marginTop: PANEL_OFFSET };
+  const rightPanelStyle: React.CSSProperties = { top: '60%', marginTop: PANEL_OFFSET };
 
   const handleMobileAddToCart = () => {
     const isMaterialChanged =
@@ -66,7 +61,20 @@ export default function ProductPageClient({
     addToCart(product, 1, options, finalPrice);
   };
 
-  const tagsFilterUrl = `/catalog?${product.tags.map(tag => `tags=${encodeURIComponent(tag)}`).join('&')}`;
+  // Формируем URL для кнопки "Показать больше моделей" – теперь с категорией и фильтрами
+  const buildCatalogUrl = () => {
+    const params = new URLSearchParams();
+    params.set('category', product.categorySlug);
+    relatedFilterParams.tags.forEach(tag => params.append('tags', tag));
+    relatedFilterParams.filter1.forEach(v => params.append('filter1', v));
+    relatedFilterParams.filter2.forEach(v => params.append('filter2', v));
+    relatedFilterParams.filter3.forEach(v => params.append('filter3', v));
+    relatedFilterParams.filter4.forEach(v => params.append('filter4', v));
+    relatedFilterParams.filter5.forEach(v => params.append('filter5', v));
+    return `/catalog?${params.toString()}`;
+  };
+
+  const tagsFilterUrl = buildCatalogUrl();
 
   const titleBlock = (
     <div className="min-h-[5rem] flex items-center justify-center">
@@ -133,7 +141,7 @@ export default function ProductPageClient({
         </ul>
       </div>
 
-      {/* Описание с «Читать далее» */}
+      {/* Описание */}
       <div className="mt-10 w-full">
         <h2 className="text-xl font-semibold text-white pb-3 mb-4">Описание</h2>
         <div className={`prose prose-invert text-gray-300 max-w-none text-lg ${!descExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
@@ -151,7 +159,7 @@ export default function ProductPageClient({
         )}
       </div>
 
-      {/* Комплектация списком */}
+      {/* Комплектация */}
       {product.contents && (
         <div className="mt-10 w-full">
           <h2 className="text-xl font-semibold text-white pb-3 mb-4">Комплектация</h2>
@@ -250,11 +258,30 @@ export default function ProductPageClient({
             <div className="w-full">
               {mainContent}
             </div>
+
+            {/* Мобильный блок похожих товаров */}
+            {related.length > 0 && (
+              <section className="mt-12 mb-8 w-full">
+                <h2 className="text-2xl font-bold text-white mb-6 text-center">Похожие товары</h2>
+                <div className="flex flex-col items-center gap-6">
+                  {related.slice(0, 3).map((p) => (
+                    <ProductCard key={p.article} product={p} />
+                  ))}
+                </div>
+                <div className="mt-8 text-center">
+                  <Link
+                    href={tagsFilterUrl}
+                    className="inline-block border border-gray-400 hover:bg-white hover:text-darkbg hover:border-white text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-300"
+                  >
+                    Показать больше моделей
+                  </Link>
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="relative mt-8 z-10">
             <div className="grid grid-cols-[1fr_45vw_1fr] gap-0">
-              {/* Левая панель с тегами – sticky, сдвиг через PANEL_OFFSET */}
               <div className="pr-8 hidden lg:block">
                 <div className="sticky" style={leftPanelStyle}>
                   <h3 className="text-white font-semibold mb-3 text-lg text-right">Теги</h3>
@@ -272,13 +299,11 @@ export default function ProductPageClient({
                 </div>
               </div>
 
-              {/* Центральная колонка: заголовок и контент */}
               <div className="w-full">
                 {titleBlock}
                 {mainContent}
               </div>
 
-              {/* Правая панель: ProductSidebar – sticky, сдвиг через PANEL_OFFSET */}
               <div className="pl-8 hidden lg:block">
                 <div className="sticky" style={rightPanelStyle}>
                   <ProductSidebar product={product} />
@@ -286,7 +311,7 @@ export default function ProductPageClient({
               </div>
             </div>
 
-            {/* Похожие товары */}
+            {/* Десктопный блок похожих товаров */}
             {related.length > 0 && (
               <section className="mt-16 mb-12 w-full">
                 <h2 className="text-2xl font-bold text-white mb-6 text-center">Похожие товары</h2>

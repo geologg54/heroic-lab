@@ -1,5 +1,6 @@
 // components/catalog/FilterPanel.tsx
 'use client'
+
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Product } from '@/types'
 import { SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
@@ -98,7 +99,6 @@ interface FilterPanelProps {
       filter5Name?: string | null
     }
   }
-  // 🆕 Новые пропсы для управления акционной подборкой
   showOnlySale?: boolean
   onToggleSale?: () => void
 }
@@ -136,22 +136,13 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     if (externalFilters) return externalFilters
     return {
       categories: [],
-      filter1: [],
-      filter2: [],
-      filter3: [],
-      filter4: [],
-      filter5: [],
-      tags: [],
-      scales: [],
-      gameSystems: [],
-      factions: [],
-      types: [],
-      fileFormats: [],
+      filter1: [], filter2: [], filter3: [], filter4: [], filter5: [],
+      tags: [], scales: [],
+      gameSystems: [], factions: [], types: [], fileFormats: [],
       categoryFilters: {},
     }
   })
   const [priceMax, setPriceMax] = useState(3500)
-
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   const [tagsPage, setTagsPage] = useState(1)
   const tagsPerPage = 10
@@ -160,14 +151,10 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
   const prevPriceMaxRef = useRef(priceMax)
   const isFirstRender = useRef(true)
 
-  useEffect(() => {
-    setIsOpen(forceOpen)
-  }, [forceOpen])
+  useEffect(() => { setIsOpen(forceOpen) }, [forceOpen])
 
   useEffect(() => {
-    if (externalFilters) {
-      setFilters(externalFilters)
-    }
+    if (externalFilters) setFilters(externalFilters)
   }, [externalFilters])
 
   const getSectionOptions = (sectionKey: string, categorySlug?: string): string[] => {
@@ -199,9 +186,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
         const catFilter = currentCatFilters[categorySlug] || {}
         const field = key as keyof typeof catFilter
         let currentValues = catFilter[field]
-        if (!Array.isArray(currentValues)) {
-          currentValues = []
-        }
+        if (!Array.isArray(currentValues)) currentValues = []
         const newValues = currentValues.includes(value)
           ? currentValues.filter(v => v !== value)
           : [...currentValues, value]
@@ -236,15 +221,10 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     })
     setPriceMax(3500)
     setTagsPage(1)
-    // 🆕 Сбрасываем и акционную подборку, если она активна
-    if (showOnlySale && onToggleSale) {
-      onToggleSale()
-    }
+    if (showOnlySale && onToggleSale) onToggleSale()
   }
 
-  useImperativeHandle(ref, () => ({
-    resetFilters
-  }))
+  useImperativeHandle(ref, () => ({ resetFilters }))
 
   const applyFilters = useCallback(() => {
     let filtered = [...products]
@@ -335,7 +315,6 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     }
 
     filtered = filtered.filter(p => p.price <= priceMax)
-
     onFilter(filtered, filters)
   }, [products, filters, priceMax, onFilter])
 
@@ -349,15 +328,12 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
     const priceChanged = prevPriceMaxRef.current !== priceMax
     if (filtersChanged || priceChanged) {
       applyFilters()
-      if (prevFiltersRef.current.categories !== filters.categories) {
-        setTagsPage(1)
-      }
+      if (prevFiltersRef.current.categories !== filters.categories) setTagsPage(1)
     }
     prevFiltersRef.current = filters
     prevPriceMaxRef.current = priceMax
   }, [filters, priceMax, applyFilters])
 
-  // Формирование секций
   const hasCategory = filters.categories.length > 0
   const multiCategory = hasCategory && filters.categories.length > 1
 
@@ -404,20 +380,20 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
 
   sections.push({ key: 'tags', title: 'Теги' })
 
-  const FilterSection = ({ title, sectionKey, options, selected, categorySlug }: {
-    title: string
-    sectionKey: string
-    options: string[]
-    selected: string[]
-    categorySlug?: string
+    const FilterSection = ({ title, sectionKey, options, selected, categorySlug }: {
+    title: string;
+    sectionKey: string;
+    options: string[];
+    selected: string[];
+    categorySlug?: string;
   }) => {
-    const isExpanded = expandedSections[sectionKey] ?? false
-    const isTagsSection = sectionKey === 'tags'
-    const sortedOptions = [...options].sort(smartSort)
-    const totalPages = Math.ceil(sortedOptions.length / tagsPerPage)
-    const startIndex = (tagsPage - 1) * tagsPerPage
-    const endIndex = startIndex + tagsPerPage
-    const visibleOptions = isTagsSection ? sortedOptions.slice(startIndex, endIndex) : sortedOptions
+    const isExpanded = expandedSections[sectionKey] ?? false;
+    const isTagsSection = sectionKey === 'tags';
+    const sortedOptions = [...options].sort(smartSort);
+    const totalPages = Math.ceil(sortedOptions.length / tagsPerPage);
+    const startIndex = (tagsPage - 1) * tagsPerPage;
+    const endIndex = startIndex + tagsPerPage;
+    const visibleOptions = isTagsSection ? sortedOptions.slice(startIndex, endIndex) : sortedOptions;
 
     return (
       <div className="pb-3">
@@ -427,22 +403,28 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
         </button>
         {isExpanded && (
           <div className="mt-2 space-y-1">
-            {visibleOptions.map(opt => (
-              <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(opt)}
-                  onChange={() => toggleFilter(sectionKey.split('_')[0], opt, categorySlug)}
-                />
-                <span>{sectionKey === 'categories' && categoryNames[opt] ? categoryNames[opt] : opt}</span>
-              </label>
-            ))}
-            {isTagsSection && totalPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <button onClick={() => setTagsPage(p => Math.max(1, p - 1))} disabled={tagsPage === 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30"><ChevronLeft size={16} /></button>
-                <span className="text-xs text-gray-400">{tagsPage} / {totalPages}</span>
-                <button onClick={() => setTagsPage(p => Math.min(totalPages, p + 1))} disabled={tagsPage === totalPages} className="p-1 text-gray-400 hover:text-white disabled:opacity-30"><ChevronRight size={16} /></button>
-              </div>
+            {isTagsSection && options.length === 0 ? (
+              <p className="text-gray-400 text-sm px-1">Для отображения тегов выберите категорию</p>
+            ) : (
+              <>
+                {visibleOptions.map(opt => (
+                  <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(opt)}
+                      onChange={() => toggleFilter(sectionKey.split('_')[0], opt, categorySlug)}
+                    />
+                    <span>{sectionKey === 'categories' && categoryNames[opt] ? categoryNames[opt] : opt}</span>
+                  </label>
+                ))}
+                {isTagsSection && totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <button onClick={() => setTagsPage(p => Math.max(1, p - 1))} disabled={tagsPage === 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30"><ChevronLeft size={16} /></button>
+                    <span className="text-xs text-gray-400">{tagsPage} / {totalPages}</span>
+                    <button onClick={() => setTagsPage(p => Math.min(totalPages, p + 1))} disabled={tagsPage === totalPages} className="p-1 text-gray-400 hover:text-white disabled:opacity-30"><ChevronRight size={16} /></button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -462,7 +444,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
       <div className="hidden lg:block">
         <div className="space-y-4">
           {sections.map(section => {
-            const isMulti = multiCategory && !!section.categorySlug
+            const isMulti = multiCategory && !!section.categorySlug;
             let selected: string[] = []
             if (isMulti) {
               const catFilter = filters.categoryFilters?.[section.categorySlug!] || {}
@@ -490,15 +472,12 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
             )
           })}
 
-          {/* 🆕 Кнопка «Акционная подборка» – без выпадающего списка, просто кнопка */}
           {onToggleSale && (
             <div className="pt-2">
               <button
                 onClick={onToggleSale}
                 className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
-                  showOnlySale
-                    ? 'border border-white text-white bg-white/10'
-                    : 'text-gray-300 hover:text-white hover:bg-white/5'
+                  showOnlySale ? 'border border-white text-white bg-white/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
                 }`}
               >
                 Акционная подборка
@@ -534,7 +513,7 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
             <h2 className="text-xl font-bold text-white mb-4">Фильтры</h2>
             <div className="space-y-4">
               {sections.map(section => {
-                const isMulti = multiCategory && !!section.categorySlug
+                const isMulti = multiCategory && !!section.categorySlug;
                 let selected: string[] = []
                 if (isMulti) {
                   const catFilter = filters.categoryFilters?.[section.categorySlug!] || {}
@@ -562,15 +541,12 @@ export const FilterPanel = forwardRef<any, FilterPanelProps>(({
                 )
               })}
 
-              {/* 🆕 Мобильная версия кнопки «Акционная подборка» */}
               {onToggleSale && (
                 <div className="pt-2">
                   <button
                     onClick={onToggleSale}
                     className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
-                      showOnlySale
-                        ? 'border border-white text-white bg-white/10'
-                        : 'text-gray-300 hover:text-white hover:bg-white/5'
+                      showOnlySale ? 'border border-white text-white bg-white/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
                     Акционная подборка

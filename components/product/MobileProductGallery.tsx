@@ -52,7 +52,7 @@ export default function MobileProductGallery({ images }: Props) {
   if (!images || images.length === 0) {
     return (
       <div className="flex justify-center">
-        <div className="w-[75%] aspect-[4/5] bg-gray-800 flex items-center justify-center text-gray-400">
+        <div className="w-[90%] aspect-[4/5] bg-gray-800 flex items-center justify-center text-gray-400">
           Нет фото
         </div>
       </div>
@@ -62,7 +62,7 @@ export default function MobileProductGallery({ images }: Props) {
   return (
     <div className="relative w-full">
       <div
-        className="relative mx-auto max-w-[75%] aspect-[4/5] overflow-hidden"
+        className="relative mx-auto max-w-[90%] aspect-[4/5] overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -70,20 +70,20 @@ export default function MobileProductGallery({ images }: Props) {
           src={images[current]}
           alt={`Фото ${current + 1}`}
           fill
-          className="object-cover"
+          className="object-contain"   // ← теперь картинка вписывается без обрезки
           priority
+          sizes="90vw"
         />
       </div>
 
-      {/* Стрелки вынесены за пределы изображения и прижаты к краям экрана */}
+      {/* Стрелки поверх, не влияют на размер */}
       {showArrows && images.length > 1 && (
         <>
           {current > 0 && (
             <button
               onClick={() => setCurrent(prev => prev - 1)}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 rounded-full p-2 text-white backdrop-blur-sm"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 rounded-full p-2 text-white"
               aria-label="Предыдущее изображение"
-              style={{ transform: 'translateY(-50%)' }}
             >
               <ChevronLeft size={24} />
             </button>
@@ -91,9 +91,8 @@ export default function MobileProductGallery({ images }: Props) {
           {current < images.length - 1 && (
             <button
               onClick={() => setCurrent(prev => prev + 1)}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 rounded-full p-2 text-white backdrop-blur-sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/70 rounded-full p-2 text-white"
               aria-label="Следующее изображение"
-              style={{ transform: 'translateY(-50%)' }}
             >
               <ChevronRight size={24} />
             </button>
@@ -102,7 +101,7 @@ export default function MobileProductGallery({ images }: Props) {
       )}
 
       {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto mt-3 pb-2 max-w-[75%] mx-auto">
+        <div className="flex gap-2 overflow-x-auto mt-3 pb-2 max-w-[90%] mx-auto">
           {images.map((img, idx) => (
             <button
               key={idx}
