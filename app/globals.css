@@ -76,3 +76,26 @@ button, a {
 .animate-hint-shake {
   animation: hintShake 0.6s ease-in-out;
 }
+
+.dual-range-slider {
+  pointer-events: none; /* трек не ловит клики */
+}
+.dual-range-slider::-webkit-slider-thumb {
+  pointer-events: auto; /* бегунок активен */
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #1e3a5f;  /* тёмно-синяя обводка */
+  margin-top: 0; /* центрирование при высоте трека = высоте бегунка */
+}
+.dual-range-slider::-moz-range-thumb {
+  pointer-events: auto;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #1e3a5f;
+}

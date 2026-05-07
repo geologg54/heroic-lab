@@ -26,10 +26,8 @@ export default function SaleBanner({ hasSales }: SaleBannerProps) {
             alt="Акция"
             className="absolute inset-0 w-full h-full object-cover"
           />
-          {/* Верхний плавный блюр – начинается от края, 25% высоты */}
-          <div className="absolute top-0 left-0 w-full h-1/4 bg-gradient-to-b from-darkbg to-transparent pointer-events-none" />
-          {/* Нижний плавный блюр */}
-          <div className="absolute bottom-0 left-0 w-full h-1/4 bg-gradient-to-t from-darkbg to-transparent pointer-events-none" />
+          {/* Плавное затемнение сверху и снизу, как в HeroBanner */}
+          <div className="absolute inset-0 bg-gradient-to-b from-darkbg via-transparent to-darkbg pointer-events-none" />
         </Link>
       ) : (
         <div className="container mx-auto px-4">
