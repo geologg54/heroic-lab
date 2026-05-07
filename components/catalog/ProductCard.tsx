@@ -37,15 +37,17 @@ export const ProductCard = ({ product }: { product: Product }) => {
           )}
         </div>
 
-        {/* Добавлен mt-2 — отступ между картинкой и названием */}
-        <div className="flex-1 flex flex-col pb-3 mt-2">
-          <div className="px-4 pt-4 pb-2 h-14 flex items-end">
+        {/* Текстовый блок: уменьшен отступ сверху (mt-0.5) */}
+        <div className="flex-1 flex flex-col pb-3 mt-0.5">
+          {/* Название: выровнено по верхнему левому краю, высота 3.5rem (две строки) */}
+          <div className="px-4 pb-2 h-14 flex items-start">
             <h3 className="text-white font-extrabold leading-tight tracking-tight line-clamp-2 text-[clamp(0.85rem,1.4vw,1.65rem)]">
               {product.name}
             </h3>
           </div>
 
-          <div className="flex justify-between items-end px-4 pb-4 mt-auto">
+          {/* Блок с размером, ценой и кнопкой: отступ сверху уменьшен на 25% (mt-3) */}
+          <div className="flex justify-between items-end px-4 pb-4 mt-3">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <img
