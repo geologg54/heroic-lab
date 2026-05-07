@@ -5,6 +5,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useCart } from '@/hooks/useCart'
+import CheckoutForm from '@/components/checkout/CheckoutForm'
+import OrderSummary from '@/components/checkout/OrderSummary'
+import SuccessMessage from '@/components/checkout/SuccessMessage'
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession()
@@ -36,7 +39,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (session?.user) {
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         email: session.user.email || '',
         name: session.user.name || '',
@@ -46,7 +49,7 @@ export default function CheckoutPage() {
 
   const autoComment = useMemo(() => {
     const lines: string[] = []
-    items.forEach(item => {
+    items.forEach((item) => {
       if (item.options?.materialName) {
         lines.push(
           `"${item.product.article}" "${item.product.name}". Изменение материала на "${item.options.materialName}"`
@@ -58,17 +61,23 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (autoComment) {
-      setForm(prev => ({ ...prev, comment: autoComment }))
+      setForm((prev) => ({ ...prev, comment: autoComment }))
     }
   }, [autoComment])
 
   const hasAutoComment = autoComment.length > 0
 
   if (status === 'loading' || items.length === 0) {
-    return <div className="container mx-auto px-4 py-8 text-center text-white">Загрузка...</div>
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-white">
+        Загрузка...
+      </div>
+    )
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
@@ -155,122 +164,38 @@ export default function CheckoutPage() {
     setTimeout(() => router.push(session?.user ? '/account/orders' : '/'), 3000)
   }
 
-  if (submitted) {
-    return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <div className="text-green-400 text-4xl mb-4">✅</div>
-        <h2 className="text-2xl font-bold text-white">Заказ оформлен!</h2>
-        <p className="text-gray-300 mt-2">Спасибо за заказ. Мы свяжемся с вами для подтверждения.</p>
-        <p className="text-gray-400 text-sm mt-4">Перенаправление...</p>
-      </div>
-    )
-  }
-
-  const itemsTotal = items.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0)
-  const itemsOldTotal = items.reduce((sum: number, item: any) => sum + (item.product.oldPrice || item.product.price) * item.quantity, 0)
-  const saleDiscount = itemsOldTotal - itemsTotal
-  const finalTotal = totalPrice - couponDiscount
-  const totalSavings = saleDiscount + couponDiscount
+  if (submitted) return <SuccessMessage />
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-white mb-8">Оформление заказа</h1>
       <div className="grid lg:grid-cols-2 gap-8">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!session?.user && (
-            <>
-              <div>
-                <label className="block text-white mb-1">Email *</label>
-                <input type="email" name="email" placeholder="your@email.ru" required className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.email} onChange={handleChange} />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Имя</label>
-                <input type="text" name="name" placeholder="Иван Иванов" className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.name} onChange={handleChange} />
-              </div>
-            </>
-          )}
-
-          {session?.user && (
-            <div className="p-4 bg-cardbg rounded-lg border border-borderLight">
-              <p className="text-white"><span className="text-gray-400">Email:</span> {session.user.email}</p>
-              {session.user.name && <p className="text-white mt-1"><span className="text-gray-400">Имя:</span> {session.user.name}</p>}
-              <p className="text-sm text-gray-400 mt-2">Данные взяты из вашего профиля. Изменить можно в <a href="/account/settings" className="text-accent hover:underline">настройках</a>.</p>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-white mb-1">Адрес доставки *</label>
-            <input type="text" name="address" placeholder="Город, улица, дом, квартира" required className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.address} onChange={handleChange} />
-          </div>
-          <div>
-            <label className="block text-white mb-1">Телефон</label>
-            <input type="tel" name="phone" placeholder="+7 (999) 123-45-67" className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.phone} onChange={handleChange} />
-          </div>
-          <div>
-            <label className="block text-white mb-1">Способ доставки</label>
-            <select name="deliveryMethod" className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.deliveryMethod} onChange={handleChange}>
-              <option value="СДЭК">СДЭК</option>
-              <option value="Почта России">Почта России</option>
-              <option value="Самовывоз">Самовывоз</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-white mb-1">Способ оплаты</label>
-            <select name="paymentMethod" className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.paymentMethod} onChange={handleChange}>
-              <option value="card">Картой онлайн (демо)</option>
-              <option value="cash">Наличными при получении</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-white mb-1">Комментарий к заказу</label>
-            <textarea name="comment" rows={3} className="w-full p-3 rounded-lg bg-cardbg border border-borderLight text-white" value={form.comment} onChange={hasAutoComment ? undefined : handleChange} readOnly={hasAutoComment} />
-            {hasAutoComment && <p className="text-xs text-gray-400 mt-1">Комментарий сформирован автоматически на основе выбранных опций</p>}
-          </div>
-          {error && <div className="p-3 bg-red-900/30 border border-red-500 text-red-300 rounded-lg">{error}</div>}
-          <button type="submit" disabled={loading} className="w-full bg-accent py-3 rounded-lg font-bold text-white disabled:opacity-50 hover:bg-white hover:text-darkbg hover:border-white border border-transparent transition-colors duration-300">
-            {loading ? 'Оформление...' : `Подтвердить заказ на ${finalTotal} ₽`}
-          </button>
-          <p className="text-xs text-gray-400 text-center">Нажимая кнопку, вы соглашаетесь с условиями доставки и оплаты.</p>
-        </form>
-
-        <div className="bg-cardbg p-6 rounded-xl border border-borderLight">
-          <h2 className="text-xl font-bold mb-4">Ваш заказ</h2>
-          {items.map((item: any) => (
-            <div key={item.cartItemId} className="flex justify-between py-2 border-b border-borderLight">
-              <span>
-                {item.product.name} x{item.quantity}
-                {item.options?.materialName && <span className="block text-xs text-accent">Материал: {item.options.materialName}</span>}
-              </span>
-              <span>{item.product.price * item.quantity} ₽</span>
-            </div>
-          ))}
-
-          <div className="mt-4 pt-4 border-t border-borderLight">
-            <label className="block text-white mb-2">Промокод</label>
-            <div className="flex gap-2">
-              <input type="text" value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} placeholder="Введите код" className="flex-1 p-2 rounded bg-[#0f2a42] border border-borderLight text-white" disabled={!!appliedCoupon} />
-              {!appliedCoupon ? (
-                <button type="button" onClick={applyCoupon} disabled={checkingCoupon || !couponCode.trim()} className="bg-accent px-4 py-2 rounded-lg text-white disabled:opacity-50">{checkingCoupon ? '...' : 'Применить'}</button>
-              ) : (
-                <button type="button" onClick={() => { setCouponCode(''); setCouponDiscount(0); setAppliedCoupon(null); setCouponError('') }} className="text-red-400 hover:text-red-300 px-4 py-2">Сбросить</button>
-              )}
-            </div>
-            {couponError && (
-              <p className="text-red-400 text-sm mt-2" dangerouslySetInnerHTML={{
-                __html: couponError.replace(/<a href="([^"]+)">([^<]+)<\/a>/g, '<a href="$1" class="underline text-accent hover:text-cyan-300" target="_blank">$2</a>').replace(/\n/g, '<br/>')
-              }} />
-            )}
-            {appliedCoupon && <p className="text-green-400 text-sm mt-1">Купон {appliedCoupon.code} применён! Скидка: {couponDiscount} ₽</p>}
-          </div>
-
-          <div className="mt-4 pt-2 space-y-2">
-            <div className="flex justify-between text-gray-300 text-sm"><span>Сумма товаров:</span><span>{itemsTotal} ₽</span></div>
-            {saleDiscount > 0 && <div className="flex justify-between text-green-400 text-sm"><span>Скидка по акции:</span><span>-{saleDiscount} ₽</span></div>}
-            {couponDiscount > 0 && <div className="flex justify-between text-green-400 text-sm"><span>Скидка по купону:</span><span>-{couponDiscount} ₽</span></div>}
-            <div className="flex justify-between items-center mt-2 pt-2 border-t border-borderLight"><span className="text-white font-bold text-lg">Итого к оплате:</span><span className="text-white font-bold text-lg">{finalTotal} ₽</span></div>
-            {totalSavings > 0 && <p className="text-green-400 text-sm text-right">Ваша экономия: {totalSavings} ₽</p>}
-          </div>
-        </div>
+        <CheckoutForm
+          form={form}
+          onChange={handleChange}
+          onSubmit={handleSubmit}
+          loading={loading}
+          error={error}
+          hasAutoComment={hasAutoComment}
+          finalTotal={totalPrice - couponDiscount}
+        />
+        <OrderSummary
+          items={items}
+          totalPrice={totalPrice}
+          couponCode={couponCode}
+          onCouponCodeChange={setCouponCode}
+          onApplyCoupon={applyCoupon}
+          onResetCoupon={() => {
+            setCouponCode('')
+            setCouponDiscount(0)
+            setAppliedCoupon(null)
+            setCouponError('')
+          }}
+          checkingCoupon={checkingCoupon}
+          couponError={couponError}
+          appliedCoupon={appliedCoupon}
+          couponDiscount={couponDiscount}
+        />
       </div>
     </div>
   )

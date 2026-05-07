@@ -2,32 +2,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, CheckCircle, XCircle, Send } from 'lucide-react'
+import { Plus, Send } from 'lucide-react'
+import CouponFormModal from '@/components/admin/CouponFormModal'
+import CouponSendModal from '@/components/admin/CouponSendModal'
+import CouponsTable from '@/components/admin/CouponsTable'
 
 export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    code: '',
-    type: 'percent',
-    value: '',
-    minOrderAmount: '',
-    maxUses: '',
-    validFrom: '',
-    validUntil: '',
-    isActive: true,
-    stackable: false,
-  })
 
-  // Состояния для рассылки
-  const [showSendModal, setShowSendModal] = useState(false)
+  // Управление модалками
+  const [showForm, setShowForm] = useState(false)
+  const [showSend, setShowSend] = useState(false)
+  const [editingCoupon, setEditingCoupon] = useState<any | undefined>(undefined)
   const [users, setUsers] = useState<any[]>([])
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
-  const [sendingCoupon, setSendingCoupon] = useState(false)
-  // Поля купона для рассылки (используем те же form)
-  const [sendForm, setSendForm] = useState({ ...form, code: '', maxUses: '1' })
 
   useEffect(() => {
     fetchCoupons()
@@ -46,12 +34,10 @@ export default function AdminCouponsPage() {
     setUsers(data.users || [])
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const url = editingId
-      ? `/api/admin/coupons/${editingId}`
-      : '/api/admin/coupons'
-    const method = editingId ? 'PUT' : 'POST'
+  // Создание/редактирование
+  const handleSave = async (form: any) => {
+    const url = editingCoupon ? `/api/admin/coupons/${editingCoupon.id}` : '/api/admin/coupons'
+    const method = editingCoupon ? 'PUT' : 'POST'
 
     const res = await fetch(url, {
       method,
@@ -59,43 +45,15 @@ export default function AdminCouponsPage() {
       body: JSON.stringify(form),
     })
 
-    if (res.ok) {
-      setShowForm(false)
-      setEditingId(null)
-      setForm({
-        code: '',
-        type: 'percent',
-        value: '',
-        minOrderAmount: '',
-        maxUses: '',
-        validFrom: '',
-        validUntil: '',
-        isActive: true,
-        stackable: false,
-      })
-      fetchCoupons()
-    } else {
+    if (!res.ok) {
       const error = await res.json()
       alert(error.error || 'Ошибка сохранения')
+    } else {
+      fetchCoupons()
     }
   }
 
-  const handleEdit = (coupon: any) => {
-    setEditingId(coupon.id)
-    setForm({
-      code: coupon.code,
-      type: coupon.type,
-      value: coupon.value.toString(),
-      minOrderAmount: coupon.minOrderAmount?.toString() || '',
-      maxUses: coupon.maxUses?.toString() || '',
-      validFrom: coupon.validFrom ? coupon.validFrom.slice(0, 10) : '',
-      validUntil: coupon.validUntil ? coupon.validUntil.slice(0, 10) : '',
-      isActive: coupon.isActive,
-      stackable: coupon.stackable || false,
-    })
-    setShowForm(true)
-  }
-
+  // Удаление
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить купон?')) return
     const res = await fetch(`/api/admin/coupons/${id}`, { method: 'DELETE' })
@@ -107,6 +65,7 @@ export default function AdminCouponsPage() {
     }
   }
 
+  // Переключение активности
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     await fetch(`/api/admin/coupons/${id}`, {
       method: 'PUT',
@@ -116,43 +75,19 @@ export default function AdminCouponsPage() {
     fetchCoupons()
   }
 
-  const handleSendCoupons = async () => {
-    if (!sendForm.code || !sendForm.type || !sendForm.value) {
-      alert('Заполните параметры купона')
-      return
-    }
-    if (selectedUserIds.size === 0) {
-      alert('Выберите хотя бы одного пользователя')
-      return
-    }
-    setSendingCoupon(true)
-    try {
-      const res = await fetch('/api/admin/coupons/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: sendForm.code,
-          type: sendForm.type,
-          value: sendForm.value,
-          minOrderAmount: sendForm.minOrderAmount || null,
-          maxUses: sendForm.maxUses ? parseInt(sendForm.maxUses) : null,
-          validUntil: sendForm.validUntil || null,
-          stackable: sendForm.stackable,
-          userIds: Array.from(selectedUserIds),
-        }),
-      })
-      if (res.ok) {
-        alert('Купоны отправлены!')
-        setShowSendModal(false)
-        setSelectedUserIds(new Set())
-        setSendForm({ ...form, code: '', maxUses: '1' })
-        fetchCoupons()
-      } else {
-        const err = await res.json()
-        alert(err.error || 'Ошибка')
-      }
-    } finally {
-      setSendingCoupon(false)
+  // Рассылка
+  const handleSend = async (sendData: any) => {
+    const res = await fetch('/api/admin/coupons/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sendData),
+    })
+    if (res.ok) {
+      alert('Купоны отправлены!')
+      fetchCoupons()
+    } else {
+      const err = await res.json()
+      alert(err.error || 'Ошибка')
     }
   }
 
@@ -166,7 +101,7 @@ export default function AdminCouponsPage() {
           <button
             onClick={() => {
               fetchUsers()
-              setShowSendModal(true)
+              setShowSend(true)
             }}
             className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
           >
@@ -174,18 +109,7 @@ export default function AdminCouponsPage() {
           </button>
           <button
             onClick={() => {
-              setEditingId(null)
-              setForm({
-                code: '',
-                type: 'percent',
-                value: '',
-                minOrderAmount: '',
-                maxUses: '',
-                validFrom: '',
-                validUntil: '',
-                isActive: true,
-                stackable: false,
-              })
+              setEditingCoupon(undefined)
               setShowForm(true)
             }}
             className="bg-accent hover:bg-cyan-700 px-4 py-2 rounded-lg flex items-center gap-2 text-white"
@@ -195,266 +119,37 @@ export default function AdminCouponsPage() {
         </div>
       </div>
 
-      {/* Форма создания/редактирования */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-cardbg p-6 rounded-xl max-w-md w-full">
-            <h2 className="text-xl font-bold text-white mb-4">
-              {editingId ? 'Редактировать купон' : 'Новый купон'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-white mb-1">Код купона *</label>
-                <input
-                  type="text"
-                  value={form.code}
-                  onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  required
-                  placeholder="WELCOME10"
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Тип скидки *</label>
-                <select
-                  value={form.type}
-                  onChange={e => setForm({ ...form, type: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                >
-                  <option value="percent">Процент</option>
-                  <option value="fixed">Фиксированная сумма</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-white mb-1">
-                  Значение * ({form.type === 'percent' ? '%' : '₽'})
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max={form.type === 'percent' ? '100' : undefined}
-                  value={form.value}
-                  onChange={e => setForm({ ...form, value: e.target.value })}
-                  required
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Мин. сумма заказа (₽)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.minOrderAmount}
-                  onChange={e => setForm({ ...form, minOrderAmount: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Макс. использований</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.maxUses}
-                  onChange={e => setForm({ ...form, maxUses: e.target.value })}
-                  placeholder="Без ограничений"
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Действует с</label>
-                <input
-                  type="date"
-                  value={form.validFrom}
-                  onChange={e => setForm({ ...form, validFrom: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Действует до</label>
-                <input
-                  type="date"
-                  value={form.validUntil}
-                  onChange={e => setForm({ ...form, validUntil: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white"
-                />
-              </div>
-              <div>
-                <label className="flex items-center gap-2 text-white">
-                  <input
-                    type="checkbox"
-                    checked={form.stackable}
-                    onChange={e => setForm({ ...form, stackable: e.target.checked })}
-                    className="w-4 h-4 accent-accent"
-                  />
-                  Суммируется с другими скидками
-                </label>
-              </div>
-              <div className="flex gap-2 pt-4">
-                <button type="submit" className="bg-accent px-4 py-2 rounded-lg text-white">
-                  Сохранить
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="bg-gray-700 px-4 py-2 rounded-lg text-white"
-                >
-                  Отмена
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Модалки */}
+      <CouponFormModal
+        isOpen={showForm}
+        editingCoupon={editingCoupon}
+        onSave={async (form) => {
+          await handleSave(form)
+          setShowForm(false)
+        }}
+        onClose={() => setShowForm(false)}
+      />
 
-      {/* Модальное окно рассылки */}
-      {showSendModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-cardbg p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-4">Рассылка купона</h2>
+      <CouponSendModal
+        isOpen={showSend}
+        users={users}
+        onSend={async (data) => {
+          await handleSend(data)
+          setShowSend(false)
+        }}
+        onClose={() => setShowSend(false)}
+      />
 
-            {/* Форма параметров купона */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-white mb-1">Код *</label>
-                <input type="text" value={sendForm.code} onChange={e => setSendForm({ ...sendForm, code: e.target.value.toUpperCase() })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Тип *</label>
-                <select value={sendForm.type} onChange={e => setSendForm({ ...sendForm, type: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white">
-                  <option value="percent">%</option>
-                  <option value="fixed">Фикс ₽</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-white mb-1">Значение *</label>
-                <input type="number" value={sendForm.value} onChange={e => setSendForm({ ...sendForm, value: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Мин. сумма</label>
-                <input type="number" value={sendForm.minOrderAmount} onChange={e => setSendForm({ ...sendForm, minOrderAmount: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Макс. использований</label>
-                <input type="number" value={sendForm.maxUses} onChange={e => setSendForm({ ...sendForm, maxUses: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
-              </div>
-              <div>
-                <label className="block text-white mb-1">Действует до</label>
-                <input type="date" value={sendForm.validUntil} onChange={e => setSendForm({ ...sendForm, validUntil: e.target.value })}
-                  className="w-full p-2 rounded bg-[#0f2a42] border border-borderLight text-white" />
-              </div>
-              <div>
-                <label className="flex items-center gap-2 text-white mt-6">
-                  <input type="checkbox" checked={sendForm.stackable} onChange={e => setSendForm({ ...sendForm, stackable: e.target.checked })}
-                    className="w-4 h-4 accent-accent" />
-                  Суммируется
-                </label>
-              </div>
-            </div>
-
-            {/* Список пользователей */}
-            <div className="mb-4">
-              <label className="flex items-center gap-2 text-white">
-                <input type="checkbox" checked={selectedUserIds.size === users.length && users.length > 0}
-                  onChange={() => {
-                    if (selectedUserIds.size === users.length) setSelectedUserIds(new Set());
-                    else setSelectedUserIds(new Set(users.map(u => u.id)));
-                  }} />
-                Выбрать всех
-              </label>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto mb-4">
-              {users.map((user: any) => (
-                <label key={user.id} className="flex items-center gap-2 text-sm text-gray-300">
-                  <input type="checkbox" checked={selectedUserIds.has(user.id)}
-                    onChange={() => {
-                      const newSet = new Set(selectedUserIds);
-                      if (newSet.has(user.id)) newSet.delete(user.id);
-                      else newSet.add(user.id);
-                      setSelectedUserIds(newSet);
-                    }} />
-                  {user.email} ({user.name || '—'}) – заказов: {user.ordersCount}
-                </label>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <button onClick={handleSendCoupons} disabled={sendingCoupon}
-                className="bg-accent px-4 py-2 rounded-lg text-white">
-                {sendingCoupon ? 'Отправка...' : 'Отправить'}
-              </button>
-              <button onClick={() => setShowSendModal(false)} className="bg-gray-700 px-4 py-2 rounded-lg text-white">
-                Отмена
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Таблица купонов */}
-      <div className="bg-cardbg border border-borderLight rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="border-b border-borderLight">
-            <tr className="text-gray-400">
-              <th className="p-3">Код</th>
-              <th className="p-3">Скидка</th>
-              <th className="p-3">Использовано</th>
-              <th className="p-3">Срок действия</th>
-              <th className="p-3">Статус</th>
-              <th className="p-3 text-center">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {coupons.map(coupon => (
-              <tr key={coupon.id} className="border-t border-borderLight">
-                <td className="p-3 font-mono">{coupon.code}</td>
-                <td className="p-3">
-                  {coupon.type === 'percent' ? `${coupon.value}%` : `${coupon.value} ₽`}
-                </td>
-                <td className="p-3">
-                  {coupon.usedCount}
-                  {coupon.maxUses && ` / ${coupon.maxUses}`}
-                </td>
-                <td className="p-3">
-                  {coupon.validUntil
-                    ? `до ${new Date(coupon.validUntil).toLocaleDateString()}`
-                    : 'Бессрочно'}
-                </td>
-                <td className="p-3">
-                  <button
-                    onClick={() => handleToggleActive(coupon.id, coupon.isActive)}
-                    className={coupon.isActive ? 'text-green-400' : 'text-red-400'}
-                  >
-                    {coupon.isActive ? <CheckCircle size={20} /> : <XCircle size={20} />}
-                  </button>
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => handleEdit(coupon)}
-                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                      title="Редактировать"
-                    >
-                      <Edit size={20} className="text-accent" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(coupon.id)}
-                      className="p-2 rounded-lg hover:bg-red-900/20 transition-colors"
-                      title="Удалить"
-                    >
-                      <Trash2 size={20} className="text-red-400" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Таблица */}
+      <CouponsTable
+        coupons={coupons}
+        onEdit={(coupon) => {
+          setEditingCoupon(coupon)
+          setShowForm(true)
+        }}
+        onDelete={handleDelete}
+        onToggleActive={handleToggleActive}
+      />
     </div>
   )
 }
