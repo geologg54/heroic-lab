@@ -46,6 +46,16 @@ model Category {
   filter3Name String?
   filter4Name String?
   filter5Name String?
+  filter6Name  String?
+  filter7Name  String?
+  filter8Name  String?
+  filter9Name  String?
+  filter10Name String?
+  filter11Name String?
+  filter12Name String?
+  filter13Name String?
+  filter14Name String?
+  filter15Name String?
 }
 
 model Product {
@@ -64,6 +74,16 @@ model Product {
   filter3     String?
   filter4     String?
   filter5     String?
+  filter6     String?
+  filter7     String?
+  filter8     String?
+  filter9     String?
+  filter10    String?
+  filter11    String?
+  filter12    String?
+  filter13    String?
+  filter14    String?
+  filter15    String?
 
   stock       Int      @default(0)
   heightMax   Float?
@@ -213,6 +233,19 @@ model Review {
   status     String   @default("pending") // pending | approved | rejected
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model FilterConfig {
+  id          String   @id @default(cuid())
+  categorySlug String  // к какой категории относится этот фильтр (например "dnd")
+  filterField  String  // поле товара: "filter1", "filter2", ..., "scale"
+  title       String   // название фильтра для отображения ("Тип", "Размер")
+  type        String   // "static" или "dynamic"
+  parentField String?  // если dynamic — поле родительского фильтра (например "filter2")
+  parentValue String?  // значение родительского фильтра, при котором показывается этот
+  sortOrder   Int      @default(0) // порядок сортировки
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Setting {

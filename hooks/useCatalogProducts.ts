@@ -1,7 +1,5 @@
 // hooks/useCatalogProducts.ts
-// Хук для загрузки товаров с учётом всех активных фильтров, цены, сортировки и пагинации.
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '@/types';
 import type { FilterState } from '@/components/catalog/FilterPanel';
 
@@ -25,8 +23,8 @@ export function useCatalogProducts({
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
-  // Возвращаем актуальные теги, чтобы обновлять список в FilterPanel
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  const filtersSerialized = useMemo(() => JSON.stringify(filters), [filters]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -34,36 +32,42 @@ export function useCatalogProducts({
     params.set('page', page.toString());
     params.set('limit', '12');
     if (sortBy !== 'newest') params.set('sort', sortBy);
-    // Цена добавляется, только если ползунки сдвинуты
     if (currentMin !== globalMinPrice || currentMax !== globalMaxPrice) {
       params.set('minPrice', currentMin.toString());
       params.set('maxPrice', currentMax.toString());
     }
     if (showOnlySale) params.set('onSale', 'true');
 
-    // Добавляем категории и теги
+    // Добавляем категории
     filters.categories.forEach(cat => params.append('category', cat));
     filters.tags.forEach(tag => params.append('tags', tag));
 
-    // Обычные фильтры
-    if (filters.categories.length > 1 && filters.categoryFilters && Object.keys(filters.categoryFilters).length > 0) {
-      // Раздельные фильтры для нескольких категорий
-      for (const [slug, catFilters] of Object.entries(filters.categoryFilters)) {
-        if (catFilters.filter1?.length) catFilters.filter1.forEach(v => params.append(`cat_${slug}_filter1`, v));
-        if (catFilters.filter2?.length) catFilters.filter2.forEach(v => params.append(`cat_${slug}_filter2`, v));
-        if (catFilters.filter3?.length) catFilters.filter3.forEach(v => params.append(`cat_${slug}_filter3`, v));
-        if (catFilters.filter4?.length) catFilters.filter4.forEach(v => params.append(`cat_${slug}_filter4`, v));
-        if (catFilters.filter5?.length) catFilters.filter5.forEach(v => params.append(`cat_${slug}_filter5`, v));
-        if (catFilters.scales?.length) catFilters.scales.forEach(v => params.append(`cat_${slug}_scale`, v));
+    // Добавляем ВСЕ фильтры от filter1 до filter15
+    for (let i = 1; i <= 15; i++) {
+      const key = `filter${i}` as keyof FilterState;
+      const values = filters[key] as string[];
+      if (values && values.length > 0) {
+        values.forEach(v => params.append(key, v));
       }
-    } else {
-      // Обычные фильтры
-      filters.filter1.forEach(v => params.append('filter1', v));
-      filters.filter2.forEach(v => params.append('filter2', v));
-      filters.filter3.forEach(v => params.append('filter3', v));
-      filters.filter4.forEach(v => params.append('filter4', v));
-      filters.filter5.forEach(v => params.append('filter5', v));
-      filters.scales.forEach(v => params.append('scale', v));
+    }
+
+    // Добавляем масштабы
+    filters.scales.forEach(v => params.append('scale', v));
+
+    // Мультикатегорийные фильтры (если они ещё используются, но в новой схеме они не нужны, оставим для совместимости)
+    if (filters.categories.length > 1 && filters.categoryFilters) {
+      for (const [slug, catFilters] of Object.entries(filters.categoryFilters)) {
+        for (let i = 1; i <= 15; i++) {
+          const field = `filter${i}`;
+          const values = (catFilters as any)[field];
+          if (values && values.length > 0) {
+            values.forEach((v: string) => params.append(`cat_${slug}_${field}`, v));
+          }
+        }
+        if ((catFilters as any).scales?.length) {
+          (catFilters as any).scales.forEach((v: string) => params.append(`cat_${slug}_scale`, v));
+        }
+      }
     }
 
     try {
@@ -72,21 +76,16 @@ export function useCatalogProducts({
       setProducts(data.products);
       setTotal(data.total);
       setTotalPages(data.totalPages);
-      // Обновляем доступные теги (важно для FilterPanel)
-      if (data.availableFilters?.tags) {
-        setAvailableTags(data.availableFilters.tags);
-      }
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
     } finally {
       setLoading(false);
     }
-  }, [page, sortBy, currentMin, currentMax, globalMinPrice, globalMaxPrice, showOnlySale, filters]);
+  }, [page, sortBy, currentMin, currentMax, globalMinPrice, globalMaxPrice, showOnlySale, filtersSerialized]);
 
-  // Автоматически загружаем при изменении любой зависимости
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  return { products, total, totalPages, loading, availableTags };
+  return { products, total, totalPages, loading };
 }

@@ -5,11 +5,10 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useCatalogPage } from '@/hooks/useCatalogPage'
-import DesktopCatalogView from '@/components/catalog/DesktopCatalogView'
-import MobileCatalogView from '@/components/catalog/MobileCatalogView'
+import DesktopCatalog from '@/components/catalog/DesktopCatalog'
+import MobileCatalog from '@/components/catalog/MobileCatalog'
 import type { FilterState } from '@/components/catalog/FilterPanel'
 import type { Product } from '@/types'
-import type { StaticFilterOptions, CategoryWithFilters } from '@/hooks/useCatalogFilters'
 
 interface CatalogContentProps {
   initialProducts: Product[]
@@ -17,9 +16,9 @@ interface CatalogContentProps {
   initialPage: number
   totalPages: number
   categories: string[]
-  allFilterOptions: StaticFilterOptions
+  allFilterOptions: any
   categoryNames: Record<string, string>
-  categoriesData: CategoryWithFilters[]
+  categoriesData: any[]
   minPrice: number
   maxPrice: number
 }
@@ -28,7 +27,6 @@ export default function CatalogContent(props: CatalogContentProps) {
   const isMobile = useMediaQuery('(max-width: 1023px)')
   const searchParams = useSearchParams()
 
-  // Начальные фильтры из URL
   const getInitialFilters = (): FilterState => {
     const params = new URLSearchParams(searchParams.toString())
     return {
@@ -38,6 +36,16 @@ export default function CatalogContent(props: CatalogContentProps) {
       filter3: params.getAll('filter3'),
       filter4: params.getAll('filter4'),
       filter5: params.getAll('filter5'),
+      filter6: params.getAll('filter6'),
+      filter7: params.getAll('filter7'),
+      filter8: params.getAll('filter8'),
+      filter9: params.getAll('filter9'),
+      filter10: params.getAll('filter10'),
+      filter11: params.getAll('filter11'),
+      filter12: params.getAll('filter12'),
+      filter13: params.getAll('filter13'),
+      filter14: params.getAll('filter14'),
+      filter15: params.getAll('filter15'),
       tags: params.getAll('tags'),
       scales: params.getAll('scale'),
       gameSystems: [],
@@ -61,7 +69,6 @@ export default function CatalogContent(props: CatalogContentProps) {
     staticFilterOptions: props.allFilterOptions,
   })
 
-  // Общие пропсы для обоих представлений
   const commonProps = {
     products: pageData.products,
     total: pageData.total,
@@ -88,11 +95,12 @@ export default function CatalogContent(props: CatalogContentProps) {
     onPriceInputMax: (v: number) => {
       if (v <= pageData.globalMaxPrice && v >= pageData.minVal) pageData.setMaxVal(v)
     },
+    filterCounts: pageData.filterCounts,
   }
 
   if (isMobile) {
     return (
-      <MobileCatalogView
+      <MobileCatalog
         {...commonProps}
         onApplyFilters={pageData.applyMobileFilters}
         mobileSections={pageData.mobileSections}
@@ -102,18 +110,12 @@ export default function CatalogContent(props: CatalogContentProps) {
   }
 
   return (
-    <DesktopCatalogView
+    <DesktopCatalog
       {...commonProps}
       onRemoveFilter={pageData.handleRemoveFilter}
-      allCategories={props.categories}
-      staticFilterOptions={pageData.staticFilterOptions}
-      availableTags={pageData.availableTags}
-      filterNames={pageData.filterNames}
+      allCategories={Object.keys(props.categoryNames)}
       categoryNames={props.categoryNames}
-      categoryFilterGroups={pageData.categoryFilterGroups}
-      categoriesData={props.categoriesData}
-      categoryFilterOptions={pageData.categoryFilterOptions}
-      categoryFilterNames={pageData.categoryFilterNames}
+      filterConfigSections={pageData.filterConfigSections}
       onFilterChange={pageData.handleFilterPanelChange}
     />
   )

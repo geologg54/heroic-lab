@@ -5,15 +5,21 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
 
 interface FilterSectionProps {
-  sectionKey: string
-  title: string
-  options: string[]
-  selected: string[]
-  onToggle: (value: string) => void
-  categorySlug?: string
-  paginated?: boolean
+  sectionKey: string // Уникальный ключ секции (например, 'categories', 'filter1', 'scales')
+  title: string // Заголовок секции (например, 'Категория', 'Масштаб')
+  options: string[] // Все доступные значения фильтра
+  selected: string[] // Массив выбранных значений
+  onToggle: (value: string) => void // Функция переключения значения
+  categorySlug?: string // Если секция привязана к конкретной категории (для мультикатегорий)
+  paginated?: boolean // Нужно ли разбивать опции на страницы (для длинных списков)
+  /** Статические счётчики товаров для каждой опции.
+   *  Например, { "Монстр": 12, "Герой": 5 }.
+   *  Если не передан, числа не показываются.
+   */
+  counts?: Record<string, number>
 }
 
+// Умная сортировка: сначала числа, потом строки
 function smartSort(a: string, b: string): number {
   const aNum = Number(a)
   const bNum = Number(b)
@@ -29,6 +35,7 @@ export default function FilterSection({
   onToggle,
   categorySlug,
   paginated = false,
+  counts = {},
 }: FilterSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [page, setPage] = useState(1)
@@ -42,6 +49,7 @@ export default function FilterSection({
 
   return (
     <div className="pb-3">
+      {/* Заголовок секции; клик раскрывает/скрывает опции */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex justify-between items-center w-full text-left py-2 text-white font-normal hover:text-accent transition"
@@ -52,21 +60,32 @@ export default function FilterSection({
 
       {isExpanded && (
         <div className="mt-2 space-y-1">
+          {/* Если это секция тегов и опций нет – показываем подсказку, но мы её уже убрали из панели фильтров */}
           {options.length === 0 && sectionKey === 'tags' ? (
             <p className="text-gray-400 text-sm px-1">Для отображения тегов выберите категорию</p>
           ) : (
             <>
-              {visibleOptions.map((opt) => (
-                <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt)}
-                    onChange={() => onToggle(opt)}
-                  />
-                  <span>{opt}</span>
-                </label>
-              ))}
+              {visibleOptions.map((opt) => {
+                const count = counts[opt] // счётчик товаров для данной опции (если есть)
+                return (
+                  <label key={opt} className="flex items-center gap-2 text-gray-300 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(opt)}
+                      onChange={() => onToggle(opt)}
+                      className="rounded border-gray-500"
+                    />
+                    <span>
+                      {opt}
+                      {count !== undefined && (
+                        <span className="ml-1 text-white/60 text-xs">({count})</span>
+                      )}
+                    </span>
+                  </label>
+                )
+              })}
 
+              {/* Пагинация, если опций много */}
               {paginated && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                   <button

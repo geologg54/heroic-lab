@@ -1,52 +1,52 @@
 // components/catalog/MobileCatalog.tsx
 'use client'
 
-import { useState } from 'react';
-import { ProductCard } from '@/components/catalog/ProductCard';
-import { SortDropdown } from '@/components/catalog/SortDropdown';
-import Pagination from '@/components/catalog/Pagination';
-import { X, ChevronDown, ChevronRight, ChevronLeft, ChevronUp } from 'lucide-react';
-import DualRangeSlider from '@/components/ui/DualRangeSlider';
-import type { Product } from '@/types';
-import type { FilterState } from '@/components/catalog/FilterPanel';
+import { useState } from 'react'
+import { ProductCard } from '@/components/catalog/ProductCard'
+import { SortDropdown } from '@/components/catalog/SortDropdown'
+import Pagination from '@/components/catalog/Pagination'
+import { X, ChevronDown, ChevronRight, ChevronLeft, ChevronUp } from 'lucide-react'
+import DualRangeSlider from '@/components/ui/DualRangeSlider'
+import type { Product } from '@/types'
+import type { FilterState, FilterConfigItem } from '@/components/catalog/FilterPanel'
 
 interface MobileSection {
-  key: string;
-  title: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-  categorySlug?: string;
-  paginated?: boolean;
+  key: string
+  title: string
+  options: { value: string; label: string }[]
+  selected: string[]
+  categorySlug?: string
+  paginated?: boolean
 }
 
 interface MobileCatalogProps {
-  products: Product[];
-  total: number;
-  totalPages: number;
-  page: number;
-  loading: boolean;
-  filters: FilterState;
-  activeFiltersCount: number;
-  showOnlySale: boolean;
-  onToggleSale: () => void;
-  onPageChange: (page: number) => void;
-  onPageChangeWithScroll: (page: number) => void;
-  onSortChange: (sort: string) => void;
-  onApplyFilters: () => void;
-  onClearAll: () => void;
-  mobileSections: MobileSection[];
-  onSectionToggle: (sectionKey: string, value: string) => void;
-  minVal: number;
-  maxVal: number;
-  globalMinPrice: number;
-  globalMaxPrice: number;
-  onMinChange: (val: number) => void;
-  onMaxChange: (val: number) => void;
-  onPriceInputMin: (val: number) => void;
-  onPriceInputMax: (val: number) => void;
+  products: Product[]
+  total: number
+  totalPages: number
+  page: number
+  loading: boolean
+  filters: FilterState
+  activeFiltersCount: number
+  showOnlySale: boolean
+  onToggleSale: () => void
+  onPageChange: (page: number) => void
+  onPageChangeWithScroll: (page: number) => void
+  onSortChange: (sort: string) => void
+  onApplyFilters: () => void
+  onClearAll: () => void
+  mobileSections: MobileSection[]
+  onSectionToggle: (sectionKey: string, value: string) => void
+  minVal: number
+  maxVal: number
+  globalMinPrice: number
+  globalMaxPrice: number
+  onMinChange: (val: number) => void
+  onMaxChange: (val: number) => void
+  onPriceInputMin: (val: number) => void
+  onPriceInputMax: (val: number) => void
+  filterCounts: Record<string, Record<string, number>>
 }
 
-// Секция фильтров для мобильных
 function MobileFilterSection({
   title,
   options,
@@ -54,24 +54,26 @@ function MobileFilterSection({
   onToggle,
   paginated,
   sectionKey,
+  counts,
 }: {
-  title: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-  onToggle: (value: string) => void;
-  paginated?: boolean;
-  sectionKey: string;
+  title: string
+  options: { value: string; label: string }[]
+  selected: string[]
+  onToggle: (value: string) => void
+  paginated?: boolean
+  sectionKey: string
+  counts?: Record<string, number>
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [page, setPage] = useState(1);
-  const perPage = 10;
-  const totalPages = Math.ceil(options.length / perPage);
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [page, setPage] = useState(1)
+  const perPage = 10
+  const totalPages = Math.ceil(options.length / perPage)
   const visibleOptions = paginated
     ? options.slice((page - 1) * perPage, page * perPage)
-    : options;
+    : options
 
-  const isTagsSection = sectionKey === 'tags';
-  const isEmpty = options.length === 0;
+  const isTagsSection = sectionKey === 'tags'
+  const isEmpty = options.length === 0
 
   return (
     <div className="border-b border-borderLight pb-3">
@@ -95,20 +97,28 @@ function MobileFilterSection({
             </p>
           ) : (
             <>
-              {visibleOptions.map(opt => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-2 text-gray-300 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => onToggle(opt.value)}
-                    className="rounded border-gray-500"
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
+              {visibleOptions.map(opt => {
+                const cnt = counts?.[opt.value]
+                return (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 text-gray-300 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(opt.value)}
+                      onChange={() => onToggle(opt.value)}
+                      className="rounded border-gray-500"
+                    />
+                    <span>
+                      {opt.label}
+                      {cnt !== undefined && (
+                        <span className="ml-1 text-white/60 text-xs">({cnt})</span>
+                      )}
+                    </span>
+                  </label>
+                )
+              })}
               {paginated && totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                   <button
@@ -135,7 +145,7 @@ function MobileFilterSection({
         </div>
       )}
     </div>
-  );
+  )
 }
 
 export default function MobileCatalog({
@@ -163,9 +173,10 @@ export default function MobileCatalog({
   onMaxChange,
   onPriceInputMin,
   onPriceInputMax,
+  filterCounts,
 }: MobileCatalogProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isSortOpen, setIsSortOpen] = useState(false)
 
   return (
     <div className="lg:hidden">
@@ -249,17 +260,30 @@ export default function MobileCatalog({
               </button>
             </div>
             <div className="space-y-4">
-              {mobileSections.map(section => (
-                <MobileFilterSection
-                  key={section.key}
-                  title={section.title}
-                  options={section.options}
-                  selected={section.selected}
-                  onToggle={value => onSectionToggle(section.key, value)}
-                  paginated={section.paginated}
-                  sectionKey={section.key}
-                />
-              ))}
+              {mobileSections.map(section => {
+                let counts: Record<string, number> | undefined
+                if (section.key === 'scales') {
+                  counts = filterCounts.scales || {}
+                } else if (section.key.startsWith('filter')) {
+                  const filterNum = section.key.replace('filter', '')
+                  if (filterNum >= '1' && filterNum <= '5') {
+                    counts = (filterCounts as any)[section.key] || {}
+                  }
+                }
+
+                return (
+                  <MobileFilterSection
+                    key={section.key}
+                    title={section.title}
+                    options={section.options}
+                    selected={section.selected}
+                    onToggle={value => onSectionToggle(section.key, value)}
+                    paginated={section.paginated}
+                    sectionKey={section.key}
+                    counts={counts}
+                  />
+                )
+              })}
               <div className="pt-2">
                 <button
                   onClick={onToggleSale}
@@ -354,5 +378,5 @@ export default function MobileCatalog({
         </div>
       )}
     </div>
-  );
+  )
 }

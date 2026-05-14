@@ -17,14 +17,18 @@ export async function PUT(
   const data = await request.json()
   const {
     name, slug, image, parentId,
-    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name
+    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name,
+    filter6Name, filter7Name, filter8Name, filter9Name, filter10Name,
+    filter11Name, filter12Name, filter13Name, filter14Name, filter15Name
   } = data
 
   const category = await prisma.category.update({
     where: { id },
     data: {
       name, slug, image, parentId,
-      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name
+      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name,
+      filter6Name, filter7Name, filter8Name, filter9Name, filter10Name,
+      filter11Name, filter12Name, filter13Name, filter14Name, filter15Name
     }
   })
 
@@ -43,7 +47,6 @@ export async function DELETE(
 
   const { id } = await params
 
-  // Защита от удаления категории, в которой есть товары
   const productsCount = await prisma.product.count({
     where: { categoryId: id }
   })

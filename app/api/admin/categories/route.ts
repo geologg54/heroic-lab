@@ -26,8 +26,9 @@ export async function POST(request: Request) {
   const data = await request.json()
   const { 
     name, slug, image, parentId,
-    // 🆕 Принимаем названия фильтров
-    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name 
+    filter1Name, filter2Name, filter3Name, filter4Name, filter5Name,
+    filter6Name, filter7Name, filter8Name, filter9Name, filter10Name,
+    filter11Name, filter12Name, filter13Name, filter14Name, filter15Name
   } = data
 
   if (!name || !slug) {
@@ -42,7 +43,9 @@ export async function POST(request: Request) {
   const category = await prisma.category.create({
     data: { 
       name, slug, image, parentId,
-      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name // 🆕
+      filter1Name, filter2Name, filter3Name, filter4Name, filter5Name,
+      filter6Name, filter7Name, filter8Name, filter9Name, filter10Name,
+      filter11Name, filter12Name, filter13Name, filter14Name, filter15Name
     }
   })
 
