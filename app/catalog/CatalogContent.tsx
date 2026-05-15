@@ -105,6 +105,7 @@ export default function CatalogContent(props: CatalogContentProps) {
         onApplyFilters={pageData.applyMobileFilters}
         mobileSections={pageData.mobileSections}
         onSectionToggle={pageData.handleMobileSectionToggle}
+        categoryNames={props.categoryNames}   // <-- добавляем передачу categoryNames в мобильную версию
       />
     )
   }

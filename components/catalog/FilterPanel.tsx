@@ -215,9 +215,10 @@ const FilterPanel = forwardRef<any, FilterPanelProps>(
           key="categories"
           sectionKey="categories"
           title="Категория"
-          options={Object.keys(categoryNames)}
+          options={Object.keys(categoryNames)}   // массив slug'ов
           selected={filters.categories}
           onToggle={(value) => toggleFilter('categories', value)}
+          categoryNames={categoryNames}          // <-- передаём для преобразования
         />
         {visibleSections.map(section => {
           const selected = section.categorySlug
