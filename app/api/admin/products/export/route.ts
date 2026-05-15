@@ -30,6 +30,8 @@ export async function GET(request: Request) {
   const headers = [
     'article', 'name', 'price', 'oldPrice', 'categorySlug', 'description',
     'filter1', 'filter2', 'filter3', 'filter4', 'filter5',
+    'filter6', 'filter7', 'filter8', 'filter9', 'filter10',
+    'filter11', 'filter12', 'filter13', 'filter14', 'filter15',
     'stock', 'heightMax', 'baseMax', 'heightMin', 'baseMin',
     'scale', 'assembly', 'contents', 'artist', 'tags', 'images'
   ]
@@ -46,6 +48,16 @@ export async function GET(request: Request) {
     p.filter3 || '',
     p.filter4 || '',
     p.filter5 || '',
+    p.filter6 || '',
+    p.filter7 || '',
+    p.filter8 || '',
+    p.filter9 || '',
+    p.filter10 || '',
+    p.filter11 || '',
+    p.filter12 || '',
+    p.filter13 || '',
+    p.filter14 || '',
+    p.filter15 || '',
     p.stock?.toString() || '0',
     p.heightMax?.toString() || '',
     p.baseMax?.toString() || '',

@@ -3,13 +3,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Package, FolderTree, ShoppingCart, Users, FileText, MessageCircle, X,
-  Ticket, Settings, Star
+  Ticket, Settings, Star,
+  SlidersHorizontal
 } from 'lucide-react'
 
 const menu = [
   { name: 'Дашборд', href: '/admin', icon: LayoutDashboard },
   { name: 'Товары', href: '/admin/products', icon: Package },
-  { name: 'Категории', href: '/admin/categories', icon: FolderTree },
+  { name: 'Фильтры', href: '/admin/filter-config', icon: SlidersHorizontal },
   { name: 'Купоны', href: '/admin/coupons', icon: Ticket },
   { name: 'Заказы', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Пользователи', href: '/admin/users', icon: Users },

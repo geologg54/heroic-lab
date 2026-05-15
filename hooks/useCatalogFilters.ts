@@ -1,178 +1,132 @@
 // hooks/useCatalogFilters.ts
-// Хук управляет всеми фильтрами каталога и загружает статические опции при смене категорий.
-
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { FilterState } from '@/components/catalog/FilterPanel';
 
-export interface StaticFilterOptions {
-  categories: string[];
-  filter1: string[];
-  filter2: string[];
-  filter3: string[];
-  filter4: string[];
-  filter5: string[];
-  scales: string[];
+export interface FilterConfigItem {
+  key: string;
+  title: string;
+  field: string;   // filter1..15 или scale
+  type: 'static' | 'dynamic';
+  parentField: string | null;
+  parentValue: string | null;
+  categorySlug?: string;
 }
 
-export interface CategoryWithFilters {
-  slug: string;
-  filter1Name?: string | null;
-  filter2Name?: string | null;
-  filter3Name?: string | null;
-  filter4Name?: string | null;
-  filter5Name?: string | null;
-}
-
-export interface CategoryFilterGroup {
+interface FilterConfigRaw {
+  id: string;
   categorySlug: string;
-  categoryName: string;
-  filter1Name?: string | null;
-  filter2Name?: string | null;
-  filter3Name?: string | null;
-  filter4Name?: string | null;
-  filter5Name?: string | null;
-}
-
-export interface CategoryFilterOptions {
-  [slug: string]: {
-    filter1: string[];
-    filter2: string[];
-    filter3: string[];
-    filter4: string[];
-    filter5: string[];
-    scales: string[];
-  };
-}
-
-export interface CategoryFilterNames {
-  [slug: string]: {
-    filter1Name?: string | null;
-    filter2Name?: string | null;
-    filter3Name?: string | null;
-    filter4Name?: string | null;
-    filter5Name?: string | null;
-  };
+  filterField: string;
+  title: string;
+  type: 'static' | 'dynamic';
+  parentField: string | null;
+  parentValue: string | null;
+  sortOrder: number;
 }
 
 export function useCatalogFilters(
   initialFilters: FilterState,
-  categoriesData: CategoryWithFilters[],
+  categoriesData: any[],
   categoryNames: Record<string, string>
 ) {
-  // ----- СОСТОЯНИЕ ФИЛЬТРОВ -----
   const [filters, setFilters] = useState<FilterState>(initialFilters);
-
-  // ----- ОПЦИИ ФИЛЬТРОВ -----
-  const [staticFilterOptions, setStaticFilterOptions] = useState<StaticFilterOptions>({
-    categories: Object.keys(categoryNames),
-    filter1: [],
-    filter2: [],
-    filter3: [],
-    filter4: [],
-    filter5: [],
-    scales: [],
-  });
+  const [filterConfigSections, setFilterConfigSections] = useState<FilterConfigItem[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [filterNames, setFilterNames] = useState<Record<string, string | null> | undefined>(undefined);
-  const [categoryFilterGroups, setCategoryFilterGroups] = useState<CategoryFilterGroup[]>([]);
-  const [categoryFilterOptions, setCategoryFilterOptions] = useState<CategoryFilterOptions>({});
-  const [categoryFilterNames, setCategoryFilterNames] = useState<CategoryFilterNames>({});
 
-  // ----- ЗАГРУЗКА ОПЦИЙ С СЕРВЕРА -----
-  const fetchStaticFilters = useCallback(async (categorySlugs?: string[]) => {
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [filterCounts, setFilterCounts] = useState<Record<string, Record<string, number>>>({
+    filter1: {}, filter2: {}, filter3: {}, filter4: {}, filter5: {},
+    filter6: {}, filter7: {}, filter8: {}, filter9: {}, filter10: {},
+    filter11: {}, filter12: {}, filter13: {}, filter14: {}, filter15: {},
+    scales: {}
+  });
+  const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
+
+  const fetchCounts = useCallback(async () => {
     try {
-      if (!categorySlugs || categorySlugs.length === 0) {
-        setStaticFilterOptions(prev => ({
-          ...prev,
-          filter1: [], filter2: [], filter3: [], filter4: [], filter5: [], scales: []
-        }));
+      const res = await fetch('/api/filters?includeCounts=true');
+      const data = await res.json();
+      if (data) {
+        setCategoryCounts(data.categoryCounts || {});
+        setFilterCounts(data.filterCounts || {
+          filter1: {}, filter2: {}, filter3: {}, filter4: {}, filter5: {},
+          filter6: {}, filter7: {}, filter8: {}, filter9: {}, filter10: {},
+          filter11: {}, filter12: {}, filter13: {}, filter14: {}, filter15: {},
+          scales: {}
+        });
+        setTagCounts(data.tagCounts || {});
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки счётчиков:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
+
+  const fetchFilterConfig = useCallback(async (categorySlugs: string[]) => {
+    try {
+      if (categorySlugs.length === 0) {
+        setFilterConfigSections([]);
         setAvailableTags([]);
-        setFilterNames(undefined);
-        setCategoryFilterGroups([]);
-        setCategoryFilterOptions({});
-        setCategoryFilterNames({});
         return;
       }
 
-      const params = new URLSearchParams();
-      categorySlugs.forEach(slug => params.append('category', slug));
-      if (categorySlugs.length > 1) {
-        params.set('separate', 'true');
+      const allConfigs: FilterConfigRaw[] = [];
+      for (const slug of categorySlugs) {
+        const res = await fetch(`/api/filter-config?category=${encodeURIComponent(slug)}`);
+        if (res.ok) {
+          const data = await res.json();
+          allConfigs.push(...data);
+        }
       }
 
-      const res = await fetch(`/api/filters?${params.toString()}`);
-      const data = await res.json();
-      if (!data) return;
-
-      if (categorySlugs.length > 1 && data.categoryFilters) {
-        setCategoryFilterOptions(data.categoryFilters);
-        setCategoryFilterNames(data.filterNames || {});
-        setAvailableTags(data.tags || []);
-        setFilterNames(undefined);
-
-        const groups: CategoryFilterGroup[] = categorySlugs
-          .map(slug => {
-            const cat = categoriesData.find(c => c.slug === slug);
-            if (!cat) return null;
-            return {
-              categorySlug: slug,
-              categoryName: categoryNames[slug] || slug,
-              filter1Name: cat.filter1Name,
-              filter2Name: cat.filter2Name,
-              filter3Name: cat.filter3Name,
-              filter4Name: cat.filter4Name,
-              filter5Name: cat.filter5Name,
-            };
-          })
-          .filter(Boolean) as CategoryFilterGroup[];
-        setCategoryFilterGroups(groups);
-      } else {
-        setStaticFilterOptions(prev => ({
-          ...prev,
-          filter1: data.filter1 || [],
-          filter2: data.filter2 || [],
-          filter3: data.filter3 || [],
-          filter4: data.filter4 || [],
-          filter5: data.filter5 || [],
-          scales: data.scales || [],
-        }));
-        setAvailableTags(data.tags || []);
-        setFilterNames(data.filterNames || undefined);
-        setCategoryFilterGroups([]);
-        setCategoryFilterOptions({});
-        setCategoryFilterNames({});
+      const sections: FilterConfigItem[] = [];
+      for (const config of allConfigs) {
+        sections.push({
+          key: categorySlugs.length > 1 ? `${config.filterField}_${config.categorySlug}` : config.filterField,
+          title: config.title,
+          field: config.filterField,
+          type: config.type,
+          parentField: config.parentField ? config.parentField.replace(/\s/g, '') : null, // <-- убираем пробелы
+          parentValue: config.parentValue,
+          categorySlug: categorySlugs.length > 1 ? config.categorySlug : undefined,
+        });
       }
+
+      setFilterConfigSections(sections);
+      setAvailableTags([]);
     } catch (error) {
-      console.error('Ошибка загрузки фильтров:', error);
+      console.error('Ошибка загрузки конфигурации фильтров:', error);
     }
-  }, [categoriesData, categoryNames]);
+  }, []);
 
-  // ----- ПЕРЕКЛЮЧЕНИЕ ФИЛЬТРА -----
+  useEffect(() => {
+    fetchFilterConfig(filters.categories);
+  }, [filters.categories, fetchFilterConfig]);
+
   const toggleFilter = useCallback(
     (key: string, value: string, categorySlug?: string) => {
       setFilters(prev => {
         if (prev.categories.length > 1 && categorySlug) {
           const currentCatFilters = prev.categoryFilters || {};
-          const catFilter = currentCatFilters[categorySlug] || {};
-          const field = key as keyof typeof catFilter;
-          let currentValues = catFilter[field];
-          if (!Array.isArray(currentValues)) currentValues = [];
+          const catFilter = { ...currentCatFilters[categorySlug] } as any;
+          const currentValues = catFilter[key] || [];
           const newValues = currentValues.includes(value)
-            ? currentValues.filter(v => v !== value)
+            ? currentValues.filter((v: string) => v !== value)
             : [...currentValues, value];
           return {
             ...prev,
             categoryFilters: {
               ...currentCatFilters,
-              [categorySlug]: { ...catFilter, [field]: newValues },
+              [categorySlug]: { ...catFilter, [key]: newValues },
             },
           };
         } else {
-          const currentValues = (prev as any)[key] as string[] | undefined;
-          const arr = Array.isArray(currentValues) ? currentValues : [];
-          const newValues = arr.includes(value)
-            ? arr.filter(v => v !== value)
-            : [...arr, value];
+          const currentValues = (prev as any)[key] || [];
+          const newValues = currentValues.includes(value)
+            ? currentValues.filter((v: string) => v !== value)
+            : [...currentValues, value];
           return { ...prev, [key]: newValues };
         }
       });
@@ -180,61 +134,44 @@ export function useCatalogFilters(
     []
   );
 
-  // ----- СБРОС -----
   const resetFilters = useCallback(() => {
     setFilters({
       categories: [],
       filter1: [], filter2: [], filter3: [], filter4: [], filter5: [],
+      filter6: [], filter7: [], filter8: [], filter9: [], filter10: [],
+      filter11: [], filter12: [], filter13: [], filter14: [], filter15: [],
       tags: [], scales: [],
       gameSystems: [], factions: [], types: [], fileFormats: [],
       categoryFilters: {},
     });
-    fetchStaticFilters();
-  }, [fetchStaticFilters]);
+    fetchFilterConfig([]);
+  }, [fetchFilterConfig]);
 
-  // ----- ПОЛУЧЕНИЕ ОПЦИЙ ДЛЯ СЕКЦИЙ -----
   const getSectionOptions = useCallback(
     (sectionKey: string, categorySlug?: string): string[] => {
-      if (categorySlug && categoryFilterOptions[categorySlug]) {
-        if (sectionKey.startsWith('filter')) {
-          const field = sectionKey.split('_')[0] as keyof typeof categoryFilterOptions[string];
-          return categoryFilterOptions[categorySlug][field] || [];
-        }
-        if (sectionKey === 'scales') {
-          return categoryFilterOptions[categorySlug].scales || [];
-        }
-      }
-      if (sectionKey === 'tags') return availableTags;
-      return (staticFilterOptions as any)[sectionKey] || [];
+      return [];
     },
-    [availableTags, staticFilterOptions, categoryFilterOptions]
+    []
   );
 
-  // ----- КОЛИЧЕСТВО АКТИВНЫХ ФИЛЬТРОВ -----
   const activeFiltersCount =
     filters.categories.length +
-    filters.filter1.length +
-    filters.filter2.length +
-    filters.filter3.length +
-    filters.filter4.length +
-    filters.filter5.length +
-    filters.tags.length +
-    filters.scales.length;
+    filters.filter1.length + filters.filter2.length + filters.filter3.length + filters.filter4.length + filters.filter5.length +
+    filters.filter6.length + filters.filter7.length + filters.filter8.length + filters.filter9.length + filters.filter10.length +
+    filters.filter11.length + filters.filter12.length + filters.filter13.length + filters.filter14.length + filters.filter15.length +
+    filters.tags.length + filters.scales.length;
 
   return {
     filters,
-    setFilters,                 // <-- теперь экспортируется
+    setFilters,
     toggleFilter,
     resetFilters,
-    fetchStaticFilters,
+    filterConfigSections,
+    availableTags,
     getSectionOptions,
     activeFiltersCount,
-    staticFilterOptions,
-    availableTags,
-    setAvailableTags,
-    filterNames,
-    categoryFilterGroups,
-    categoryFilterOptions,
-    categoryFilterNames,
+    categoryCounts,
+    filterCounts,
+    tagCounts,
   };
 }

@@ -37,34 +37,38 @@ export const ProductCard = ({ product }: { product: Product }) => {
           )}
         </div>
 
-        {/* Текстовый блок: уменьшен отступ сверху (mt-0.5) */}
-        <div className="flex-1 flex flex-col pb-3 mt-0.5">
-          {/* Название: выровнено по верхнему левому краю, высота 3.5rem (две строки) */}
+        {/* Текстовая часть */}
+        <div className="flex-1 flex flex-col pb-3
+                        mt-1 md:mt-2">   {/* отступ сверху: 4px на мобильных, 8px на десктопе */}
+
+          {/* Название товара */}
           <div className="px-4 pb-2 h-14 flex items-start">
-            <h3 className="text-white font-extrabold leading-tight tracking-tight line-clamp-2 text-[clamp(0.85rem,1.4vw,1.65rem)]">
+            <h3 className="text-white font-extrabold leading-tight tracking-tight line-clamp-2
+                           text-lg md:text-xl"> {/* 18px на мобильных, 20px на десктопе */}
               {product.name}
             </h3>
           </div>
 
-          {/* Блок с размером, ценой и кнопкой: отступ сверху уменьшен на 25% (mt-3) */}
-          <div className="flex justify-between items-end px-4 pb-4 mt-3">
+          {/* Цена, размер, кнопка */}
+          <div className="flex justify-between items-end px-4 pb-4
+                          mt-2 md:mt-3">   {/* отступ сверху: 8px на мобильных, 12px на десктопе */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <img
                   src="/sizeicon.png"
                   alt="Высота модели"
-                  className="w-[clamp(18px,3vw,24px)] h-[clamp(18px,3vw,24px)]"
+                  className="w-5 h-5 md:w-6 md:h-6"
                 />
-                <span className="text-white font-normal leading-none text-[clamp(0.9rem,1.2vw,1.5rem)]">
+                <span className="text-white font-normal leading-none text-base md:text-lg">
                   {heightDisplay}
                 </span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-white font-normal leading-none whitespace-nowrap text-[clamp(0.9rem,1.2vw,1.5rem)]">
+                <span className="text-white font-normal leading-none whitespace-nowrap text-base md:text-lg">
                   {product.price} ₽
                 </span>
                 {product.oldPrice && (
-                  <span className="text-gray-500 line-through text-xs whitespace-nowrap">
+                  <span className="text-gray-500 line-through text-xs md:text-sm whitespace-nowrap">
                     {product.oldPrice} ₽
                   </span>
                 )}

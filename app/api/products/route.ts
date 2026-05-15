@@ -9,50 +9,41 @@ export async function GET(request: Request) {
   const limit = parseInt(searchParams.get('limit') || '12')
   const skip = (page - 1) * limit
 
-  const categorySlug = searchParams.get('category')
+  const selectedCategories = searchParams.getAll('category')
   const minPrice = searchParams.get('minPrice')
   const maxPrice = searchParams.get('maxPrice')
   const search = searchParams.get('search') || ''
   const sort = searchParams.get('sort') || 'default'
-  
   const articlesParam = searchParams.get('articles')
-
-  // *** ВАЖНО: параметр акционной подборки ***
   const onSale = searchParams.get('onSale') === 'true'
 
-  // Получаем массивы выбранных значений фильтров
-  const filter1Vals = searchParams.getAll('filter1')
-  const filter2Vals = searchParams.getAll('filter2')
-  const filter3Vals = searchParams.getAll('filter3')
-  const filter4Vals = searchParams.getAll('filter4')
-  const filter5Vals = searchParams.getAll('filter5')
+  // Собираем выбранные значения фильтров
+  const filterValues: Record<string, string[]> = {}
+  for (let i = 1; i <= 15; i++) {
+    const key = `filter${i}`
+    filterValues[key] = searchParams.getAll(key)
+  }
   const tagsVals = searchParams.getAll('tags')
   const scalesVals = searchParams.getAll('scale')
 
-  // Базовый where
   const where: any = {}
 
   if (articlesParam) {
     const articles = articlesParam.split(',').map(a => a.trim()).filter(Boolean)
-    if (articles.length > 0) {
-      where.article = { in: articles }
-    }
+    if (articles.length > 0) where.article = { in: articles }
   }
 
-  if (categorySlug) where.category = { slug: categorySlug }
   if (minPrice || maxPrice) {
     where.price = {}
     if (minPrice) where.price.gte = parseInt(minPrice)
     if (maxPrice) where.price.lte = parseInt(maxPrice)
   }
-  
-  if (search) {
-    where.searchName = { contains: search.toLowerCase() }
-  }
+  if (search) where.searchName = { contains: search.toLowerCase() }
+  if (onSale) where.oldPrice = { not: null }
 
-  // Если включена акционная подборка – только товары с oldPrice
-  if (onSale) {
-    where.oldPrice = { not: null }
+  // --- ФИЛЬТРАЦИЯ ПО КАТЕГОРИЯМ ---
+  if (selectedCategories.length > 0) {
+    where.category = { slug: { in: selectedCategories } }
   }
 
   // Сортировка
@@ -66,81 +57,65 @@ export async function GET(request: Request) {
   }
 
   try {
-    const shouldPaginate = !articlesParam
-    
-    const baseProducts = await prisma.product.findMany({
+    // Получаем ВСЕ товары, удовлетворяющие базовым условиям (категория, цена, поиск)
+    // Фильтрацию по filter1..15 и т.д. будем делать в коде, потому что Prisma не умеет искать по подстроке в полях с разделителями.
+    const allProducts = await prisma.product.findMany({
       where,
       include: { category: true },
       orderBy,
     })
 
-    const productsWithArrays = baseProducts.map(p => ({
-      ...p,
-      tagsArray: p.tags.split(',').map(t => t.trim()).filter(Boolean),
-      filter1Array: (p.filter1 || '').split(',').map(s => s.trim()).filter(Boolean),
-      filter2Array: (p.filter2 || '').split(',').map(s => s.trim()).filter(Boolean),
-      filter3Array: (p.filter3 || '').split(',').map(s => s.trim()).filter(Boolean),
-      filter4Array: (p.filter4 || '').split(',').map(s => s.trim()).filter(Boolean),
-      filter5Array: (p.filter5 || '').split(',').map(s => s.trim()).filter(Boolean),
-      scalesArray: (p.scale || '').split(',').map(s => s.trim()).filter(Boolean),
-    }))
-
-    const hasAny = (productArray: string[], selected: string[]) => {
-      if (selected.length === 0) return true
-      return selected.some(val => productArray.includes(val))
+    // Функция проверки, содержит ли строка с разделителями хотя бы одно из значений
+    const hasAny = (fieldValue: string, selected: string[]): boolean => {
+      if (!fieldValue || selected.length === 0) return false
+      const values = fieldValue.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+      return selected.some(sel => values.includes(sel.toLowerCase()))
     }
 
-    let filteredProducts = productsWithArrays.filter(p => {
-      return hasAny(p.tagsArray, tagsVals) &&
-             hasAny(p.filter1Array, filter1Vals) &&
-             hasAny(p.filter2Array, filter2Vals) &&
-             hasAny(p.filter3Array, filter3Vals) &&
-             hasAny(p.filter4Array, filter4Vals) &&
-             hasAny(p.filter5Array, filter5Vals) &&
-             hasAny(p.scalesArray, scalesVals)
+    // Фильтруем товары по выбранным значениям фильтров
+    let filteredProducts = allProducts.filter(p => {
+      // Проверяем каждый фильтр, для которого есть выбранные значения
+      for (let i = 1; i <= 15; i++) {
+        const key = `filter${i}`
+        if (filterValues[key].length > 0) {
+          if (!hasAny((p as any)[key] || '', filterValues[key])) {
+            return false
+          }
+        }
+      }
+      // tags
+      if (tagsVals.length > 0) {
+        if (!hasAny(p.tags, tagsVals)) return false
+      }
+      // scales
+      if (scalesVals.length > 0) {
+        if (!hasAny(p.scale, scalesVals)) return false
+      }
+      return true
     })
 
-    const productsForAvailable = productsWithArrays
-
-    const availableFilters = {
-      categories: [...new Set(productsForAvailable.map(p => p.category.slug))],
-      filter1: [...new Set(productsForAvailable.flatMap(p => p.filter1Array))],
-      filter2: [...new Set(productsForAvailable.flatMap(p => p.filter2Array))],
-      filter3: [...new Set(productsForAvailable.flatMap(p => p.filter3Array))],
-      filter4: [...new Set(productsForAvailable.flatMap(p => p.filter4Array))],
-      filter5: [...new Set(productsForAvailable.flatMap(p => p.filter5Array))],
-      tags: [...new Set(productsForAvailable.flatMap(p => p.tagsArray))],
-      scales: [...new Set(productsForAvailable.flatMap(p => p.scalesArray))],
-    }
-
-    const paginatedProducts = shouldPaginate
-      ? filteredProducts.slice(skip, skip + limit)
-      : filteredProducts
-
-    const total = filteredProducts.length
-
-    const formattedProducts = paginatedProducts.map(p => ({
+    // Форматируем
+    const formattedProducts = filteredProducts.map(p => ({
       ...p,
       images: p.images.split(','),
-      tags: p.tagsArray,
+      tags: p.tags.split(',').map(t => t.trim()).filter(Boolean),
       image: p.images.split(',')[0] || '',
       categorySlug: p.category.slug,
-      categoryName: p.category.name
+      categoryName: p.category.name,
     }))
 
-    const headers = new Headers()
-    headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+    const total = formattedProducts.length
+    const shouldPaginate = !articlesParam
+    const paginatedProducts = shouldPaginate
+      ? formattedProducts.slice(skip, skip + limit)
+      : formattedProducts
 
-    return new NextResponse(
-      JSON.stringify({
-        products: formattedProducts,
-        total,
-        page: shouldPaginate ? page : 1,
-        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
-        availableFilters,
-      }),
-      { status: 200, headers }
-    )
+    return NextResponse.json({
+      products: paginatedProducts,
+      total,
+      page: shouldPaginate ? page : 1,
+      totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+    })
   } catch (error) {
     console.error('Ошибка получения товаров:', error)
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

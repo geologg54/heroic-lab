@@ -9,8 +9,7 @@ import { Breadcrumbs } from '@/components/catalog/Breadcrumbs'
 import Pagination from '@/components/catalog/Pagination'
 import DualRangeSlider from '@/components/ui/DualRangeSlider'
 import type { Product } from '@/types'
-import type { FilterState } from '@/components/catalog/FilterPanel'
-import type { StaticFilterOptions, CategoryFilterGroup } from '@/hooks/useCatalogFilters'
+import type { FilterState, FilterConfigItem } from '@/components/catalog/FilterPanel'
 
 interface DesktopCatalogProps {
   products: Product[]
@@ -25,14 +24,8 @@ interface DesktopCatalogProps {
   onPageChange: (page: number) => void
   onPageChangeWithScroll: (page: number) => void
   allCategories: string[]
-  staticFilterOptions: StaticFilterOptions
-  availableTags: string[]
-  filterNames?: Record<string, string | null> | undefined
   categoryNames: Record<string, string>
-  categoryFilterGroups: CategoryFilterGroup[]
-  categoriesData: any
-  categoryFilterOptions: any
-  categoryFilterNames: any
+  filterConfigSections: FilterConfigItem[]
   showOnlySale: boolean
   onToggleSale: () => void
   minVal: number
@@ -44,19 +37,18 @@ interface DesktopCatalogProps {
   onPriceInputMin: (val: number) => void
   onPriceInputMax: (val: number) => void
   onFilterChange: (filtered: Product[], filters: FilterState) => void
+  filterCounts: Record<string, Record<string, number>>
 }
 
 export default function DesktopCatalog({
   products, total, totalPages, page, loading,
   filters, onRemoveFilter, onClearAll, onSortChange,
   onPageChange, onPageChangeWithScroll,
-  allCategories, staticFilterOptions, availableTags,
-  filterNames, categoryNames, categoryFilterGroups,
-  categoriesData, categoryFilterOptions, categoryFilterNames,
+  allCategories, categoryNames, filterConfigSections,
   showOnlySale, onToggleSale,
   minVal, maxVal, globalMinPrice, globalMaxPrice,
   onMinChange, onMaxChange, onPriceInputMin, onPriceInputMax,
-  onFilterChange,
+  onFilterChange, filterCounts,
 }: DesktopCatalogProps) {
   return (
     <div className="hidden lg:block">
@@ -65,31 +57,23 @@ export default function DesktopCatalog({
       </div>
       <div className="mt-2 w-full">
         <div className="flex w-full">
-          {/* Левая панель фильтров */}
           <div className="w-[15vw] flex-shrink-0 self-start">
-            {/* ⚡ Блок НЕ ограничен по высоте: растягивается вместе с контентом */}
             <div className="sticky top-[120px] z-20 pr-4 ml-[2vw]">
               <FilterPanel
                 products={products}
                 onFilter={onFilterChange}
                 hidePriceSlider={true}
                 allCategories={allCategories}
-                allFilterOptions={staticFilterOptions}
-                availableTags={availableTags}
                 categoryNames={categoryNames}
                 activeFilters={filters}
-                filterNames={filterNames}
-                categoryFilterGroups={categoryFilterGroups}
-                categoriesData={categoriesData}
-                categoryFilterOptions={categoryFilterOptions}
-                categoryFilterNames={categoryFilterNames}
+                filterConfigSections={filterConfigSections}
                 showOnlySale={showOnlySale}
                 onToggleSale={onToggleSale}
+                filterCounts={filterCounts}
               />
             </div>
           </div>
 
-          {/* Центральная колонка с карточками */}
           <main className="mx-auto w-[70vw] px-4 pb-8">
             <ActiveFilters
               filters={filters}
@@ -120,16 +104,13 @@ export default function DesktopCatalog({
             )}
           </main>
 
-          {/* Правая панель (сортировка и цена) */}
           <div className="w-[15vw] flex-shrink-0 self-start">
-            {/* ⚡ Тоже без ограничения высоты */}
             <div className="sticky top-[120px] z-20 pl-4 mr-[2vw]">
               <div className="p-4 flex flex-col" style={{ minHeight: '200px' }}>
                 <div>
                   <h3 className="text-white font-normal text-sm mb-2">Упорядочить:</h3>
                   <SortDropdown onSort={onSortChange} />
                 </div>
-                {/* Цена с двойным ползунком */}
                 <div className="mt-6">
                   <h3 className="text-white font-normal text-sm mb-2">
                     Цена: {minVal} – {maxVal} ₽
