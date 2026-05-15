@@ -60,9 +60,6 @@ export function useCatalogFilters(
     }
   }, []);
 
-  useEffect(() => {
-    fetchCounts();
-  }, [fetchCounts]);
 
   const fetchFilterConfig = useCallback(async (categorySlugs: string[]) => {
     try {

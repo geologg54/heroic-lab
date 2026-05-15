@@ -45,10 +45,8 @@ interface MobileCatalogProps {
   onPriceInputMin: (val: number) => void
   onPriceInputMax: (val: number) => void
   filterCounts: Record<string, Record<string, number>>
-  categoryNames: Record<string, string>  // <-- добавили
 }
 
-// Вспомогательный компонент для секции фильтра в модалке
 function MobileFilterSection({
   title,
   options,
@@ -57,7 +55,6 @@ function MobileFilterSection({
   paginated,
   sectionKey,
   counts,
-  categoryNames = {},
 }: {
   title: string
   options: { value: string; label: string }[]
@@ -66,7 +63,6 @@ function MobileFilterSection({
   paginated?: boolean
   sectionKey: string
   counts?: Record<string, number>
-  categoryNames?: Record<string, string>
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [page, setPage] = useState(1)
@@ -103,10 +99,6 @@ function MobileFilterSection({
             <>
               {visibleOptions.map(opt => {
                 const cnt = counts?.[opt.value]
-                // Если это секция категорий, показываем человеческое имя, иначе opt.label
-                const displayLabel = sectionKey === 'categories' && categoryNames[opt.value]
-                  ? categoryNames[opt.value]
-                  : opt.label
                 return (
                   <label
                     key={opt.value}
@@ -119,7 +111,7 @@ function MobileFilterSection({
                       className="rounded border-gray-500"
                     />
                     <span>
-                      {displayLabel}
+                      {opt.label}
                       {cnt !== undefined && (
                         <span className="ml-1 text-white/60 text-xs">({cnt})</span>
                       )}
@@ -182,14 +174,12 @@ export default function MobileCatalog({
   onPriceInputMin,
   onPriceInputMax,
   filterCounts,
-  categoryNames,
 }: MobileCatalogProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isSortOpen, setIsSortOpen] = useState(false)
 
   return (
     <div className="lg:hidden">
-      {/* Верхняя плашка */}
       <div className="fixed top-14 left-0 w-full bg-darkbg z-40 pt-3 pb-2 px-4">
         <div className="grid grid-cols-3 items-center">
           <div className="justify-self-start relative">
@@ -230,7 +220,6 @@ export default function MobileCatalog({
         </div>
       </div>
 
-      {/* Сетка товаров */}
       <div className="pt-24">
         {loading ? (
           <div className="text-center py-20 text-white">Загрузка...</div>
@@ -255,7 +244,6 @@ export default function MobileCatalog({
         )}
       </div>
 
-      {/* Модальное окно фильтров */}
       {isFilterOpen && (
         <div
           className="fixed inset-0 z-[60] bg-black/80 overflow-auto"
@@ -289,7 +277,6 @@ export default function MobileCatalog({
                     paginated={section.paginated}
                     sectionKey={section.key}
                     counts={counts}
-                    categoryNames={categoryNames} // <-- передаём для преобразования категорий
                   />
                 )
               })}
@@ -324,7 +311,6 @@ export default function MobileCatalog({
         </div>
       )}
 
-      {/* Модальное окно сортировки и цены (оставлено как было) */}
       {isSortOpen && (
         <div
           className="fixed inset-0 z-[60] bg-black/80 overflow-auto"

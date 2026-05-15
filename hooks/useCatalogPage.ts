@@ -12,7 +12,7 @@ interface UseCatalogPageParams {
   globalMaxPrice: number
   categoriesData: any[]
   categoryNames: Record<string, string>
-  staticFilterOptions: any // оставлен для совместимости
+  staticFilterOptions: any
 }
 
 export function useCatalogPage({
@@ -83,15 +83,9 @@ export function useCatalogPage({
     setPage(1)
   }, [setFilters])
 
-  // Заглушка для мобильных секций (пока не реализовано через FilterConfig)
   const mobileSections: any[] = []
-  const handleMobileSectionToggle = useCallback((sectionKey: string, value: string) => {
-    // В будущем можно реализовать мобильную версию иерархии
-  }, [])
-
-  const applyMobileFilters = useCallback(() => {
-    setPage(1)
-  }, [])
+  const handleMobileSectionToggle = useCallback(() => {}, [])
+  const applyMobileFilters = useCallback(() => setPage(1), [])
 
   return {
     filters,

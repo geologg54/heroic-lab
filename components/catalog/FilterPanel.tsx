@@ -175,17 +175,16 @@ const FilterPanel = forwardRef<any, FilterPanelProps>(
       onFilter([], filters)
     }, [filters, onFilter])
 
-    // ====== ПОСТРОЕНИЕ ВИДИМЫХ СЕКЦИЙ С УЧЁТОМ ИЕРАРХИИ ======
     const visibleSections: FilterConfigItem[] = []
     const usedKeys = new Set<string>()
 
     for (const section of filterConfigSections) {
       if (usedKeys.has(section.key)) continue
 
-      let shouldShow = !section.parentField // верхний уровень
+      let shouldShow = !section.parentField
 
       if (!shouldShow && section.parentField) {
-        const parentKey = section.parentField.replace(/\s/g, '') // убираем пробелы
+        const parentKey = section.parentField.replace(/\s/g, '')
         const allForSameKey = filterConfigSections.filter(s => s.key === section.key)
         shouldShow = allForSameKey.some(s => {
           if (!s.parentField) return true
@@ -215,10 +214,10 @@ const FilterPanel = forwardRef<any, FilterPanelProps>(
           key="categories"
           sectionKey="categories"
           title="Категория"
-          options={Object.keys(categoryNames)}   // массив slug'ов
+          options={Object.keys(categoryNames)}
           selected={filters.categories}
           onToggle={(value) => toggleFilter('categories', value)}
-          categoryNames={categoryNames}          // <-- передаём для преобразования
+          categoryNames={categoryNames}
         />
         {visibleSections.map(section => {
           const selected = section.categorySlug
