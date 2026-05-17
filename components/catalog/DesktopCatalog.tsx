@@ -1,6 +1,7 @@
 // components/catalog/DesktopCatalog.tsx
 'use client'
 
+import { X } from 'lucide-react'
 import { ProductCard } from '@/components/catalog/ProductCard'
 import { FilterPanel } from '@/components/catalog/FilterPanel'
 import { ActiveFilters } from '@/components/catalog/ActiveFilters'
@@ -38,6 +39,9 @@ interface DesktopCatalogProps {
   onPriceInputMax: (val: number) => void
   onFilterChange: (filtered: Product[], filters: FilterState) => void
   filterCounts: Record<string, Record<string, number>>
+  similarTo?: string
+  similarToProductName?: string   // название товара, для которого включён режим
+  onClearSimilarTo: () => void      // функция сброса
 }
 
 export default function DesktopCatalog({
@@ -48,7 +52,7 @@ export default function DesktopCatalog({
   showOnlySale, onToggleSale,
   minVal, maxVal, globalMinPrice, globalMaxPrice,
   onMinChange, onMaxChange, onPriceInputMin, onPriceInputMax,
-  onFilterChange, filterCounts,
+  onFilterChange, filterCounts, similarTo, similarToProductName, onClearSimilarTo,
 }: DesktopCatalogProps) {
   return (
     <div className="hidden lg:block">
@@ -81,6 +85,17 @@ export default function DesktopCatalog({
               onClearAll={onClearAll}
               categoryNames={categoryNames}
             />
+            {/* Чипс для режима похожих товаров */}
+            {similarTo && similarToProductName && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="bg-accent/20 text-accent text-sm px-2 py-1 rounded-full flex items-center gap-1">
+                  <span>Модели похожие на "{similarToProductName}"</span>
+                  <button onClick={onClearSimilarTo}>
+                    <X size={14} />
+                  </button>
+                </span>
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-20 text-white">Загрузка...</div>
             ) : products.length === 0 ? (
@@ -124,26 +139,36 @@ export default function DesktopCatalog({
                     onMaxChange={onMaxChange}
                   />
                   <div className="flex items-center gap-2 mt-2">
-                    <input
-                      type="number"
-                      min={globalMinPrice}
-                      max={globalMaxPrice}
-                      value={minVal}
-                      onChange={e => onPriceInputMin(Number(e.target.value))}
-                      placeholder="От, ₽"
-                      className="w-full px-2 py-1 text-sm bg-[#0f2a42] border border-borderLight rounded text-white placeholder-gray-500 focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span className="text-gray-400">–</span>
-                    <input
-                      type="number"
-                      min={globalMinPrice}
-                      max={globalMaxPrice}
-                      value={maxVal}
-                      onChange={e => onPriceInputMax(Number(e.target.value))}
-                      placeholder="До, ₽"
-                      className="w-full px-2 py-1 text-sm bg-[#0f2a42] border border-borderLight rounded text-white placeholder-gray-500 focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                  </div>
+  <input
+    type="number"
+    min={globalMinPrice}
+    max={globalMaxPrice}
+    value={minVal}
+    onChange={(e) => {
+      const val = Number(e.target.value);
+      if (!isNaN(val) && val >= globalMinPrice && val <= maxVal) {
+        onPriceInputMin(val);
+      }
+    }}
+    placeholder="От, ₽"
+    className="w-full px-2 py-1 text-sm bg-[#0f2a42] border border-borderLight rounded text-white placeholder-gray-500 focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+  />
+  <span className="text-gray-400">–</span>
+  <input
+    type="number"
+    min={globalMinPrice}
+    max={globalMaxPrice}
+    value={maxVal}
+    onChange={(e) => {
+      const val = Number(e.target.value);
+      if (!isNaN(val) && val <= globalMaxPrice && val >= minVal) {
+        onPriceInputMax(val);
+      }
+    }}
+    placeholder="До, ₽"
+    className="w-full px-2 py-1 text-sm bg-[#0f2a42] border border-borderLight rounded text-white placeholder-gray-500 focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+  />
+</div>
                 </div>
                 <div className="mt-auto pt-4">
                   <p className="text-white font-semibold text-lg">{total} товаров</p>

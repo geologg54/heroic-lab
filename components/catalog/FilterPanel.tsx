@@ -263,11 +263,7 @@ const FilterPanel = forwardRef<any, FilterPanelProps>(
                 <input type="range" min={0} max={3500} step={10} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value))} className="w-full mt-2" />
               </div>
             )}
-            {hasActiveFilters && (
-              <div className="pt-2">
-                <ActiveFilters filters={filters} onRemove={(key, value) => toggleFilter(key, value)} onClearAll={resetFilters} categoryNames={categoryNames} />
-              </div>
-            )}
+            
             <button onClick={resetFilters} className="text-accent text-sm mt-2">Сбросить все фильтры</button>
           </div>
         </div>

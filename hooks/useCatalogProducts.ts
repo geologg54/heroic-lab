@@ -38,11 +38,9 @@ export function useCatalogProducts({
     }
     if (showOnlySale) params.set('onSale', 'true');
 
-    // Добавляем категории
     filters.categories.forEach(cat => params.append('category', cat));
     filters.tags.forEach(tag => params.append('tags', tag));
 
-    // Добавляем ВСЕ фильтры от filter1 до filter15
     for (let i = 1; i <= 15; i++) {
       const key = `filter${i}` as keyof FilterState;
       const values = filters[key] as string[];
@@ -51,24 +49,7 @@ export function useCatalogProducts({
       }
     }
 
-    // Добавляем масштабы
     filters.scales.forEach(v => params.append('scale', v));
-
-    // Мультикатегорийные фильтры (если они ещё используются, но в новой схеме они не нужны, оставим для совместимости)
-    if (filters.categories.length > 1 && filters.categoryFilters) {
-      for (const [slug, catFilters] of Object.entries(filters.categoryFilters)) {
-        for (let i = 1; i <= 15; i++) {
-          const field = `filter${i}`;
-          const values = (catFilters as any)[field];
-          if (values && values.length > 0) {
-            values.forEach((v: string) => params.append(`cat_${slug}_${field}`, v));
-          }
-        }
-        if ((catFilters as any).scales?.length) {
-          (catFilters as any).scales.forEach((v: string) => params.append(`cat_${slug}_scale`, v));
-        }
-      }
-    }
 
     try {
       const res = await fetch(`/api/products?${params.toString()}`);

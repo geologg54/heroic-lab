@@ -35,3 +35,8 @@
 {"timestamp":"2026-05-01T12:12:57.865Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::ffff:10.0.0.101","email":"Ventalpt@gmail.com"}
 {"timestamp":"2026-05-01T12:13:02.942Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::ffff:10.0.0.101","email":"Ventalpt@gmail.com"}
 {"timestamp":"2026-05-01T12:13:08.454Z","level":"WARN","message":"Попытка входа с заблокированного IP: ::ffff:10.0.0.101","email":"Ventalpt@gmail.com"}
+{"timestamp":"2026-05-17T16:13:41.861Z","level":"WARN","message":"Неудачная попытка входа: email ventalpt@gmail.com не найден","ip":"::ffff:10.0.0.108"}
+{"timestamp":"2026-05-17T16:14:02.727Z","level":"WARN","message":"Неудачная попытка входа: email ventalpt@gmail.com не найден","ip":"::ffff:10.0.0.108"}
+{"timestamp":"2026-05-17T16:14:56.199Z","level":"WARN","message":"Неудачная попытка входа: email ventalpt@gmail.com не найден","ip":"::ffff:10.0.0.108"}
+{"timestamp":"2026-05-17T16:15:06.874Z","level":"WARN","message":"Неудачная попытка входа: неверный пароль для Ventalpt@gmail.com","ip":"::ffff:10.0.0.108"}
+{"timestamp":"2026-05-17T16:15:47.785Z","level":"WARN","message":"Неудачная попытка входа: email ventalpt@gmail.com не найден","ip":"::ffff:10.0.0.101"}

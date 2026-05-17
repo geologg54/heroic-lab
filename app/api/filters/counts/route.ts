@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       scales = [], tags = [], onSale = false,
     } = body
 
-    // Базовый фильтр
+    // Базовый фильтр по категориям и акции (не зависит от текущих фильтров)
     const where: any = {}
     if (categories.length) {
       where.category = { slug: { in: categories } }
@@ -22,7 +22,6 @@ export async function POST(request: Request) {
       where.oldPrice = { not: null }
     }
 
-    // Загружаем все товары, подходящие под базовые фильтры
     const products = await prisma.product.findMany({
       where,
       select: {
@@ -34,7 +33,6 @@ export async function POST(request: Request) {
       }
     })
 
-    // Функция для извлечения уникальных значений из поля
     const extractUnique = (values: (string | null)[]): string[] => {
       const set = new Set<string>()
       values.forEach(v => {
@@ -45,7 +43,7 @@ export async function POST(request: Request) {
       return Array.from(set).sort()
     }
 
-    // Получаем все возможные значения для каждого поля (без учёта текущих фильтров, только базовые)
+    // Все возможные значения для каждого поля
     const allValues: Record<string, string[]> = {
       categories: extractUnique(products.map(p => p.category.slug)),
     }
@@ -55,8 +53,8 @@ export async function POST(request: Request) {
     allValues.scales = extractUnique(products.map(p => p.scale))
     allValues.tags = extractUnique(products.map(p => p.tags))
 
-    // Текущие выбранные фильтры (исключая поле, для которого считаем)
-    const currentFilters: Record<string, string[]> = {
+    // Текущие выбранные фильтры (будем модифицировать для каждого поля)
+    const baseFilters: Record<string, string[]> = {
       categories,
       filter1, filter2, filter3, filter4, filter5,
       filter6, filter7, filter8, filter9, filter10,
@@ -64,11 +62,10 @@ export async function POST(request: Request) {
       scales, tags
     }
 
-    // Проверка, соответствует ли товар всем фильтрам (кроме исключённого поля)
-    const matchesFilters = (product: any, filters: Record<string, string[]>, excludeField?: string, excludeValue?: string): boolean => {
+    // Проверяет, подходит ли товар под переданные фильтры
+    const matchesFilters = (product: any, filters: Record<string, string[]>): boolean => {
       for (const [field, values] of Object.entries(filters)) {
         if (!values.length) continue
-        if (excludeField === field && excludeValue && values.includes(excludeValue)) continue
         if (field === 'categories') {
           if (!values.includes(product.category.slug)) return false
         } else if (field === 'scales') {
@@ -86,15 +83,20 @@ export async function POST(request: Request) {
       return true
     }
 
-    // Считаем количество для каждого значения
     const counts: Record<string, Record<string, number>> = {}
+
     for (const [field, values] of Object.entries(allValues)) {
       const fieldCounts: Record<string, number> = {}
+      // Для каждого поля создаём копию базовых фильтров, но удаляем из него все выбранные значения этого поля
+      const filtersWithoutField = { ...baseFilters }
+      delete filtersWithoutField[field]   // полностью убираем ограничения по этому полю
+
       for (const value of values) {
         let cnt = 0
         for (const product of products) {
-          if (!matchesFilters(product, currentFilters, field, value)) continue
-          // Проверяем, имеет ли товар это значение в данном поле
+          // Сначала проверяем, подходит ли товар под фильтры без учёта данного поля
+          if (!matchesFilters(product, filtersWithoutField)) continue
+          // Теперь проверяем, имеет ли товар нужное значение в этом поле
           if (field === 'categories') {
             if (product.category.slug === value) cnt++
           } else if (field === 'scales') {

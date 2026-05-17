@@ -1,8 +1,8 @@
 // app/catalog/CatalogContent.tsx
 'use client'
 
-import { useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useMemo, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useCatalogPage } from '@/hooks/useCatalogPage'
 import DesktopCatalog from '@/components/catalog/DesktopCatalog'
@@ -23,9 +23,17 @@ interface CatalogContentProps {
   maxPrice: number
 }
 
-export default function CatalogContent(props: CatalogContentProps) {
+function CatalogContentInner(props: CatalogContentProps) {
   const isMobile = useMediaQuery('(max-width: 1023px)')
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const similarTo = searchParams.get('similarTo') || undefined
+
+  const similarToProductName = useMemo(() => {
+    if (!similarTo) return undefined
+    const product = props.initialProducts.find(p => p.article === similarTo)
+    return product?.name
+  }, [similarTo, props.initialProducts])
 
   const getInitialFilters = (): FilterState => {
     const params = new URLSearchParams(searchParams.toString())
@@ -69,6 +77,28 @@ export default function CatalogContent(props: CatalogContentProps) {
     staticFilterOptions: props.allFilterOptions,
   })
 
+  const hasActiveFilters = useMemo(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of params.entries()) {
+      if (!['similarTo', 'page', 'sort', 'minPrice', 'maxPrice'].includes(key) && value) return true
+    }
+    return false
+  }, [searchParams])
+
+  useEffect(() => {
+    if (similarTo && hasActiveFilters) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('similarTo')
+      router.replace(`/catalog?${params.toString()}`)
+    }
+  }, [similarTo, hasActiveFilters, router, searchParams])
+
+  const handleClearSimilarTo = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('similarTo')
+    router.push(`/catalog?${params.toString()}`)
+  }
+
   const commonProps = {
     products: pageData.products,
     total: pageData.total,
@@ -96,6 +126,9 @@ export default function CatalogContent(props: CatalogContentProps) {
       if (v <= pageData.globalMaxPrice && v >= pageData.minVal) pageData.setMaxVal(v)
     },
     filterCounts: pageData.filterCounts,
+    similarTo: similarTo && !hasActiveFilters ? similarTo : undefined,
+    similarToProductName: similarTo && !hasActiveFilters ? similarToProductName : undefined,
+    onClearSimilarTo: handleClearSimilarTo,
   }
 
   if (isMobile) {
@@ -118,5 +151,13 @@ export default function CatalogContent(props: CatalogContentProps) {
       filterConfigSections={pageData.filterConfigSections}
       onFilterChange={pageData.handleFilterPanelChange}
     />
+  )
+}
+
+export default function CatalogContent(props: CatalogContentProps) {
+  return (
+    <Suspense fallback={<div className="text-white text-center py-20">Загрузка...</div>}>
+      <CatalogContentInner {...props} />
+    </Suspense>
   )
 }

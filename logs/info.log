@@ -220,3 +220,6 @@
 {"timestamp":"2026-05-01T12:13:58.467Z","level":"INFO","message":"Успешный вход: Ventalpt@gmail.com","ip":"::ffff:10.0.0.101"}
 {"timestamp":"2026-05-14T16:26:29.937Z","level":"INFO","message":"Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0"}
 {"timestamp":"2026-05-14T16:36:37.535Z","level":"INFO","message":"Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0"}
+{"timestamp":"2026-05-17T15:04:28.665Z","level":"INFO","message":"Импорт CSV завершён. Создано: 0, обновлено: 149, ошибок: 0"}
+{"timestamp":"2026-05-17T16:15:18.116Z","level":"INFO","message":"Успешный вход: Ventalpt@gmail.com","ip":"::ffff:10.0.0.108"}
+{"timestamp":"2026-05-17T16:16:00.444Z","level":"INFO","message":"Успешный вход: Ventalpt@gmail.com","ip":"::ffff:10.0.0.101"}

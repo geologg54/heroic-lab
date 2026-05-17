@@ -18,8 +18,11 @@ export default function DualRangeSlider({
   onMinChange,
   onMaxChange,
 }: DualRangeSliderProps) {
-  const minPercent = ((minValue - min) / (max - min)) * 100
-  const maxPercent = ((maxValue - min) / (max - min)) * 100
+  if (min >= max) return null;
+
+  const getPercent = (value: number) => ((value - min) / (max - min)) * 100;
+  const minPercent = getPercent(minValue);
+  const maxPercent = getPercent(maxValue);
 
   return (
     <div className="relative w-full h-4 mt-2">
@@ -33,17 +36,22 @@ export default function DualRangeSlider({
         min={min}
         max={max}
         value={minValue}
-        onChange={(e) => onMinChange(Number(e.target.value))}
+        onChange={(e) => {
+          const val = Number(e.target.value);
+          if (val <= maxValue) onMinChange(val);
+        }}
         className="dual-range-slider absolute w-full h-full appearance-none bg-transparent"
         style={{ zIndex: 3 }}
       />
-      {/* Правый ползунок (максимум) */}
       <input
         type="range"
         min={min}
         max={max}
         value={maxValue}
-        onChange={(e) => onMaxChange(Number(e.target.value))}
+        onChange={(e) => {
+          const val = Number(e.target.value);
+          if (val >= minValue) onMaxChange(val);
+        }}
         className="dual-range-slider absolute w-full h-full appearance-none bg-transparent"
         style={{ zIndex: 4 }}
       />
